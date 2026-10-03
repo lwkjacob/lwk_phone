@@ -24,7 +24,7 @@ export function viewportRect(el: Element) {
 }
 
 export type Notif = { id: number; app: string; title: string; body: string; time: number; tap?: () => void };
-export type Call = { number: string; state: 'incoming' | 'outgoing' | 'active'; video: boolean; start: number; muted: boolean; speaker: boolean; min: boolean };
+export type Call = { number: string; state: 'incoming' | 'outgoing' | 'active'; video: boolean; start: number; muted: boolean; speaker: boolean; min: boolean; /** We placed the call. */ out: boolean };
 export type AlertDef = {
   title: string;
   message?: string;
@@ -291,7 +291,7 @@ let callTimer: number | undefined;
 export function startCall(number: string, video = false) {
   if (S.settings.airplane) return alert({ title: t('airplane_mode'), message: t('sys_turn_off_airplane_mode_to_make'), buttons: [{ label: t('ok'), kind: 'bold' }] });
   if (S.call) return;
-  update((s) => (s.call = { number, state: 'outgoing', video, start: Date.now(), muted: false, speaker: video, min: false }));
+  update((s) => (s.call = { number, state: 'outgoing', video, start: Date.now(), muted: false, speaker: video, min: false, out: true }));
   ring('ringback');
   // Mock: the other side picks up after a few seconds.
   callTimer = window.setTimeout(answer, 3400);
@@ -300,7 +300,7 @@ export function startCall(number: string, video = false) {
 export function incomingCall(number: string, video = false) {
   if (S.call || S.settings.airplane) return;
   if (contactOf(number)?.blocked) return;
-  update((s) => (s.call = { number, state: 'incoming', video, start: Date.now(), muted: false, speaker: video, min: false }));
+  update((s) => (s.call = { number, state: 'incoming', video, start: Date.now(), muted: false, speaker: video, min: false, out: false }));
   if (!S.settings.dnd) ring('ring');
 }
 

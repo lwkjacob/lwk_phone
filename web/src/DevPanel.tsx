@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { APPS, applySkin } from './apps';
 import { alert, incomingCall, lock, notify, receiveMsg, uid, update, useS } from './store';
 import { pseudoLocale } from './i18n';
+import { loopbackTest } from './rtc';
 import { fetchTheme, theme } from './theme';
 
 let pseudo = false;
@@ -59,6 +60,9 @@ export function DevPanel() {
         Message community app
       </button>
       <button onClick={() => update((x) => Object.keys(APPS).forEach((id) => x.apps.includes(id) || x.dock.includes(id) || x.apps.push(id)))}>Install every add-on</button>
+      <button onClick={() => loopbackTest().then((ok) => alert({ title: 'WebRTC loopback', message: ok ? 'Connected: audio travelled between two in-page peers.' : 'Failed: no audio arrived within 6 seconds.', buttons: [{ label: 'OK', kind: 'bold' }] }))}>
+        WebRTC loopback test
+      </button>
       {/* Pseudo-language: translated strings show [bracketed and accented], so any plain text is hard-coded. */}
       <button onClick={() => window.postMessage({ action: 'setLocale', ui: (pseudo = !pseudo) ? pseudoLocale() : {} }, '*')}>Pseudo-language</button>
       <button onClick={() => fetchTheme(theme.name === 'Slate' ? './theme.json' : './themes/slate.json').then(applySkin)}>Skin: {theme.name}</button>

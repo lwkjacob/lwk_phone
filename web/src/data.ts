@@ -40,7 +40,7 @@ export const voicemail: Voicemail[] = [
   { id: 2, number: '555-0147', time: now - 4 * d, dur: 41, heard: true, text: 'This is the tow yard. Your vehicle is ready for pickup, fee is two fifty.' },
 ];
 
-export type Msg = { id: number; me?: boolean; from?: string; text?: string; pic?: number; loc?: string; money?: number; voice?: number; gif?: number; time: number; failed?: boolean };
+export type Msg = { id: number; me?: boolean; from?: string; text?: string; pic?: number; loc?: string; money?: number; voice?: number; gif?: number; time: number; failed?: boolean; /** Recorded audio for a voice message. */ audio?: string };
 export type Chat = { id: number; numbers: string[]; name?: string; msgs: Msg[]; unread: number; muted?: boolean };
 export const chats: Chat[] = [
   {
@@ -136,7 +136,7 @@ export const worldClocks = [
   { city: 'Tokyo', offset: 9 },
 ];
 
-export type Memo = { id: number; name: string; time: number; dur: number };
+export type Memo = { id: number; name: string; time: number; dur: number; /** The recording, when one was captured. */ url?: string };
 export const memos: Memo[] = [
   { id: 1, name: 'Meeting with Frankie', time: now - d, dur: 73 },
   { id: 2, name: 'Vinewood Blvd', time: now - 5 * d, dur: 18 },

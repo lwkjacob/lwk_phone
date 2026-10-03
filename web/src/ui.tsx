@@ -416,7 +416,7 @@ export function Bubbles({ msgs, who, typing, empty }: { msgs: Msg[]; who?: (from
                 </span>
               )}
               {x.voice != null && (
-                <span className="bub-voice">
+                <span className="bub-voice" role={x.audio ? 'button' : undefined} tabIndex={x.audio ? 0 : undefined} onClick={() => x.audio && new Audio(x.audio).play().catch(() => {})}>
                   <Play size={16} fill="currentColor" />
                   <Wave count={16} />
                   {fmtDur(x.voice)}

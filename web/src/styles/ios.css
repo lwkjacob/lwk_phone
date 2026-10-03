@@ -830,6 +830,17 @@ button.row:active,
   font-variant-numeric: tabular-nums;
 }
 
+.voice-rec {
+  padding: 18px 20px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--red);
+  font-variant-numeric: tabular-nums;
+}
+
+.voice-rec time { color: var(--label); font-size: 20px; }
+
 .bub.typing {
   display: flex;
   gap: 4px;

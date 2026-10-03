@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Phone, Plus, SquarePen, Video } from 'lucide-react';
-import { S, actions, chatWith, confirm, contactOf, fmtAgo, nameOf, preview, prompt, sendMsg, startCall, uid, update, useS } from '../store';
-import { Avatar, Bubbles, Composer, Empty, Group, Page, Pic, Row, Search, Sheet, Toggle, useNav, Stack } from '../ui';
+import { S, actions, chatWith, confirm, contactOf, fmtAgo, fmtDur, nameOf, preview, prompt, sendMsg, startCall, uid, update, useNow, useS } from '../store';
+import { Avatar, Bubbles, Composer, Empty, Group, Page, Pic, Row, Search, Sheet, Stack, Toggle, Wave, useNav } from '../ui';
+import { record, type Recording } from '../rtc';
 import { PhotoPicker } from './Media';
 import { ContactView } from './Phone';
 import { t } from '../i18n';
@@ -53,7 +54,7 @@ const GIFS = [3, 18, 29, 42, 57, 66];
 function ChatView({ id }: { id: number }) {
   const s = useS();
   const nav = useNav();
-  const [pick, setPick] = useState<'photo' | 'gif' | null>(null);
+  const [pick, setPick] = useState<'photo' | 'gif' | 'voice' | null>(null);
   const c = s.chats.find((x) => x.id === id);
   useEffect(() => {
     update((x) => {
@@ -74,7 +75,7 @@ function ChatView({ id }: { id: number }) {
         { label: t('messages_photo_library'), run: () => setPick('photo') },
         { label: t('gif'), run: () => setPick('gif') },
         { label: t('messages_send_location'), run: () => sendMsg(id, { loc: 'Legion Square' }) },
-        { label: t('messages_voice_message'), run: () => sendMsg(id, { voice: 4 + Math.floor(Math.random() * 20) }) },
+        { label: t('messages_voice_message'), run: () => setPick('voice') },
         ...(group ? [] : [{ label: t('send_money'), run: () => prompt(t('send_money'), t('amount'), (v) => Number(v) > 0 && sendMsg(id, { money: Math.floor(Number(v)) }), '', t('messages_to_name', { name: titleOf(c) })) }]),
       ],
     });
@@ -114,6 +115,7 @@ function ChatView({ id }: { id: number }) {
     >
       <Bubbles msgs={c.msgs} who={group ? nameOf : undefined} typing={s.typing === id} empty={t('messages_start_the_conversation')} />
       {pick === 'photo' && <PhotoPicker onPick={(seed) => sendMsg(id, { pic: seed })} onClose={() => setPick(null)} />}
+      {pick === 'voice' && <VoiceSheet onSend={(voice, audio) => sendMsg(id, { voice, audio })} onClose={() => setPick(null)} />}
       {pick === 'gif' && (
         <Sheet title={t('messages_gifs')} onClose={() => setPick(null)} fit>
           {(close) => (
@@ -128,6 +130,32 @@ function ChatView({ id }: { id: number }) {
         </Sheet>
       )}
     </Page>
+  );
+}
+
+/** Records while it is open. Send keeps the take, Cancel throws it away. */
+function VoiceSheet({ onSend, onClose }: { onSend: (seconds: number, audio?: string) => void; onClose: () => void }) {
+  const now = useNow(250);
+  const [start] = useState(Date.now());
+  const rec = useRef<Promise<Recording | null> | null>(null);
+  const kept = useRef(false);
+  useEffect(() => {
+    rec.current = record();
+    // Closing without sending: stop the microphone and drop the take.
+    return () => void (kept.current || rec.current?.then((r) => r?.stop()));
+  }, []);
+  const send = async () => {
+    kept.current = true;
+    const audio = await (await rec.current)?.stop();
+    onSend(Math.max(1, Math.round((Date.now() - start) / 1000)), audio);
+  };
+  return (
+    <Sheet title={t('messages_voice_message')} onClose={onClose} action={{ label: t('send'), run: send }} fit>
+      <div className="voice-rec">
+        <Wave count={30} live />
+        <time>{fmtDur((now - start) / 1000)}</time>
+      </div>
+    </Sheet>
   );
 }
 

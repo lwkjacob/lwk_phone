@@ -678,6 +678,7 @@
     "util_name_will_be_deleted": "“{name}” will be deleted.",
     "util_new_note": "New Note",
     "util_new_note_2": "New note",
+    "util_new_recording": "New Recording {n}",
     "util_no_additional_text": "No additional text",
     "util_no_notes": "No Notes",
     "util_no_recordings": "No Recordings",

@@ -1,8 +1,10 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Grip, MessageCircle, MicOff, Phone, Plus, SwitchCamera, User, Video, VideoOff, Volume2 } from 'lucide-react';
 import { answer, chatWith, fmtDur, hangup, nameOf, openApp, update, useNow, useS, type Call } from '../store';
 import { Avatar, DialPad, Pic } from '../ui';
 import { t } from '../i18n';
+import { inGame } from '../nui';
+import { connect } from '../rtc';
 
 function CallBtn({ label, on, onClick, children }: { label: string; on?: boolean; onClick: () => void; children: ReactNode }) {
   return (
@@ -24,9 +26,32 @@ function CallView({ c }: { c: Call }) {
   const status = c.state === 'incoming' ? (c.video ? t('sys_incoming_video_call') : t('sys_mobile')) : c.state === 'outgoing' ? t('sys_calling') : fmtDur(Math.max(0, (now - c.start) / 1000));
   const set = (patch: Partial<Call>) => update((s) => s.call && Object.assign(s.call, patch));
   const video = c.video && live;
+  const remote = useRef<HTMLAudioElement>(null);
+
+  // Video-call audio goes player to player over WebRTC (as in LB Phone). Only in-game: the browser demo has nobody to connect to.
+  useEffect(() => {
+    if (!inGame || !video) return;
+    let hangUp = () => {};
+    let mic: MediaStream | undefined;
+    let over = false;
+    navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .catch(() => undefined)
+      .then((stream) => {
+        if (over) return stream?.getTracks().forEach((track) => track.stop());
+        mic = stream;
+        hangUp = connect(c.number, { initiator: c.out, stream, onStream: (s) => remote.current && (remote.current.srcObject = s) });
+      });
+    return () => {
+      over = true;
+      hangUp();
+      mic?.getTracks().forEach((track) => track.stop());
+    };
+  }, [video, c.number, c.out]);
 
   return (
     <div className={`call ${video ? 'video' : ''}`} role="dialog" aria-label={t('sys_call_with_name', { name })}>
+      <audio ref={remote} autoPlay />
       {video && (
         <>
           <Pic seed={name.length * 7 + 3} className="call-remote ugc" alt={t('sys_names_camera', { name })} />

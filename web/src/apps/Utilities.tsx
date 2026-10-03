@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { CloudSun, Droplets, Eye, Mic, Pause, Play, Share, SquarePen, Sun, Sunset, Thermometer, Trash2, Wind } from 'lucide-react';
 import { CALC0, OPS, calcKey } from '../calc';
-import { weather } from '../data';
+import { weather, type Memo } from '../data';
+import { record, type Recording } from '../rtc';
 import { S, confirm, fmtAgo, fmtDur, prompt, share, uid, update, useNow, useS } from '../store';
 import { Empty, Group, Page, Row, Search, Stack, WEATHER_ICONS, Wave, useDragScroll, useNav } from '../ui';
 import { intl, t } from '../i18n';
@@ -190,6 +191,9 @@ export function WeatherApp() {
 
 /* ---------- Voice Memos ---------- */
 
+let recording: Recording | null = null;
+let player: HTMLAudioElement | null = null;
+
 export function MemosApp() {
   const s = useS();
   const now = useNow(250);
@@ -201,14 +205,29 @@ export function MemosApp() {
     if (cur && pos >= cur.dur) setPlay(null);
   }, [cur, pos]);
 
-  const toggleRec = () => {
-    if (S.rec == null) return update((x) => (x.rec = Date.now()));
+  const toggleRec = async () => {
+    if (S.rec == null) {
+      update((x) => (x.rec = Date.now()));
+      // No microphone, or permission refused: the memo is still saved, just silent.
+      recording = await record();
+      return;
+    }
     const dur = Math.max(1, Math.round((Date.now() - S.rec) / 1000));
+    const url = await recording?.stop();
+    recording = null;
     update((x) => {
-      x.memos.unshift({ id: uid(), name: `New Recording ${x.memos.length + 1}`, time: Date.now(), dur });
+      x.memos.unshift({ id: uid(), name: t('util_new_recording', { n: x.memos.length + 1 }), time: Date.now(), dur, url });
       x.rec = null;
     });
   };
+  const togglePlay = (m: Memo) => {
+    player?.pause();
+    player = null;
+    if (play?.id === m.id) return setPlay(null);
+    if (m.url) (player = new Audio(m.url)).play().catch(() => {});
+    setPlay({ id: m.id, from: Date.now() });
+  };
+  useEffect(() => () => player?.pause(), []);
 
   return (
     <Stack>
@@ -255,7 +274,7 @@ export function MemosApp() {
                       <button aria-label={t('share')} onClick={() => share({ kind: t('kind_voice_memo'), label: m.name })}>
                         <Share size={20} />
                       </button>
-                      <button aria-label={play?.id === m.id ? t('pause') : t('play')} onClick={() => setPlay(play?.id === m.id ? null : { id: m.id, from: Date.now() })}>
+                      <button aria-label={play?.id === m.id ? t('pause') : t('play')} onClick={() => togglePlay(m)}>
                         {play?.id === m.id ? <Pause size={26} fill="currentColor" strokeWidth={0} /> : <Play size={26} fill="currentColor" strokeWidth={0} />}
                       </button>
                       <button onClick={() => prompt(t('util_rename_recording'), t('name'), (v) => update(() => (m.name = v)), m.name)}>{t('util_rename')}</button>

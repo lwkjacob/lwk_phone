@@ -1,6 +1,7 @@
 import { addCustomApp, applySkin, removeCustomApp, type CustomApp } from './apps';
 import { sendCustomAppMessage } from './apps/Custom';
 import { setLocale, type Strings } from './i18n';
+import { setRtcConfig, signal, type Signal } from './rtc';
 import { S, update } from './store';
 
 /* The bridge to the game. Lua talks to the phone with SendNUIMessage({ action = ..., ... });
@@ -43,7 +44,10 @@ type Incoming =
   | { action: 'removeCustomApp'; identifier: string }
   | { action: 'customAppMessage'; identifier: string; data: unknown }
   /** The active language: the "ui" section of config/locales/<code>.json and its "meta.intl". */
-  | { action: 'setLocale'; ui: Strings; intl?: string };
+  | { action: 'setLocale'; ui: Strings; intl?: string }
+  /** WebRTC: a handshake message relayed from another player, and the server's ICE/TURN servers. */
+  | { action: 'rtc'; from: string; signal: Signal }
+  | { action: 'rtcConfig'; config: RTCConfiguration };
 
 /** Messages from Lua: the three custom-app exports (AddCustomApp, RemoveCustomApp, SendCustomAppMessage) and the language. */
 export function listen() {
@@ -58,6 +62,7 @@ export function listen() {
     else if (m.action === 'setLocale') {
       setLocale(m.ui, m.intl);
       applySkin();
-    }
+    } else if (m.action === 'rtc') signal(m.from, m.signal);
+    else if (m.action === 'rtcConfig') setRtcConfig(m.config);
   });
 }
