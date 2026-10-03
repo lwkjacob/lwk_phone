@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { nuiFetch } from '../nui';
 import { S, actions, addPhoto, alert, notify, openApp, share, startCall, update, useS } from '../store';
-import { picBg } from '../ui';
+import { ColorSheet, EmojiSheet, GifSheet } from '../pickers';
+import { picUrl } from '../ui';
 import { APPS } from './index';
 import { PhotoPicker } from './Media';
 import { t } from '../i18n';
@@ -13,7 +14,7 @@ import { t } from '../i18n';
 
 type PopUpButton = { title: string; color?: string; bold?: boolean; cb?: (value?: string) => void };
 type PopUp = { title: string; description?: string; attachment?: { src: string }; input?: { placeholder?: string; defaultValue?: string; onChange?: (v: string) => void }; buttons: PopUpButton[] };
-type GalleryItem = { id: number; src: string; isVideo: boolean; background: string };
+type GalleryItem = { id: number; src: string; isVideo: boolean };
 type GalleryOpts = { includeVideos?: boolean; includeImages?: boolean; multiSelect?: boolean; onSelect: (data: GalleryItem | GalleryItem[]) => void };
 type Contact = { firstname: string; lastname: string; number: string; name: string };
 
@@ -46,6 +47,7 @@ export function CustomAppView({ id }: { id: string }) {
   const watchers = useRef<((settings: ReturnType<typeof settingsFor>) => void)[]>([]);
   const [gallery, setGallery] = useState<GalleryOpts | null>(null);
   const [full, setFull] = useState<string | null>(null);
+  const [picker, setPicker] = useState<{ kind: 'emoji' | 'gif' | 'color'; run: (value: string) => void } | null>(null);
   const app = APPS[id]?.custom;
   const theme = s.settings.dark ? 'dark' : 'light';
 
@@ -127,9 +129,10 @@ export function CustomAppView({ id }: { id: string }) {
         // These need the game (rendering, hosting) or a picker the phone does not have yet.
         uploadMedia: unavailable('uploadMedia'),
         createGameRender: unavailable('createGameRender'),
-        setColorPicker: unavailable('setColorPicker'),
-        setEmojiPickerVisible: unavailable('setEmojiPickerVisible'),
-        setGifPickerVisible: unavailable('setGifPickerVisible'),
+        setColorPicker: (o: { onSelect?: (color: string) => void; onClose?: (color: string) => void }) => setPicker({ kind: 'color', run: (c) => (o.onSelect?.(c), o.onClose?.(c)) }),
+        // Both take options to open, or `false` to close, as in LB Phone.
+        setEmojiPickerVisible: (o: false | { onSelect: (e: { emoji: string }) => void }) => setPicker(o ? { kind: 'emoji', run: (emoji) => o.onSelect({ emoji }) } : null),
+        setGifPickerVisible: (o: false | { onSelect: (gif: string) => void }) => setPicker(o ? { kind: 'gif', run: o.onSelect } : null),
       },
     };
     try {
@@ -147,8 +150,8 @@ export function CustomAppView({ id }: { id: string }) {
 
   const pick = (seed: number) => {
     const p = S.photos.find((x) => x.seed === seed);
-    // In-game `src` is the hosted URL. The browser demo has no real photos, so `background` carries the generated image as CSS.
-    const item = { id: p?.id ?? seed, src: '', isVideo: !!p?.video, background: picBg(seed) };
+    // In-game `src` is the hosted URL. The browser demo has no real photos, so it hands over a generated image.
+    const item = { id: p?.id ?? seed, src: picUrl(seed), isVideo: !!p?.video };
     gallery?.onSelect(gallery.multiSelect ? [item] : item);
   };
 
@@ -156,6 +159,9 @@ export function CustomAppView({ id }: { id: string }) {
     <>
       <iframe ref={frame} className="custom-app" title={app.name} src={uiUrl(app.ui)} onLoad={onLoad} />
       {gallery && <PhotoPicker videos={!!gallery.includeVideos && gallery.includeImages === false} onPick={pick} onClose={() => setGallery(null)} />}
+      {picker?.kind === 'emoji' && <EmojiSheet onPick={picker.run} onClose={() => setPicker(null)} />}
+      {picker?.kind === 'gif' && <GifSheet onPick={(seed) => picker.run(picUrl(seed))} onClose={() => setPicker(null)} />}
+      {picker?.kind === 'color' && <ColorSheet onPick={picker.run} onClose={() => setPicker(null)} />}
       {full && (
         <div className="fullimg" role="dialog" aria-label={t('custom_image')}>
           <img src={full} alt="" />

@@ -73,6 +73,8 @@ export const S = {
     volume: 0.6,
     size: 1,
     frame: base.defaults.frame,
+    /** Used when `frame` is 'custom'. */
+    frameColor: '#7a5cff',
     wallpaper: base.defaults.wallpaper,
     lockWallpaper: base.defaults.lockWallpaper,
     passcode: '',

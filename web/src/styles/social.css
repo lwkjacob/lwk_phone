@@ -719,6 +719,7 @@
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
 }
 
+.swatches .custom { background: conic-gradient(#ff5e57, #ffb13d, #ffe74a, #6fdc6f, #3ec8f5, #5b6bff, #c15cff, #ff5e57); }
 .swatches [aria-pressed='true'] { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4.5px var(--blue); }
 
 .wall-now { display: flex; justify-content: center; gap: 24px; padding: 6px 0 22px; text-align: center; font-size: 13px; color: var(--label2); }

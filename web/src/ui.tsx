@@ -1,10 +1,11 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowUp, CircleAlert, WifiOff, ChevronLeft, ChevronRight, Cloud, CloudRain, CloudSun, MapPin, Moon, Play, Search as SearchIcon, Sun, User } from 'lucide-react';
+import { ArrowUp, CircleAlert, Smile, WifiOff, ChevronLeft, ChevronRight, Cloud, CloudRain, CloudSun, MapPin, Moon, Play, Search as SearchIcon, Sun, User } from 'lucide-react';
 import type { Msg } from './data';
 import { sfx } from './sound';
 import { fmtAgo, fmtDur, fmtTime, money, uid, useNow, view } from './store';
 import { t } from './i18n';
+import { EmojiGrid } from './pickers';
 
 /* ---------- navigation stack: iOS push / pop ---------- */
 
@@ -246,6 +247,13 @@ export function Empty({ icon, title, text }: { icon: ReactNode; title: string; t
 
 /* ---------- generated imagery: no bundled or remote photos ---------- */
 
+/** The same generated picture as a real image URL, for places that need a `src` (community apps). */
+export function picUrl(seed: number) {
+  const h = (seed * 137) % 360;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='hsl(${h} 78% 50%)'/><stop offset='1' stop-color='hsl(${(h + 75) % 360} 82% 62%)'/></linearGradient><radialGradient id='r' cx='${(seed * 13) % 100}%' cy='${(seed * 7) % 100}%' r='70%'><stop offset='0' stop-color='hsl(${(h + 45) % 360} 100% 80%)'/><stop offset='1' stop-color='hsl(${(h + 45) % 360} 100% 80%)' stop-opacity='0'/></radialGradient></defs><rect width='100' height='100' fill='url(#g)'/><rect width='100' height='100' fill='url(#r)'/></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 /** A soft mesh gradient per seed. Only blurred blobs, never hard colour stops: those alias into jagged edges. */
 export function picBg(seed: number) {
   const h = (seed * 137) % 360; // golden-angle steps keep neighbouring seeds visually distinct
@@ -336,7 +344,10 @@ export function Field({ label, value, onChange, placeholder, type = 'text', area
 
 export function Composer({ onSend, placeholder = t('message'), left }: { onSend: (text: string) => void; placeholder?: string; left?: ReactNode }) {
   const [v, setV] = useState('');
+  const [emoji, setEmoji] = useState(false);
   return (
+    <>
+    {emoji && <EmojiGrid onPick={(e) => setV((x) => x + e)} />}
     <form
       className="composer"
       onSubmit={(e) => {
@@ -349,6 +360,9 @@ export function Composer({ onSend, placeholder = t('message'), left }: { onSend:
       {left}
       <div className="composer-in">
         <input aria-label={placeholder} placeholder={placeholder} value={v} onChange={(e) => setV(e.target.value)} />
+        <button type="button" className="composer-emoji" aria-label={t('emoji')} aria-pressed={emoji} onClick={() => setEmoji(!emoji)}>
+          <Smile size={20} />
+        </button>
         {v.trim() && (
           <button type="submit" aria-label={t('send')} className="composer-send">
             <ArrowUp size={18} strokeWidth={3} />
@@ -356,6 +370,7 @@ export function Composer({ onSend, placeholder = t('message'), left }: { onSend:
         )}
       </div>
     </form>
+    </>
   );
 }
 

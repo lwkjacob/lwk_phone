@@ -39,7 +39,7 @@ export function Phone() {
   return (
     <div className={`phone ${s.open ? 'open' : peek ? 'peek' : ''} ${s.focus ? 'focus' : ''}`} style={{ '--k': k } as CSSProperties} aria-hidden={!s.open && !peek}>
       {/* zoom, not transform: scale(). Zoom re-lays the phone out at its real size, so text and hairlines land on device pixels and stay sharp. */}
-      <div className="phone-body" style={{ zoom: k }} data-frame={s.settings.frame}>
+      <div className="phone-body" style={{ zoom: k, '--frame': s.settings.frame === 'custom' ? s.settings.frameColor : undefined } as CSSProperties} data-frame={s.settings.frame}>
       <button className="hw hw-action" tabIndex={-1} aria-label={t('sys_toggle_silent_mode')} onClick={() => update((x) => (x.settings.silent = !x.settings.silent))} />
       <button className="hw hw-up" tabIndex={-1} aria-label={t('sys_volume_up')} onClick={() => update((x) => (x.settings.volume = Math.min(1, x.settings.volume + 0.1)))} />
       <button className="hw hw-down" tabIndex={-1} aria-label={t('sys_volume_down')} onClick={() => update((x) => (x.settings.volume = Math.max(0, x.settings.volume - 0.1)))} />

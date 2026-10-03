@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Bell, Bluetooth, Check, Image as ImageIcon, Moon, Phone, Plane, Radio, ScanFace, Settings as Gear, Signal, Sun, Volume2, Wifi } from 'lucide-react';
 import { sfx } from '../sound';
 import { S, actions, alert, confirm, prompt, update, useS } from '../store';
@@ -6,6 +6,7 @@ import { theme } from '../theme';
 import { Avatar, Group, Page, Row, Stack, Toggle, useNav } from '../ui';
 import { APPS, AppIcon } from './index';
 import { t } from '../i18n';
+import { ColorSheet } from '../pickers';
 
 type Settings = typeof S.settings;
 type Flag = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
@@ -70,6 +71,7 @@ function Sounds() {
 
 function Display() {
   const s = useS();
+  const [picking, setPicking] = useState(false);
   return (
     <Page title={t('settings_display_brightness')}>
       <Group header={t('settings_appearance')}>
@@ -102,8 +104,10 @@ function Display() {
           {Object.entries(theme.frames).map(([id, color]) => (
             <button key={id} aria-label={id} aria-pressed={s.settings.frame === id} style={{ background: color }} onClick={() => set('frame', id)} />
           ))}
+          <button className="custom" aria-label={t('custom_colour')} aria-pressed={s.settings.frame === 'custom'} onClick={() => setPicking(true)} />
         </div>
       </Group>
+      {picking && <ColorSheet value={s.settings.frameColor} onPick={(c) => (set('frameColor', c), set('frame', 'custom'))} onClose={() => setPicking(false)} />}
     </Page>
   );
 }

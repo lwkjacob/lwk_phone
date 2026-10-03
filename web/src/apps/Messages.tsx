@@ -6,6 +6,7 @@ import { record, type Recording } from '../rtc';
 import { PhotoPicker } from './Media';
 import { ContactView } from './Phone';
 import { t } from '../i18n';
+import { GifSheet } from '../pickers';
 
 const titleOf = (c: { name?: string; numbers: string[] }) => c.name ?? c.numbers.map(nameOf).join(', ');
 
@@ -49,7 +50,6 @@ function ChatInfo({ id }: { id: number }) {
   );
 }
 
-const GIFS = [3, 18, 29, 42, 57, 66];
 
 function ChatView({ id }: { id: number }) {
   const s = useS();
@@ -116,19 +116,7 @@ function ChatView({ id }: { id: number }) {
       <Bubbles msgs={c.msgs} who={group ? nameOf : undefined} typing={s.typing === id} empty={t('messages_start_the_conversation')} />
       {pick === 'photo' && <PhotoPicker onPick={(seed) => sendMsg(id, { pic: seed })} onClose={() => setPick(null)} />}
       {pick === 'voice' && <VoiceSheet onSend={(voice, audio) => sendMsg(id, { voice, audio })} onClose={() => setPick(null)} />}
-      {pick === 'gif' && (
-        <Sheet title={t('messages_gifs')} onClose={() => setPick(null)} fit>
-          {(close) => (
-            <div className="pgrid gifs">
-              {GIFS.map((g) => (
-                <Pic key={g} seed={g} className="gif" alt={t('gif')} onClick={() => (sendMsg(id, { gif: g }), close())}>
-                  <b>{t('gif')}</b>
-                </Pic>
-              ))}
-            </div>
-          )}
-        </Sheet>
-      )}
+      {pick === 'gif' && <GifSheet onPick={(gif) => sendMsg(id, { gif })} onClose={() => setPick(null)} />}
     </Page>
   );
 }
