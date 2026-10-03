@@ -1,0 +1,23 @@
+# web/dist is committed on purpose: server owners run the built UI and should not need Node.
+
+# Dependencies
+node_modules/
+
+# Local tooling
+.claude/
+.vscode/
+.idea/
+brag-output*/
+graphify-out/
+
+# Design reference, not part of the resource
+phone.png
+
+# Logs, secrets, OS files
+*.log
+.env
+.env.*
+*.pem
+*.key
+Thumbs.db
+.DS_Store

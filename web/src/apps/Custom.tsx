@@ -1,0 +1,168 @@
+import { useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
+import { nuiFetch } from '../nui';
+import { S, actions, addPhoto, alert, notify, openApp, share, startCall, update, useS } from '../store';
+import { picBg } from '../ui';
+import { APPS } from './index';
+import { PhotoPicker } from './Media';
+
+/* Community apps, the same way LB Phone does them: another resource registers an app with a path to
+ * its own HTML page, the phone shows that page in an iframe and hands it a set of globals
+ * (fetchNui, components.setPopUp, ...). The API names and shapes follow LB's so existing apps port over. */
+
+type PopUpButton = { title: string; color?: string; bold?: boolean; cb?: (value?: string) => void };
+type PopUp = { title: string; description?: string; attachment?: { src: string }; input?: { placeholder?: string; defaultValue?: string; onChange?: (v: string) => void }; buttons: PopUpButton[] };
+type GalleryItem = { id: number; src: string; isVideo: boolean; background: string };
+type GalleryOpts = { includeVideos?: boolean; includeImages?: boolean; multiSelect?: boolean; onSelect: (data: GalleryItem | GalleryItem[]) => void };
+type Contact = { firstname: string; lastname: string; number: string; name: string };
+
+const frames = new Map<string, Window>();
+
+/** SendCustomAppMessage: deliver a message to an app's page. Only reaches an app that is open. */
+export function sendCustomAppMessage(id: string, data: unknown) {
+  frames.get(id)?.postMessage(data, '*');
+  return frames.has(id);
+}
+
+const settingsFor = () => ({
+  display: { theme: S.settings.dark ? 'dark' : 'light', size: S.settings.size },
+  airplaneMode: S.settings.airplane,
+  streamerMode: S.settings.streamer,
+  doNotDisturb: S.settings.dnd,
+  sound: { volume: S.settings.volume, silent: S.settings.silent },
+  time: { twelveHourClock: !S.settings.clock24 },
+  name: S.me.name,
+  phoneNumber: S.me.number,
+});
+
+/** "resource/ui/index.html" is served by FiveM from that resource; anything URL-like is used as is. */
+const isUrl = (ui: string) => /^(https?:|\.{0,2}\/)/.test(ui);
+const uiUrl = (ui: string) => (isUrl(ui) ? ui : `https://cfx-nui-${ui}`);
+
+export function CustomAppView({ id }: { id: string }) {
+  const s = useS();
+  const frame = useRef<HTMLIFrameElement>(null);
+  const watchers = useRef<((settings: ReturnType<typeof settingsFor>) => void)[]>([]);
+  const [gallery, setGallery] = useState<GalleryOpts | null>(null);
+  const [full, setFull] = useState<string | null>(null);
+  const app = APPS[id]?.custom;
+  const theme = s.settings.dark ? 'dark' : 'light';
+
+  useEffect(() => {
+    nuiFetch(null, 'customApp', { identifier: id, event: 'open' });
+    return () => {
+      frames.delete(id);
+      update((x) => (x.hideHomeBar = false));
+      nuiFetch(null, 'customApp', { identifier: id, event: 'close' });
+    };
+  }, [id]);
+
+  // Keep the app's page in step with the phone's appearance and settings.
+  useEffect(() => {
+    try {
+      const doc = frame.current?.contentDocument;
+      if (doc) doc.documentElement.dataset.theme = theme;
+    } catch {
+      // cross-origin page outside FiveM: it can still read settings through onSettingsChange
+    }
+    watchers.current.forEach((cb) => cb(settingsFor()));
+  }, [theme, s.settings.airplane, s.settings.streamer, s.settings.dnd, s.settings.clock24]);
+
+  if (!app?.ui) return null;
+  const resource = isUrl(app.ui) ? 'dev' : app.ui.split('/')[0];
+
+  const unavailable = (name: string) => () => {
+    console.warn(`[phone] components.${name} is not available yet`);
+    return Promise.reject(new Error(`${name} is not available yet`));
+  };
+
+  const onLoad = () => {
+    const w = frame.current?.contentWindow as (Window & Record<string, unknown>) | null | undefined;
+    if (!w) return;
+    frames.set(id, w);
+    watchers.current = [];
+    const api = {
+      resourceName: resource,
+      appName: app.name,
+      appIdentifier: id,
+      settings: settingsFor(),
+      fetchNui: (event: string, data?: unknown, scriptName?: string) => nuiFetch(scriptName ?? resource, event, data),
+      onNuiEvent: (event: string, cb: (data: unknown) => void) => w.addEventListener('message', (e: MessageEvent) => e.data?.action === event && cb(e.data.data)),
+      onSettingsChange: (cb: (settings: ReturnType<typeof settingsFor>) => void) => void watchers.current.push(cb),
+      sendNotification: (n: { title?: string; content?: string }) => notify({ app: id, title: n.title ?? app.name, body: n.content ?? '' }),
+      createCall: (c: { number?: string | number; videoCall?: boolean }) => c.number != null && startCall(String(c.number), !!c.videoCall),
+      formatPhoneNumber: (n: string | number) => String(n),
+      setApp: (target: string | { name: string }) => {
+        const name = (typeof target === 'string' ? target : target.name).toLowerCase();
+        const key = Object.keys(APPS).find((k) => k.toLowerCase() === name || APPS[k].name.toLowerCase() === name);
+        if (key) openApp(key);
+      },
+      components: {
+        setPopUp: (p: PopUp) =>
+          alert({
+            title: p.title,
+            message: p.description,
+            image: p.attachment?.src,
+            input: p.input ? (p.input.placeholder ?? '') : undefined,
+            value: p.input?.defaultValue,
+            buttons: p.buttons.map((b) => ({
+              label: b.title,
+              kind: b.color === 'red' ? 'destructive' : b.bold ? 'bold' : undefined,
+              run: (v) => (p.input?.onChange?.(v), b.cb?.(v)),
+            })),
+          }),
+        setContextMenu: (m: { title?: string; buttons: PopUpButton[] }) => actions({ title: m.title, options: m.buttons.map((b) => ({ label: b.title, destructive: b.color === 'red', run: () => b.cb?.() })) }),
+        // ponytail: reuses the action sheet, so only the first ten contacts are offered. Swap for a searchable sheet when lists get long.
+        setContactSelector: (o: { onSelect: (c: Contact) => void }) =>
+          actions({
+            title: 'Contacts',
+            options: S.contacts.slice(0, 10).map((c) => ({ label: c.name, run: () => o.onSelect({ firstname: c.name.split(' ')[0], lastname: c.name.split(' ').slice(1).join(' '), number: c.number, name: c.name }) })),
+          }),
+        setShareComponent: (o: { type?: string; data?: { title?: string; src?: string } }) => share({ kind: o.type === 'image' ? 'Photo' : (o.type ?? app.name), label: o.data?.title ?? app.name }),
+        setGallery: (o: GalleryOpts) => setGallery(o),
+        setFullscreenImage: (src: string | null) => setFull(src),
+        setHomeIndicatorVisible: (visible: boolean) => update((x) => (x.hideHomeBar = !visible)),
+        saveToGallery: () => Promise.resolve(addPhoto().id),
+        // These need the game (rendering, hosting) or a picker the phone does not have yet.
+        uploadMedia: unavailable('uploadMedia'),
+        createGameRender: unavailable('createGameRender'),
+        setColorPicker: unavailable('setColorPicker'),
+        setEmojiPickerVisible: unavailable('setEmojiPickerVisible'),
+        setGifPickerVisible: unavailable('setGifPickerVisible'),
+      },
+    };
+    try {
+      Object.assign(w, api);
+      w.document.documentElement.dataset.theme = theme;
+      // Room for the status bar and home indicator, which draw over the app.
+      w.document.documentElement.style.setProperty('--safe-top', '54px');
+      w.document.documentElement.style.setProperty('--safe-bottom', '34px');
+    } catch (err) {
+      console.warn(`[phone] could not reach the page of "${id}" to hand it the phone API`, err);
+    }
+    // Same signal LB sends: the page can start using the globals once it sees this.
+    w.postMessage('componentsLoaded', '*');
+  };
+
+  const pick = (seed: number) => {
+    const p = S.photos.find((x) => x.seed === seed);
+    // In-game `src` is the hosted URL. The browser demo has no real photos, so `background` carries the generated image as CSS.
+    const item = { id: p?.id ?? seed, src: '', isVideo: !!p?.video, background: picBg(seed) };
+    gallery?.onSelect(gallery.multiSelect ? [item] : item);
+  };
+
+  return (
+    <>
+      <iframe ref={frame} className="custom-app" title={app.name} src={uiUrl(app.ui)} onLoad={onLoad} />
+      {gallery && <PhotoPicker videos={!!gallery.includeVideos && gallery.includeImages === false} onPick={pick} onClose={() => setGallery(null)} />}
+      {full && (
+        <div className="fullimg" role="dialog" aria-label="Image">
+          <img src={full} alt="" />
+          <button aria-label="Close" onClick={() => setFull(null)}>
+            <X size={22} />
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
