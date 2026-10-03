@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import { Aperture, AudioLines, Calculator, Camera, CarFront, CloudSun, Coins, Feather, Flame, Ghost, House, LayoutGrid, Mail, Megaphone, MessageCircle, Music, Navigation, Phone, Play, Settings, Siren, Store } from 'lucide-react';
+import { t } from '../i18n';
 import { nuiFetch } from '../nui';
 import { S, actionApps, update } from '../store';
 import { applyTheme, theme, type ThemeFile } from '../theme';
@@ -82,12 +83,16 @@ const list: AppDef[] = [
 
 export const APPS: Record<string, AppDef> = Object.fromEntries(list.map((a) => [a.id, a]));
 
-const BUILT_IN = Object.fromEntries(list.map((a) => [a.id, { name: a.name, bg: a.bg, fg: a.fg, icon: a.icon }]));
+const BUILT_IN = Object.fromEntries(list.map((a) => [a.id, { bg: a.bg, fg: a.fg, icon: a.icon, cat: 'cat_' + a.cat.toLowerCase().replace(/[^a-z0-9]+/g, '_') }]));
 
-/** Apply a theme file: colours, wallpapers and defaults, plus any per-app renames and icons. */
-export function applySkin(file: ThemeFile = {}) {
-  applyTheme(file);
-  for (const id of Object.keys(BUILT_IN)) Object.assign(APPS[id], BUILT_IN[id], theme.apps[id]);
+/** Apply a theme file: colours, wallpapers and defaults, plus any per-app renames and icons.
+ *  Also (re)reads app names, descriptions and categories from the active language, so call it after setLocale. */
+export function applySkin(file?: ThemeFile) {
+  if (file) applyTheme(file);
+  for (const id of Object.keys(BUILT_IN)) {
+    const { cat, ...look } = BUILT_IN[id];
+    Object.assign(APPS[id], look, { name: t(`app_${id}`), desc: t(`app_${id}_desc`), cat: t(cat) }, theme.apps[id]);
+  }
   update();
 }
 

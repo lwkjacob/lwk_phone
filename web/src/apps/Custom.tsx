@@ -5,6 +5,7 @@ import { S, actions, addPhoto, alert, notify, openApp, share, startCall, update,
 import { picBg } from '../ui';
 import { APPS } from './index';
 import { PhotoPicker } from './Media';
+import { t } from '../i18n';
 
 /* Community apps, the same way LB Phone does them: another resource registers an app with a path to
  * its own HTML page, the phone shows that page in an iframe and hands it a set of globals
@@ -115,10 +116,10 @@ export function CustomAppView({ id }: { id: string }) {
         // ponytail: reuses the action sheet, so only the first ten contacts are offered. Swap for a searchable sheet when lists get long.
         setContactSelector: (o: { onSelect: (c: Contact) => void }) =>
           actions({
-            title: 'Contacts',
+            title: t('contacts'),
             options: S.contacts.slice(0, 10).map((c) => ({ label: c.name, run: () => o.onSelect({ firstname: c.name.split(' ')[0], lastname: c.name.split(' ').slice(1).join(' '), number: c.number, name: c.name }) })),
           }),
-        setShareComponent: (o: { type?: string; data?: { title?: string; src?: string } }) => share({ kind: o.type === 'image' ? 'Photo' : (o.type ?? app.name), label: o.data?.title ?? app.name }),
+        setShareComponent: (o: { type?: string; data?: { title?: string; src?: string } }) => share({ kind: o.type === 'image' ? t('kind_photo') : (o.type ?? app.name), label: o.data?.title ?? app.name }),
         setGallery: (o: GalleryOpts) => setGallery(o),
         setFullscreenImage: (src: string | null) => setFull(src),
         setHomeIndicatorVisible: (visible: boolean) => update((x) => (x.hideHomeBar = !visible)),
@@ -156,9 +157,9 @@ export function CustomAppView({ id }: { id: string }) {
       <iframe ref={frame} className="custom-app" title={app.name} src={uiUrl(app.ui)} onLoad={onLoad} />
       {gallery && <PhotoPicker videos={!!gallery.includeVideos && gallery.includeImages === false} onPick={pick} onClose={() => setGallery(null)} />}
       {full && (
-        <div className="fullimg" role="dialog" aria-label="Image">
+        <div className="fullimg" role="dialog" aria-label={t('custom_image')}>
           <img src={full} alt="" />
-          <button aria-label="Close" onClick={() => setFull(null)}>
+          <button aria-label={t('close')} onClick={() => setFull(null)}>
             <X size={22} />
           </button>
         </div>

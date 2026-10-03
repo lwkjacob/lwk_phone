@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { CloudSun, Droplets, Eye, Mic, Pause, Play, Share, SquarePen, Sun, Sunset, Thermometer, Trash2, Wind } from 'lucide-react';
 import { CALC0, OPS, calcKey } from '../calc';
 import { weather } from '../data';
 import { S, confirm, fmtAgo, fmtDur, prompt, share, uid, update, useNow, useS } from '../store';
 import { Empty, Group, Page, Row, Search, Stack, WEATHER_ICONS, Wave, useDragScroll, useNav } from '../ui';
+import { intl, t } from '../i18n';
 
 /* ---------- Notes ---------- */
 
@@ -20,19 +21,19 @@ function NoteView({ id }: { id: number }) {
   return (
     <Page
       className="note"
-      back="Notes"
+      back={t('util_notes')}
       right={
         <>
-          <button aria-label="Share note" onClick={() => share({ kind: 'Note', label: n.title || 'New Note' })}>
+          <button aria-label={t('util_share_note')} onClick={() => share({ kind: t('kind_note'), label: n.title || t('util_new_note') })}>
             <Share size={22} />
           </button>
-          <button aria-label="Delete note" onClick={() => (nav.pop(), update((x) => (x.notes = x.notes.filter((y) => y.id !== id))))}>
+          <button aria-label={t('util_delete_note')} onClick={() => (nav.pop(), update((x) => (x.notes = x.notes.filter((y) => y.id !== id))))}>
             <Trash2 size={22} />
           </button>
         </>
       }
     >
-      <textarea aria-label="Note" autoFocus={!text} value={text} placeholder="Title" onChange={(e) => save(e.target.value)} />
+      <textarea aria-label={t('util_note')} autoFocus={!text} value={text} placeholder={t('title')} onChange={(e) => save(e.target.value)} />
     </Page>
   );
 }
@@ -49,12 +50,12 @@ function NoteList() {
   };
   return (
     <Page
-      title="Notes"
+      title={t('util_notes')}
       large
       footer={
         <div className="toolbar">
-          <span className="toolbar-note">{s.notes.length} Notes</span>
-          <button aria-label="New note" onClick={create}>
+          <span className="toolbar-note">{s.notes.length}{' '}{t('util_notes')}</span>
+          <button aria-label={t('util_new_note_2')} onClick={create}>
             <SquarePen size={22} />
           </button>
         </div>
@@ -64,11 +65,11 @@ function NoteList() {
       {list.length ? (
         <Group>
           {list.map((n) => (
-            <Row key={n.id} title={<b>{n.title || 'New Note'}</b>} sub={`${fmtAgo(n.time)}  ${n.body.split('\n')[0] || 'No additional text'}`} onClick={() => nav.push(<NoteView id={n.id} />)} />
+            <Row key={n.id} title={<b>{n.title || t('util_new_note')}</b>} sub={`${fmtAgo(n.time)}  ${n.body.split('\n')[0] || t('util_no_additional_text')}`} onClick={() => nav.push(<NoteView id={n.id} />)} />
           ))}
         </Group>
       ) : (
-        <Empty icon={<SquarePen size={44} />} title="No Notes" text={q ? `Nothing matches “${q}”.` : 'Tap the compose button to write one.'} />
+        <Empty icon={<SquarePen size={44} />} title={t('util_no_notes')} text={q ? t('nothing_matches_q', { q }) : t('util_tap_the_compose_button_to_write')} />
       )}
     </Page>
   );
@@ -98,7 +99,7 @@ export function CalculatorApp() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   const n = Number(c.cur);
-  const shown = c.cur === 'Error' || c.cur.endsWith('.') || Math.abs(n) >= 1e9 ? c.cur : n.toLocaleString('en-US', { maximumFractionDigits: 8 });
+  const shown = c.cur === 'Error' || c.cur.endsWith('.') || Math.abs(n) >= 1e9 ? c.cur : n.toLocaleString(intl, { maximumFractionDigits: 8 });
   return (
     <div className="calc">
       <output style={{ fontSize: shown.length > 9 ? 52 : shown.length > 6 ? 68 : 88 }}>{shown}</output>
@@ -135,7 +136,7 @@ export function WeatherApp() {
         </p>
       </header>
       <section className="w-card">
-        <h2>Sunny conditions will continue this afternoon. Rain expected around 7PM.</h2>
+        <h2>{t('util_sunny_conditions_will_continue_this_afternoon')}</h2>
         <div className="w-hours" ref={hours}>
           {w.hourly.map(([t, k, temp]) => (
             <div key={t}>
@@ -147,7 +148,7 @@ export function WeatherApp() {
         </div>
       </section>
       <section className="w-card">
-        <h2 className="caps">7-Day Forecast</h2>
+        <h2 className="caps">{t('util_7_day_forecast')}</h2>
         {w.daily.map(([day, k, a, b]) => (
           <div key={day} className="w-day">
             <b>{day}</b>
@@ -163,13 +164,13 @@ export function WeatherApp() {
       <div className="w-tiles">
         {(
           [
-            [<Sun size={13} />, 'UV Index', String(w.uv), 'High'],
-            [<Sunset size={13} />, 'Sunset', w.sunset, 'Sunrise: 6:14 AM'],
-            [<Wind size={13} />, 'Wind', `${w.wind} km/h`, 'Gusts to 24 km/h'],
-            [<Thermometer size={13} />, 'Feels Like', `${w.feels}°`, 'Similar to the actual temperature.'],
-            [<Droplets size={13} />, 'Humidity', `${w.humidity}%`, 'The dew point is 12° right now.'],
-            [<Eye size={13} />, 'Visibility', `${w.visibility} km`, 'Perfectly clear view.'],
-          ] as const
+            [<Sun size={13} />, t('util_uv_index'), String(w.uv), t('util_uv_high')],
+            [<Sunset size={13} />, t('util_sunset'), w.sunset, t('util_sunrise_at', { time: '6:14 AM' })],
+            [<Wind size={13} />, t('util_wind'), `${w.wind} km/h`, t('util_gusts_to', { speed: '24 km/h' })],
+            [<Thermometer size={13} />, t('util_feels_like'), `${w.feels}°`, t('util_feels_similar')],
+            [<Droplets size={13} />, t('util_humidity'), `${w.humidity}%`, t('util_dew_point', { temp: '12°' })],
+            [<Eye size={13} />, t('util_visibility'), `${w.visibility} km`, t('util_clear_view')],
+          ] as [ReactNode, string, string, string][]
         ).map(([ic, label, value, note]) => (
           <section key={label} className="w-card">
             <h2 className="caps">
@@ -181,7 +182,7 @@ export function WeatherApp() {
         ))}
       </div>
       <footer>
-        <CloudSun size={14} /> Weather for San Andreas
+        <CloudSun size={14} />{' '}{t('util_weather_for_san_andreas')}
       </footer>
     </div>
   );
@@ -212,7 +213,7 @@ export function MemosApp() {
   return (
     <Stack>
       <Page
-        title="All Recordings"
+        title={t('util_all_recordings')}
         large
         footer={
           <div className={`memo-rec ${s.rec != null ? 'on' : ''}`}>
@@ -222,7 +223,7 @@ export function MemosApp() {
                 <time>{fmtDur((now - s.rec) / 1000)}</time>
               </>
             )}
-            <button aria-label={s.rec != null ? 'Stop recording' : 'Record'} onClick={toggleRec}>
+            <button aria-label={s.rec != null ? t('stop_recording') : t('util_record')} onClick={toggleRec}>
               <i />
             </button>
           </div>
@@ -251,14 +252,14 @@ export function MemosApp() {
                       <span>-{fmtDur(m.dur - (play?.id === m.id ? pos : 0))}</span>
                     </div>
                     <div className="vm-acts">
-                      <button aria-label="Share" onClick={() => share({ kind: 'Voice Memo', label: m.name })}>
+                      <button aria-label={t('share')} onClick={() => share({ kind: t('kind_voice_memo'), label: m.name })}>
                         <Share size={20} />
                       </button>
-                      <button aria-label={play?.id === m.id ? 'Pause' : 'Play'} onClick={() => setPlay(play?.id === m.id ? null : { id: m.id, from: Date.now() })}>
+                      <button aria-label={play?.id === m.id ? t('pause') : t('play')} onClick={() => setPlay(play?.id === m.id ? null : { id: m.id, from: Date.now() })}>
                         {play?.id === m.id ? <Pause size={26} fill="currentColor" strokeWidth={0} /> : <Play size={26} fill="currentColor" strokeWidth={0} />}
                       </button>
-                      <button onClick={() => prompt('Rename Recording', 'Name', (v) => update(() => (m.name = v)), m.name)}>Rename</button>
-                      <button aria-label="Delete" className="danger" onClick={() => confirm('Delete Recording', `“${m.name}” will be deleted.`, 'Delete', () => update((x) => (x.memos = x.memos.filter((y) => y !== m))))}>
+                      <button onClick={() => prompt(t('util_rename_recording'), t('name'), (v) => update(() => (m.name = v)), m.name)}>{t('util_rename')}</button>
+                      <button aria-label={t('delete')} className="danger" onClick={() => confirm(t('util_delete_recording'), t('util_name_will_be_deleted', { name: m.name }), t('delete'), () => update((x) => (x.memos = x.memos.filter((y) => y !== m))))}>
                         <Trash2 size={20} />
                       </button>
                     </div>
@@ -268,7 +269,7 @@ export function MemosApp() {
             ))}
           </div>
         ) : (
-          <Empty icon={<Mic size={44} />} title="No Recordings" text="Tap the record button to start a voice memo." />
+          <Empty icon={<Mic size={44} />} title={t('util_no_recordings')} text={t('util_tap_the_record_button_to_start')} />
         )}
       </Page>
     </Stack>

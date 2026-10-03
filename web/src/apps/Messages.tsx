@@ -4,6 +4,7 @@ import { S, actions, chatWith, confirm, contactOf, fmtAgo, nameOf, preview, prom
 import { Avatar, Bubbles, Composer, Empty, Group, Page, Pic, Row, Search, Sheet, Toggle, useNav, Stack } from '../ui';
 import { PhotoPicker } from './Media';
 import { ContactView } from './Phone';
+import { t } from '../i18n';
 
 const titleOf = (c: { name?: string; numbers: string[] }) => c.name ?? c.numbers.map(nameOf).join(', ');
 
@@ -14,33 +15,33 @@ function ChatInfo({ id }: { id: number }) {
   if (!c) return null;
   const group = c.numbers.length > 1;
   return (
-    <Page back="Back">
+    <Page back={t('back')}>
       <div className="contact-hero">
         <Avatar name={titleOf(c)} size={96} tint={group} />
         <h1>{titleOf(c)}</h1>
-        {group && <button className="tint" onClick={() => prompt('Group Name', 'Name', (v) => update(() => (c.name = v)), c.name)}>Change Name</button>}
+        {group && <button className="tint" onClick={() => prompt(t('messages_group_name'), t('name'), (v) => update(() => (c.name = v)), c.name)}>{t('messages_change_name')}</button>}
       </div>
-      <Group header={group ? `${c.numbers.length + 1} People` : undefined}>
+      <Group header={group ? t('messages_x_people', { x: c.numbers.length + 1 }) : undefined}>
         {c.numbers.map((num) => (
           <Row key={num} icon={<Avatar name={nameOf(num)} size={36} />} title={nameOf(num)} sub={contactOf(num) ? num : undefined} chevron onClick={() => nav.push(<ContactView number={num} />)} />
         ))}
         {group && (
           <Row
             tone="tint"
-            title="Add Contact"
-            onClick={() => actions({ title: 'Add to group', options: s.contacts.filter((x) => !c.numbers.includes(x.number)).slice(0, 6).map((x) => ({ label: x.name, run: () => update(() => c.numbers.push(x.number)) })) })}
+            title={t('messages_add_contact')}
+            onClick={() => actions({ title: t('messages_add_to_group'), options: s.contacts.filter((x) => !c.numbers.includes(x.number)).slice(0, 6).map((x) => ({ label: x.name, run: () => update(() => c.numbers.push(x.number)) })) })}
           />
         )}
       </Group>
       <Group>
-        <Row title="Hide Alerts" right={<Toggle label="Hide Alerts" on={!!c.muted} onChange={(v) => update(() => (c.muted = v))} />} />
-        <Row tone="tint" title="Share My Location" onClick={() => (sendMsg(id, { loc: 'Legion Square' }), nav.pop())} />
+        <Row title={t('messages_hide_alerts')} right={<Toggle label={t('messages_hide_alerts')} on={!!c.muted} onChange={(v) => update(() => (c.muted = v))} />} />
+        <Row tone="tint" title={t('share_my_location')} onClick={() => (sendMsg(id, { loc: 'Legion Square' }), nav.pop())} />
       </Group>
       <Group>
         <Row
           tone="danger"
-          title={group ? 'Leave this Conversation' : 'Delete Conversation'}
-          onClick={() => confirm('Delete Conversation', 'This conversation will be deleted from this phone.', 'Delete', () => (nav.pop(), nav.pop(), update((x) => (x.chats = x.chats.filter((y) => y.id !== id)))))}
+          title={group ? t('messages_leave_this_conversation') : t('messages_delete_conversation')}
+          onClick={() => confirm(t('messages_delete_conversation'), t('messages_this_conversation_will_be_deleted_from'), t('delete'), () => (nav.pop(), nav.pop(), update((x) => (x.chats = x.chats.filter((y) => y.id !== id)))))}
         />
       </Group>
     </Page>
@@ -70,11 +71,11 @@ function ChatView({ id }: { id: number }) {
   const more = () =>
     actions({
       options: [
-        { label: 'Photo Library', run: () => setPick('photo') },
-        { label: 'GIF', run: () => setPick('gif') },
-        { label: 'Send Location', run: () => sendMsg(id, { loc: 'Legion Square' }) },
-        { label: 'Voice Message', run: () => sendMsg(id, { voice: 4 + Math.floor(Math.random() * 20) }) },
-        ...(group ? [] : [{ label: 'Send Money', run: () => prompt('Send Money', 'Amount', (v) => Number(v) > 0 && sendMsg(id, { money: Math.floor(Number(v)) }), '', `To ${titleOf(c)}`) }]),
+        { label: t('messages_photo_library'), run: () => setPick('photo') },
+        { label: t('gif'), run: () => setPick('gif') },
+        { label: t('messages_send_location'), run: () => sendMsg(id, { loc: 'Legion Square' }) },
+        { label: t('messages_voice_message'), run: () => sendMsg(id, { voice: 4 + Math.floor(Math.random() * 20) }) },
+        ...(group ? [] : [{ label: t('send_money'), run: () => prompt(t('send_money'), t('amount'), (v) => Number(v) > 0 && sendMsg(id, { money: Math.floor(Number(v)) }), '', t('messages_to_name', { name: titleOf(c) })) }]),
       ],
     });
   return (
@@ -90,10 +91,10 @@ function ChatView({ id }: { id: number }) {
       right={
         !group && (
           <>
-            <button aria-label="Video call" onClick={() => startCall(c.numbers[0], true)}>
+            <button aria-label={t('messages_video_call')} onClick={() => startCall(c.numbers[0], true)}>
               <Video size={24} />
             </button>
-            <button aria-label="Call" onClick={() => startCall(c.numbers[0])}>
+            <button aria-label={t('call')} onClick={() => startCall(c.numbers[0])}>
               <Phone size={21} />
             </button>
           </>
@@ -101,25 +102,25 @@ function ChatView({ id }: { id: number }) {
       }
       footer={
         <Composer
-          placeholder="Text Message"
+          placeholder={t('messages_text_message')}
           onSend={(text) => sendMsg(id, { text })}
           left={
-            <button type="button" className="composer-plus" aria-label="Attach" onClick={more}>
+            <button type="button" className="composer-plus" aria-label={t('messages_attach')} onClick={more}>
               <Plus size={20} strokeWidth={2.6} />
             </button>
           }
         />
       }
     >
-      <Bubbles msgs={c.msgs} who={group ? nameOf : undefined} typing={s.typing === id} empty="Start the conversation." />
+      <Bubbles msgs={c.msgs} who={group ? nameOf : undefined} typing={s.typing === id} empty={t('messages_start_the_conversation')} />
       {pick === 'photo' && <PhotoPicker onPick={(seed) => sendMsg(id, { pic: seed })} onClose={() => setPick(null)} />}
       {pick === 'gif' && (
-        <Sheet title="GIFs" onClose={() => setPick(null)} fit>
+        <Sheet title={t('messages_gifs')} onClose={() => setPick(null)} fit>
           {(close) => (
             <div className="pgrid gifs">
               {GIFS.map((g) => (
-                <Pic key={g} seed={g} className="gif" alt="GIF" onClick={() => (sendMsg(id, { gif: g }), close())}>
-                  <b>GIF</b>
+                <Pic key={g} seed={g} className="gif" alt={t('gif')} onClick={() => (sendMsg(id, { gif: g }), close())}>
+                  <b>{t('gif')}</b>
                 </Pic>
               ))}
             </div>
@@ -142,18 +143,18 @@ function NewMessage({ onClose, onOpen }: { onClose: () => void; onOpen: (id: num
     onOpen(chat.id);
   };
   return (
-    <Sheet title="New Message" onClose={onClose} action={{ label: 'Next', disabled: !to.length, run: start }}>
+    <Sheet title={t('new_message')} onClose={onClose} action={{ label: t('next'), disabled: !to.length, run: start }}>
       <div className="to-line">
-        <span>To:</span>
+        <span>{t('to_2')}</span>
         {to.map((n) => (
-          <button key={n} className="to-chip" onClick={() => setTo(to.filter((x) => x !== n))} aria-label={`Remove ${nameOf(n)}`}>
+          <button key={n} className="to-chip" onClick={() => setTo(to.filter((x) => x !== n))} aria-label={t('messages_remove_name', { name: nameOf(n) })}>
             {nameOf(n)}
           </button>
         ))}
         <input
-          aria-label="Recipient"
+          aria-label={t('messages_recipient')}
           value={q}
-          placeholder={to.length ? '' : 'Name or number'}
+          placeholder={to.length ? '' : t('messages_name_or_number')}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && /^[\d-]{3,}$/.test(q) && (setTo([...to, q]), setQ(''))}
         />
@@ -180,10 +181,10 @@ function ChatList() {
   const list = s.chats.filter((c) => titleOf(c).toLowerCase().includes(q.toLowerCase()) || c.msgs.some((x) => x.text?.toLowerCase().includes(q.toLowerCase())));
   return (
     <Page
-      title="Messages"
+      title={t('messages')}
       large
       right={
-        <button aria-label="New message" onClick={() => setCompose(true)}>
+        <button aria-label={t('messages_new_message')} onClick={() => setCompose(true)}>
           <SquarePen size={22} />
         </button>
       }
@@ -202,14 +203,14 @@ function ChatList() {
                     <span className="row-t">{titleOf(c)}</span>
                     <time>{lastMsg ? fmtAgo(lastMsg.time) : ''}</time>
                   </span>
-                  <span className="row-s two">{s.typing === c.id ? 'typing…' : preview(lastMsg)}</span>
+                  <span className="row-s two">{s.typing === c.id ? t('messages_typing') : preview(lastMsg)}</span>
                 </span>
               </button>
             );
           })}
         </div>
       ) : (
-        <Empty icon={<MessageCircle size={44} />} title={q ? 'No Results' : 'No Messages'} text={q ? `Nothing matches “${q}”.` : 'Tap the compose button to start a conversation.'} />
+        <Empty icon={<MessageCircle size={44} />} title={q ? t('no_results') : t('no_messages')} text={q ? t('nothing_matches_q', { q }) : t('messages_tap_the_compose_button_to_start')} />
       )}
       {compose && <NewMessage onClose={() => setCompose(false)} onOpen={(id) => nav.push(<ChatView id={id} />)} />}
     </Page>

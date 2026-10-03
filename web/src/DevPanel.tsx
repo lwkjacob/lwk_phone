@@ -1,7 +1,10 @@
 import { useEffect } from 'react';
 import { APPS, applySkin } from './apps';
 import { alert, incomingCall, lock, notify, receiveMsg, uid, update, useS } from './store';
+import { pseudoLocale } from './i18n';
 import { fetchTheme, theme } from './theme';
+
+let pseudo = false;
 
 /** Browser-only controls that fake what the game would send: calls, texts, notifications, AirShare. */
 export function DevPanel() {
@@ -56,9 +59,54 @@ export function DevPanel() {
         Message community app
       </button>
       <button onClick={() => update((x) => Object.keys(APPS).forEach((id) => x.apps.includes(id) || x.dock.includes(id) || x.apps.push(id)))}>Install every add-on</button>
+      {/* Pseudo-language: translated strings show [bracketed and accented], so any plain text is hard-coded. */}
+      <button onClick={() => window.postMessage({ action: 'setLocale', ui: (pseudo = !pseudo) ? pseudoLocale() : {} }, '*')}>Pseudo-language</button>
       <button onClick={() => fetchTheme(theme.name === 'Slate' ? './theme.json' : './themes/slate.json').then(applySkin)}>Skin: {theme.name}</button>
       <button onClick={() => update((x) => (x.settings.dark = !x.settings.dark))}>{s.settings.dark ? 'Light' : 'Dark'} appearance</button>
       <button onClick={() => update((x) => (x.focus = !x.focus))}>{s.focus ? 'In-game position' : 'Centre and enlarge'}</button>
     </aside>
+  );
+}
+
+/**
+ * Review sheet: several apps side by side, without the shell.
+ * ?gallery=notes,mail,crypto  &theme=light  &tab=1 (press the nth tab)  &push=1 (open the first row)  &pseudo=1
+ */
+export function Gallery() {
+  useS();
+  const q = new URLSearchParams(window.location.search);
+  const ids = (q.get('gallery') ?? '').split(',').filter((id) => APPS[id]);
+  const dark = q.get('theme') !== 'light';
+  useEffect(() => {
+    if (q.get('pseudo')) window.postMessage({ action: 'setLocale', ui: pseudoLocale() }, '*');
+    const timer = window.setTimeout(() => {
+      document.querySelectorAll('.gallery .app').forEach((app) => {
+        const tab = q.get('tab');
+        if (tab) app.querySelectorAll<HTMLElement>('.tabbar button')[Number(tab)]?.click();
+        if (q.get('push')) window.setTimeout(() => app.querySelector<HTMLElement>('.pg-body button.row, .pg-body .row-btn, .house-list button, .car-list button, .market button, .store-row, .coins .row, .alpha button')?.click(), 150);
+      });
+    }, 200);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on load
+  }, []);
+  return (
+    <div className="gallery">
+      {ids.map((id) => {
+        const View = APPS[id].view;
+        const appDark = APPS[id].dark ?? dark;
+        return (
+          <div key={id} className="phone-body" style={{ zoom: 0.58 }}>
+            <div className="bezel">
+              <div className={`screen ${appDark || APPS[id].bar === 'light' ? 'bar-light' : 'bar-dark'}`} data-theme={dark ? 'dark' : 'light'}>
+                <div className="app" data-app={id} data-theme={appDark ? 'dark' : 'light'} style={{ animation: 'none' }}>
+                  <View />
+                  <div id="overlay" />
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }

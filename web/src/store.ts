@@ -3,6 +3,7 @@ import * as D from './data';
 import base from './theme.default.json';
 import type { Msg } from './data';
 import { ring, setVolume, sfx } from './sound';
+import { intl, t } from './i18n';
 
 let n = 5000;
 export const uid = () => ++n;
@@ -152,19 +153,19 @@ export function fmtTime(t: number | Date, ampm = false) {
   const s = `${d.getHours() % 12 || 12}:${pad(d.getMinutes())}`;
   return ampm ? `${s} ${d.getHours() < 12 ? 'AM' : 'PM'}` : s;
 }
-export function fmtAgo(t: number) {
-  const diff = Date.now() - t;
+export function fmtAgo(time: number) {
+  const diff = Date.now() - time;
   const day = 86_400_000;
-  if (diff < 60_000) return 'now';
+  if (diff < 60_000) return t('time_now');
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
   if (diff < day) return `${Math.floor(diff / 3_600_000)}h`;
-  if (diff < 2 * day) return 'Yesterday';
-  if (diff < 7 * day) return new Date(t).toLocaleDateString('en-US', { weekday: 'long' });
-  return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (diff < 2 * day) return t('time_yesterday');
+  if (diff < 7 * day) return new Date(time).toLocaleDateString(intl, { weekday: 'long' });
+  return new Date(time).toLocaleDateString(intl, { month: 'short', day: 'numeric' });
 }
 export const fmtDur = (sec: number) => `${Math.floor(sec / 60)}:${pad(Math.floor(sec % 60))}`;
-export const money = (v: number, digits = 2) => v.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: digits, maximumFractionDigits: digits });
-export const compact = (v: number) => (v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e4 ? `${(v / 1e3).toFixed(1)}K` : v.toLocaleString('en-US'));
+export const money = (v: number, digits = 2) => v.toLocaleString(intl, { style: 'currency', currency: 'USD', minimumFractionDigits: digits, maximumFractionDigits: digits });
+export const compact = (v: number) => (v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e4 ? `${(v / 1e3).toFixed(1)}K` : v.toLocaleString(intl));
 
 export const contactOf = (number: string) => S.contacts.find((c) => c.number === number);
 export const nameOf = (number: string) => contactOf(number)?.name ?? number;
@@ -267,9 +268,9 @@ export function tapNotif(nf: Notif) {
 
 export const alert = (a: AlertDef) => update((s) => (s.ui.alert = a));
 export const confirm = (title: string, message: string, label: string, run: () => void) =>
-  alert({ title, message, buttons: [{ label: 'Cancel', kind: 'cancel' }, { label, kind: 'destructive', run }] });
+  alert({ title, message, buttons: [{ label: t('cancel'), kind: 'cancel' }, { label, kind: 'destructive', run }] });
 export const prompt = (title: string, placeholder: string, run: (v: string) => void, value = '', message?: string) =>
-  alert({ title, message, input: placeholder, value, buttons: [{ label: 'Cancel', kind: 'cancel' }, { label: 'Save', kind: 'bold', run: (v) => v.trim() && run(v.trim()) }] });
+  alert({ title, message, input: placeholder, value, buttons: [{ label: t('cancel'), kind: 'cancel' }, { label: t('save'), kind: 'bold', run: (v) => v.trim() && run(v.trim()) }] });
 export const actions = (a: ActionDef) => update((s) => (s.ui.actions = a));
 export const share = (d: ShareDef) => update((s) => (s.ui.share = d));
 
@@ -284,7 +285,7 @@ export function badge(app: string) {
 
 let callTimer: number | undefined;
 export function startCall(number: string, video = false) {
-  if (S.settings.airplane) return alert({ title: 'Airplane Mode', message: 'Turn off Airplane Mode to make a call.', buttons: [{ label: 'OK', kind: 'bold' }] });
+  if (S.settings.airplane) return alert({ title: t('airplane_mode'), message: t('sys_turn_off_airplane_mode_to_make'), buttons: [{ label: t('ok'), kind: 'bold' }] });
   if (S.call) return;
   update((s) => (s.call = { number, state: 'outgoing', video, start: Date.now(), muted: false, speaker: video, min: false }));
   ring('ringback');
@@ -337,13 +338,13 @@ export function chatWith(number: string) {
 }
 
 export const preview = (msg?: Msg) =>
-  !msg ? 'No messages' : msg.text ?? (msg.pic ? 'Photo' : msg.loc ? 'Shared a location' : msg.money ? `Sent ${money(msg.money, 0)}` : msg.voice ? 'Voice message' : msg.gif ? 'GIF' : '');
+  !msg ? t('no_messages') : msg.text ?? (msg.pic ? t('photo') : msg.loc ? t('preview_location') : msg.money ? t('preview_sent', { amount: money(msg.money, 0) }) : msg.voice ? t('preview_voice') : msg.gif ? 'GIF' : '');
 
 export function sendMsg(chatId: number, msg: Partial<Msg>) {
   const chat = S.chats.find((c) => c.id === chatId);
   if (!chat) return;
   if (msg.money) {
-    if (msg.money > S.wallet.balance) return alert({ title: 'Insufficient Funds', message: 'Your balance is too low for this transfer.', buttons: [{ label: 'OK', kind: 'bold' }] });
+    if (msg.money > S.wallet.balance) return alert({ title: t('insufficient_funds'), message: t('your_balance_is_too_low_for'), buttons: [{ label: t('ok'), kind: 'bold' }] });
     pay(-msg.money, nameOf(chat.numbers[0]));
   }
   update((s) => {

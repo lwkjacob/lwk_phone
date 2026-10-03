@@ -4,8 +4,9 @@ import { AppIcon } from '../apps';
 import { sfx } from '../sound';
 import { S, fmtAgo, fmtTime, openApp, tapNotif, unlock, update, useNow, useS } from '../store';
 import { DialPad } from '../ui';
+import { intl, t } from '../i18n';
 
-const longDate = (t: number) => new Date(t).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+const longDate = (t: number) => new Date(t).toLocaleDateString(intl, { weekday: 'long', month: 'long', day: 'numeric' });
 
 function NotifList({ locked }: { locked?: boolean }) {
   const s = useS();
@@ -50,18 +51,18 @@ function Passcode() {
     return () => window.removeEventListener('keydown', onKey);
   });
   return (
-    <div className="passcode" role="dialog" aria-label="Enter passcode">
-      <p>Enter Passcode</p>
-      <div className={`pass-dots ${bad ? 'shake' : ''}`} aria-label={`${code.length} of 4 digits entered`}>
+    <div className="passcode" role="dialog" aria-label={t('sys_enter_passcode')}>
+      <p>{t('sys_enter_passcode_2')}</p>
+      <div className={`pass-dots ${bad ? 'shake' : ''}`} aria-label={t('sys_count_of_4_digits_entered', { count: code.length })}>
         {[0, 1, 2, 3].map((i) => (
           <i key={i} className={i < code.length ? 'on' : ''} />
         ))}
       </div>
       <DialPad digits onKey={key} />
       <div className="pass-foot">
-        <button onClick={() => update((s) => (s.passPad = false))}>Cancel</button>
+        <button onClick={() => update((s) => (s.passPad = false))}>{t('cancel')}</button>
         <button onClick={() => setCode(code.slice(0, -1))} disabled={!code}>
-          Delete
+          {t('delete')}
         </button>
       </div>
     </div>
@@ -88,11 +89,11 @@ export function Lock() {
           <NotifList locked />
         </div>
         <div className="lock-actions">
-          <button aria-label="Flashlight" aria-pressed={s.flashlight} onClick={() => update((x) => (x.flashlight = !x.flashlight))}>
+          <button aria-label={t('flashlight')} aria-pressed={s.flashlight} onClick={() => update((x) => (x.flashlight = !x.flashlight))}>
             <Flashlight size={22} fill={s.flashlight ? 'currentColor' : 'none'} />
           </button>
-          <span className="lock-hint">Swipe up to open</span>
-          <button aria-label="Camera" onClick={() => (openApp('camera'), unlock())}>
+          <span className="lock-hint">{t('sys_swipe_up_to_open')}</span>
+          <button aria-label={t('camera')} onClick={() => (openApp('camera'), unlock())}>
             <Camera size={22} fill="currentColor" stroke="var(--lock-btn, #3a3a3c)" />
           </button>
         </div>
@@ -113,14 +114,14 @@ export function NotificationCenter() {
         <div className="lock-time">{fmtTime(now)}</div>
       </div>
       <div className="nc-head">
-        <h2>Notification Center</h2>
+        <h2>{t('sys_notification_center')}</h2>
         {s.notifs.length > 0 && (
-          <button aria-label="Clear all notifications" onClick={() => update((x) => (x.notifs = []))}>
+          <button aria-label={t('sys_clear_all_notifications')} onClick={() => update((x) => (x.notifs = []))}>
             <X size={15} strokeWidth={3} />
           </button>
         )}
       </div>
-      <div className="lock-notifs">{s.notifs.length ? <NotifList /> : <p className="nc-empty">No Notifications</p>}</div>
+      <div className="lock-notifs">{s.notifs.length ? <NotifList /> : <p className="nc-empty">{t('sys_no_notifications')}</p>}</div>
     </div>
   );
 }

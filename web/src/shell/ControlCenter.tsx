@@ -3,6 +3,7 @@ import { Bell, BellOff, Bluetooth, Calculator, Camera, FastForward, Flashlight, 
 import { songs } from '../data';
 import { S, openApp, skip, unlock, update, useS, viewportRect } from '../store';
 import { Pic } from '../ui';
+import { t } from '../i18n';
 
 type SettingKey = 'airplane' | 'cellular' | 'wifi' | 'bluetooth' | 'dnd' | 'streamer' | 'silent';
 const flip = (k: SettingKey) => update((s) => (s.settings[k] = !s.settings[k]));
@@ -44,45 +45,45 @@ export function ControlCenter() {
     <div className={`cc ${s.cc ? 'show' : ''}`} inert={!s.cc} onClick={(e) => e.target === e.currentTarget && close()}>
       <div className="cc-grid" onClick={(e) => e.target === e.currentTarget && close()}>
         <div className="cc-mod cc-conn">
-          <button aria-label="Airplane Mode" aria-pressed={st.airplane} className="orange" onClick={() => flip('airplane')}>
+          <button aria-label={t('airplane_mode')} aria-pressed={st.airplane} className="orange" onClick={() => flip('airplane')}>
             <Plane size={22} fill="currentColor" strokeWidth={0} />
           </button>
-          <button aria-label="Mobile Data" aria-pressed={st.cellular && !st.airplane} className="green" onClick={() => flip('cellular')}>
+          <button aria-label={t('mobile_data')} aria-pressed={st.cellular && !st.airplane} className="green" onClick={() => flip('cellular')}>
             <Signal size={22} strokeWidth={3} />
           </button>
-          <button aria-label="Wi-Fi" aria-pressed={st.wifi && !st.airplane} className="blue" onClick={() => flip('wifi')}>
+          <button aria-label={t('wi_fi')} aria-pressed={st.wifi && !st.airplane} className="blue" onClick={() => flip('wifi')}>
             <Wifi size={22} strokeWidth={2.8} />
           </button>
-          <button aria-label="Bluetooth" aria-pressed={st.bluetooth} className="blue" onClick={() => flip('bluetooth')}>
+          <button aria-label={t('bluetooth')} aria-pressed={st.bluetooth} className="blue" onClick={() => flip('bluetooth')}>
             <Bluetooth size={22} strokeWidth={2.6} />
           </button>
         </div>
 
         <div className="cc-mod cc-music">
-          <button className="cc-np" onClick={() => go('music')} aria-label="Open Music">
+          <button className="cc-np" onClick={() => go('music')} aria-label={t('sys_open_music')}>
             {song ? <Pic seed={song.seed} className="cc-art" /> : <span className="cc-art none" />}
             <span>
-              <b>{song?.title ?? 'Not Playing'}</b>
-              <small>{song?.artist ?? 'Music'}</small>
+              <b>{song?.title ?? t('not_playing')}</b>
+              <small>{song?.artist ?? t('sys_music')}</small>
             </span>
           </button>
           <div className="cc-transport">
-            <button aria-label="Previous" disabled={!song} onClick={() => skip(-1)}>
+            <button aria-label={t('previous')} disabled={!song} onClick={() => skip(-1)}>
               <Rewind size={22} fill="currentColor" strokeWidth={0} />
             </button>
-            <button aria-label={s.music.playing ? 'Pause' : 'Play'} onClick={() => (song ? update((x) => (x.music.playing = !x.music.playing)) : go('music'))}>
+            <button aria-label={s.music.playing ? t('pause') : t('play')} onClick={() => (song ? update((x) => (x.music.playing = !x.music.playing)) : go('music'))}>
               {s.music.playing ? <Pause size={28} fill="currentColor" strokeWidth={0} /> : <Play size={28} fill="currentColor" strokeWidth={0} />}
             </button>
-            <button aria-label="Next" disabled={!song} onClick={() => skip(1)}>
+            <button aria-label={t('next')} disabled={!song} onClick={() => skip(1)}>
               <FastForward size={22} fill="currentColor" strokeWidth={0} />
             </button>
           </div>
         </div>
 
-        <button className="cc-mod cc-btn" aria-label="Silent Mode" aria-pressed={st.silent} onClick={() => flip('silent')}>
+        <button className="cc-mod cc-btn" aria-label={t('silent_mode')} aria-pressed={st.silent} onClick={() => flip('silent')}>
           {st.silent ? <BellOff size={24} fill="currentColor" /> : <Bell size={24} fill="currentColor" />}
         </button>
-        <button className="cc-mod cc-btn" aria-label="Streamer Mode" aria-pressed={st.streamer} onClick={() => flip('streamer')}>
+        <button className="cc-mod cc-btn" aria-label={t('streamer_mode')} aria-pressed={st.streamer} onClick={() => flip('streamer')}>
           <Radio size={24} strokeWidth={2.4} />
         </button>
         <button className="cc-mod cc-focus" aria-pressed={st.dnd} onClick={() => flip('dnd')}>
@@ -90,24 +91,24 @@ export function ControlCenter() {
             <Moon size={20} fill="currentColor" strokeWidth={0} />
           </span>
           <span>
-            <b>Do Not Disturb</b>
-            <small>{st.dnd ? 'On' : 'Off'}</small>
+            <b>{t('do_not_disturb')}</b>
+            <small>{st.dnd ? t('on') : t('off')}</small>
           </span>
         </button>
 
-        <VSlider label="Brightness" min={0.15} value={st.brightness} onChange={(v) => update((x) => (x.settings.brightness = v))} icon={<Sun size={26} fill="currentColor" />} />
-        <VSlider label="Volume" value={st.silent ? 0 : st.volume} onChange={(v) => update((x) => ((x.settings.volume = v), (x.settings.silent = false)))} icon={<Volume2 size={26} fill="currentColor" />} />
+        <VSlider label={t('brightness')} min={0.15} value={st.brightness} onChange={(v) => update((x) => (x.settings.brightness = v))} icon={<Sun size={26} fill="currentColor" />} />
+        <VSlider label={t('volume')} value={st.silent ? 0 : st.volume} onChange={(v) => update((x) => ((x.settings.volume = v), (x.settings.silent = false)))} icon={<Volume2 size={26} fill="currentColor" />} />
 
-        <button className="cc-mod cc-btn" aria-label="Flashlight" aria-pressed={s.flashlight} onClick={() => update((x) => (x.flashlight = !x.flashlight))}>
+        <button className="cc-mod cc-btn" aria-label={t('flashlight')} aria-pressed={s.flashlight} onClick={() => update((x) => (x.flashlight = !x.flashlight))}>
           <Flashlight size={24} fill="currentColor" />
         </button>
-        <button className="cc-mod cc-btn" aria-label="Timer" onClick={() => go('clock')}>
+        <button className="cc-mod cc-btn" aria-label={t('timer')} onClick={() => go('clock')}>
           <Timer size={24} strokeWidth={2.4} />
         </button>
-        <button className="cc-mod cc-btn" aria-label="Calculator" onClick={() => go('calc')}>
+        <button className="cc-mod cc-btn" aria-label={t('sys_calculator')} onClick={() => go('calc')}>
           <Calculator size={24} strokeWidth={2.2} />
         </button>
-        <button className="cc-mod cc-btn" aria-label="Camera" onClick={() => go('camera')}>
+        <button className="cc-mod cc-btn" aria-label={t('camera')} onClick={() => go('camera')}>
           <Camera size={24} fill="currentColor" stroke="#3b3b3d" />
         </button>
       </div>

@@ -4,6 +4,7 @@ import { worldClocks } from '../data';
 import { sfx } from '../sound';
 import { actions, fmtTime, notify, pad, uid, update, useNow, useS } from '../store';
 import { Empty, Field, Group, Page, Row, Seg, Sheet, Tabs, Toggle } from '../ui';
+import { t } from '../i18n';
 
 /* Stopwatch and timer outlive the tab (and the app), so their state lives at module level. */
 const sw = { running: false, base: 0, start: 0, laps: [] as number[] };
@@ -26,10 +27,10 @@ function World() {
   const local = -new Date().getTimezoneOffset() / 60;
   return (
     <Page
-      title="World Clock"
+      title={t('clock_world_clock')}
       large
       right={
-        <button aria-label="Add city" onClick={() => actions({ title: 'Choose a City', options: CITIES.filter((c) => !clocks.some((x) => x.city === c.city)).map((c) => ({ label: c.city, run: () => update(() => clocks.push(c)) })) })}>
+        <button aria-label={t('clock_add_city')} onClick={() => actions({ title: t('clock_choose_a_city'), options: CITIES.filter((c) => !clocks.some((x) => x.city === c.city)).map((c) => ({ label: c.city, run: () => update(() => clocks.push(c)) })) })}>
           <Plus size={24} />
         </button>
       }
@@ -40,11 +41,11 @@ function World() {
           return (
             <div key={c.city} className="row clock-row">
               <span className="row-main">
-                <span className="row-s">Today, {diff === 0 ? 'same time' : `${diff > 0 ? '+' : ''}${diff}HRS`}</span>
+                <span className="row-s">{t('clock_today')}{' '}{diff === 0 ? t('clock_same_time') : t('clock_xdiffhrs', { x: diff > 0 ? '+' : '', diff })}</span>
                 <span className="row-t">{c.city}</span>
               </span>
               <strong>{fmtTime(now + diff * 3_600_000)}</strong>
-              <button aria-label={`Remove ${c.city}`} className="clock-del" onClick={() => update(() => clocks.splice(clocks.indexOf(c), 1))}>
+              <button aria-label={t('clock_remove_city', { city: c.city })} className="clock-del" onClick={() => update(() => clocks.splice(clocks.indexOf(c), 1))}>
                 ×
               </button>
             </div>
@@ -67,19 +68,19 @@ function AlarmSheet({ id, onClose }: { id?: number; onClose: () => void }) {
       else x.alarms.push({ id: uid(), time, label, days, on: true });
     });
   return (
-    <Sheet title={a ? 'Edit Alarm' : 'Add Alarm'} onClose={onClose} action={{ label: 'Save', run: save }}>
+    <Sheet title={a ? t('clock_edit_alarm') : t('clock_add_alarm')} onClose={onClose} action={{ label: t('save'), run: save }}>
       {(close) => (
         <>
-          <input className="time-input" type="time" aria-label="Time" value={time} onChange={(e) => setTime(e.target.value || time)} />
+          <input className="time-input" type="time" aria-label={t('clock_time')} value={time} onChange={(e) => setTime(e.target.value || time)} />
           <Group>
-            <Field label="Label" value={label} onChange={setLabel} />
+            <Field label={t('clock_label')} value={label} onChange={setLabel} />
           </Group>
           <div className="pad-x">
-            <Seg value={days} onChange={setDays} options={[['Never', 'Once'], ['Weekdays', 'Weekdays'], ['Every Day', 'Every Day']] as const} />
+            <Seg value={days} onChange={setDays} options={[['Never', t('clock_once')], ['Weekdays', t('clock_weekdays')], ['Every Day', t('clock_every_day')]] as const} />
           </div>
           {a && (
             <Group>
-              <Row tone="danger" title="Delete Alarm" onClick={() => (update((x) => (x.alarms = x.alarms.filter((y) => y !== a))), close())} />
+              <Row tone="danger" title={t('clock_delete_alarm')} onClick={() => (update((x) => (x.alarms = x.alarms.filter((y) => y !== a))), close())} />
             </Group>
           )}
         </>
@@ -97,10 +98,10 @@ function Alarms() {
   };
   return (
     <Page
-      title="Alarms"
+      title={t('clock_alarms')}
       large
       right={
-        <button aria-label="Add alarm" onClick={() => setEdit('new')}>
+        <button aria-label={t('clock_add_alarm_2')} onClick={() => setEdit('new')}>
           <Plus size={24} />
         </button>
       }
@@ -125,7 +126,7 @@ function Alarms() {
             ))}
         </div>
       ) : (
-        <Empty icon={<AlarmClock size={44} />} title="No Alarms" />
+        <Empty icon={<AlarmClock size={44} />} title={t('clock_no_alarms')} />
       )}
       {edit != null && <AlarmSheet id={edit === 'new' ? undefined : edit} onClose={() => setEdit(null)} />}
     </Page>
@@ -135,7 +136,7 @@ function Alarms() {
 function Stopwatch() {
   useS();
   useNow(sw.running ? 47 : 1000);
-  const t = swElapsed();
+  const ms = swElapsed();
   const lapStart = sw.laps.reduce((a, b) => a + b, 0);
   const startStop = () =>
     update(() => {
@@ -145,30 +146,30 @@ function Stopwatch() {
     });
   const lapReset = () =>
     update(() => {
-      if (sw.running) sw.laps.push(t - lapStart);
+      if (sw.running) sw.laps.push(ms - lapStart);
       else Object.assign(sw, { base: 0, laps: [] });
     });
   return (
     <div className="stopwatch">
-      <output>{fmtMs(t)}</output>
+      <output>{fmtMs(ms)}</output>
       <div className="round-row">
-        <button className="round" disabled={!t} onClick={lapReset}>
-          {sw.running || !t ? 'Lap' : 'Reset'}
+        <button className="round" disabled={!ms} onClick={lapReset}>
+          {sw.running || !ms ? t('clock_lap') : t('clock_reset')}
         </button>
         <button className={`round ${sw.running ? 'stop' : 'go'}`} onClick={startStop}>
-          {sw.running ? 'Stop' : 'Start'}
+          {sw.running ? t('clock_stop') : t('clock_start')}
         </button>
       </div>
       <div className="laps">
-        {t > 0 && (
+        {ms > 0 && (
           <div>
-            <span>Lap {sw.laps.length + 1}</span>
-            <span>{fmtMs(t - lapStart)}</span>
+            <span>{t('clock_lap')}{' '}{sw.laps.length + 1}</span>
+            <span>{fmtMs(ms - lapStart)}</span>
           </div>
         )}
         {[...sw.laps].reverse().map((l, i) => (
           <div key={sw.laps.length - i}>
-            <span>Lap {sw.laps.length - i}</span>
+            <span>{t('clock_lap')}{' '}{sw.laps.length - i}</span>
             <span>{fmtMs(l)}</span>
           </div>
         ))}
@@ -179,7 +180,7 @@ function Stopwatch() {
 
 function finish() {
   sfx('alarm');
-  notify({ app: 'clock', title: 'Timer', body: 'Your timer is done.' });
+  notify({ app: 'clock', title: t('timer'), body: t('clock_your_timer_is_done') });
   update(() => Object.assign(tm, { total: 0, running: false }));
 }
 
@@ -224,22 +225,22 @@ function Timer() {
           {[1, 3, 5, 10, 15, 30, 45, 60, 90].map((m) => (
             <button key={m} aria-pressed={mins === m} onClick={() => setMins(m)}>
               <b>{m < 60 ? m : m / 60}</b>
-              {m < 60 ? 'min' : m === 60 ? 'hour' : 'hours'}
+              {m < 60 ? t('clock_min') : m === 60 ? t('clock_hour') : t('clock_hours')}
             </button>
           ))}
         </div>
       )}
       <div className="round-row">
         <button className="round" disabled={!tm.total} onClick={cancel}>
-          Cancel
+          {t('cancel')}
         </button>
         {tm.total ? (
           <button className={`round ${tm.running ? 'pause' : 'go'}`} onClick={() => (tm.running ? pause() : start(tm.left))}>
-            {tm.running ? 'Pause' : 'Resume'}
+            {tm.running ? t('pause') : t('clock_resume')}
           </button>
         ) : (
           <button className="round go" onClick={() => start(mins * 60_000)}>
-            Start
+            {t('clock_start')}
           </button>
         )}
       </div>
@@ -251,10 +252,10 @@ export function ClockApp() {
   return (
     <Tabs
       tabs={[
-        { id: 'world', label: 'World Clock', icon: <Globe size={24} />, view: <World /> },
-        { id: 'alarms', label: 'Alarms', icon: <AlarmClock size={24} fill="currentColor" stroke="var(--bar-solid)" />, view: <Alarms /> },
-        { id: 'stopwatch', label: 'Stopwatch', icon: <Watch size={24} />, view: <Stopwatch /> },
-        { id: 'timer', label: 'Timers', icon: <TimerIcon size={24} />, view: <Timer /> },
+        { id: 'world', label: t('clock_world_clock'), icon: <Globe size={24} />, view: <World /> },
+        { id: 'alarms', label: t('clock_alarms'), icon: <AlarmClock size={24} fill="currentColor" stroke="var(--bar-solid)" />, view: <Alarms /> },
+        { id: 'stopwatch', label: t('clock_stopwatch'), icon: <Watch size={24} />, view: <Stopwatch /> },
+        { id: 'timer', label: t('clock_timers'), icon: <TimerIcon size={24} />, view: <Timer /> },
       ]}
     />
   );

@@ -10,6 +10,7 @@ import { CallScreen } from './Call';
 import { ControlCenter } from './ControlCenter';
 import { Home } from './Home';
 import { Lock, NotificationCenter } from './Lock';
+import { t } from '../i18n';
 
 const H = 878; // screen 852 + bezel
 
@@ -38,10 +39,10 @@ export function Phone() {
     <div className={`phone ${s.open ? 'open' : peek ? 'peek' : ''} ${s.focus ? 'focus' : ''}`} style={{ '--k': k } as CSSProperties} aria-hidden={!s.open && !peek}>
       {/* zoom, not transform: scale(). Zoom re-lays the phone out at its real size, so text and hairlines land on device pixels and stay sharp. */}
       <div className="phone-body" style={{ zoom: k }} data-frame={s.settings.frame}>
-      <button className="hw hw-action" tabIndex={-1} aria-label="Toggle silent mode" onClick={() => update((x) => (x.settings.silent = !x.settings.silent))} />
-      <button className="hw hw-up" tabIndex={-1} aria-label="Volume up" onClick={() => update((x) => (x.settings.volume = Math.min(1, x.settings.volume + 0.1)))} />
-      <button className="hw hw-down" tabIndex={-1} aria-label="Volume down" onClick={() => update((x) => (x.settings.volume = Math.max(0, x.settings.volume - 0.1)))} />
-      <button className="hw hw-power" tabIndex={-1} aria-label="Lock" onClick={() => (S.locked ? unlock() : lock())} />
+      <button className="hw hw-action" tabIndex={-1} aria-label={t('sys_toggle_silent_mode')} onClick={() => update((x) => (x.settings.silent = !x.settings.silent))} />
+      <button className="hw hw-up" tabIndex={-1} aria-label={t('sys_volume_up')} onClick={() => update((x) => (x.settings.volume = Math.min(1, x.settings.volume + 0.1)))} />
+      <button className="hw hw-down" tabIndex={-1} aria-label={t('sys_volume_down')} onClick={() => update((x) => (x.settings.volume = Math.max(0, x.settings.volume - 0.1)))} />
+      <button className="hw hw-power" tabIndex={-1} aria-label={t('sys_lock')} onClick={() => (S.locked ? unlock() : lock())} />
       <div className="bezel">
         <div id="screen" data-island={theme.island} className={`screen ${lightBar ? 'bar-light' : 'bar-dark'} ${s.settings.streamer ? 'streamer' : ''}`} data-theme={s.settings.dark ? 'dark' : 'light'}>
           {/* Hidden once something opaque covers it: nothing to composite, and no colour fringe at the rounded corners. */}
@@ -146,17 +147,17 @@ function Island() {
   const song = songs.find((x) => x.id === s.music.id);
   if (c && c.min)
     return (
-      <button className="island wide" aria-label="Return to call" onClick={() => update((x) => x.call && (x.call.min = false))}>
+      <button className="island wide" aria-label={t('sys_return_to_call')} onClick={() => update((x) => x.call && (x.call.min = false))}>
         <span className="isl-green">
           <PhoneIcon size={15} fill="currentColor" strokeWidth={0} />
-          {c.state === 'active' ? fmtDur(Math.max(0, (now - c.start) / 1000)) : 'Calling'}
+          {c.state === 'active' ? fmtDur(Math.max(0, (now - c.start) / 1000)) : t('sys_calling')}
         </span>
         <Wave count={6} live />
       </button>
     );
   if (s.rec)
     return (
-      <button className="island wide" aria-label="Recording" onClick={(e) => openApp('memos', e.currentTarget)}>
+      <button className="island wide" aria-label={t('sys_recording')} onClick={(e) => openApp('memos', e.currentTarget)}>
         <span className="isl-red">
           <i className="rec-dot" />
           {fmtDur(Math.max(0, (now - s.rec) / 1000))}
@@ -166,7 +167,7 @@ function Island() {
     );
   if (song && s.music.playing && s.app !== 'music' && !c)
     return (
-      <button className="island wide" aria-label={`Now playing ${song.title}`} onClick={(e) => openApp('music', e.currentTarget)}>
+      <button className="island wide" aria-label={t('sys_now_playing_title', { title: song.title })} onClick={(e) => openApp('music', e.currentTarget)}>
         <Pic seed={song.seed} className="isl-art" />
         <Wave count={5} live />
       </button>
@@ -184,8 +185,8 @@ function EdgeZones() {
   if (s.cc || s.nc || (s.call && !s.call.min)) return null;
   return (
     <>
-      {!s.locked && <button className="edge edge-l" aria-label="Open Notification Center" onPointerDown={pull('nc')} />}
-      <button className="edge edge-r" aria-label="Open Control Center" onPointerDown={pull('cc')} />
+      {!s.locked && <button className="edge edge-l" aria-label={t('sys_open_notification_center')} onPointerDown={pull('nc')} />}
+      <button className="edge edge-r" aria-label={t('sys_open_control_center')} onPointerDown={pull('cc')} />
     </>
   );
 }
@@ -198,7 +199,7 @@ function HomeBar() {
     window.addEventListener('pointerup', (u) => u.clientY - y < 8 && act(), { once: true });
   };
   return (
-    <button className={`homebar ${s.hideHomeBar && s.app ? 'faded' : ''}`} aria-label="Home" onPointerDown={onDown} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && act()}>
+    <button className={`homebar ${s.hideHomeBar && s.app ? 'faded' : ''}`} aria-label={t('home')} onPointerDown={onDown} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && act()}>
       <i />
     </button>
   );
@@ -218,7 +219,7 @@ function Banner() {
         <b>{nf.title}</b>
         <span>{nf.body}</span>
       </span>
-      <time>now</time>
+      <time>{t('sys_now')}</time>
     </button>
   );
 }
@@ -265,18 +266,18 @@ function ShareSheet({ d }: { d: ShareDef }) {
   };
   return (
     <div className="dlg-wrap bottom" onClick={close}>
-      <div className="share" role="dialog" aria-modal="true" aria-label="Share" onClick={(e) => e.stopPropagation()}>
+      <div className="share" role="dialog" aria-modal="true" aria-label={t('share')} onClick={(e) => e.stopPropagation()}>
         <header>
           {d.seed != null && <Pic seed={d.seed} className="share-thumb" />}
           <div>
             <strong>{d.label}</strong>
             <small>{d.kind}</small>
           </div>
-          <button aria-label="Close" onClick={close}>
+          <button aria-label={t('close')} onClick={close}>
             <X size={16} strokeWidth={3} />
           </button>
         </header>
-        <h3>AirShare · Nearby</h3>
+        <h3>{t('sys_airshare_nearby')}</h3>
         <div className="share-people">
           {nearby.map((p) => (
             <button key={p} onClick={() => air(p)}>
@@ -288,11 +289,11 @@ function ShareSheet({ d }: { d: ShareDef }) {
                   </span>
                 )}
               </span>
-              <span>{sent === p ? 'Sent' : p.split(' ')[0]}</span>
+              <span>{sent === p ? t('sent') : p.split(' ')[0]}</span>
             </button>
           ))}
         </div>
-        <h3>Messages</h3>
+        <h3>{t('messages')}</h3>
         <div className="share-people">
           {s.chats.slice(0, 4).map((c) => {
             const name = c.name ?? nameOf(c.numbers[0]);
@@ -317,7 +318,7 @@ function Dialogs() {
       {share && <ShareSheet d={share} />}
       {actions && (
         <div className="dlg-wrap bottom" onClick={closeActions}>
-          <div className="as" role="dialog" aria-modal="true" aria-label={actions.title ?? 'Actions'} onClick={(e) => e.stopPropagation()}>
+          <div className="as" role="dialog" aria-modal="true" aria-label={actions.title ?? t('sys_actions')} onClick={(e) => e.stopPropagation()}>
             <div className="as-grp">
               {actions.title && <p>{actions.title}</p>}
               {actions.options.map((o) => (
@@ -327,7 +328,7 @@ function Dialogs() {
               ))}
             </div>
             <button className="as-cancel" onClick={closeActions}>
-              Cancel
+              {t('cancel')}
             </button>
           </div>
         </div>

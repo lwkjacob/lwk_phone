@@ -237,6 +237,14 @@ figure {
   background: rgba(236, 239, 234, 0.16);
 }
 
+/* Dev review sheet (?gallery=...) */
+.gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 16px;
+}
+
 /* ---------- phone body ---------- */
 
 .phone {

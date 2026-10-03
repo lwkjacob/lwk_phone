@@ -6,7 +6,7 @@ import './styles/ios.css';
 import './styles/apps.css';
 import './styles/social.css';
 import { applySkin } from './apps';
-import { DevPanel } from './DevPanel';
+import { DevPanel, Gallery } from './DevPanel';
 import { listen } from './nui';
 import { Phone } from './shell/Phone';
 import * as store from './store';
@@ -25,10 +25,15 @@ if (dev) {
 // theme.json sits beside index.html so a server can restyle the phone without rebuilding it.
 fetchTheme('./theme.json').then((file) => {
   applySkin(file);
+  const gallery = dev && window.location.search.includes('gallery=');
   createRoot(document.getElementById('root')!).render(
-    <>
-      {dev && <DevPanel />}
-      <Phone />
-    </>,
+    gallery ? (
+      <Gallery />
+    ) : (
+      <>
+        {dev && <DevPanel />}
+        <Phone />
+      </>
+    ),
   );
 });

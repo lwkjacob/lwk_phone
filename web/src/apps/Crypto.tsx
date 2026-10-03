@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Coin } from '../data';
 import { S, alert, money, pay, update, useS } from '../store';
 import { Field, Group, Page, Row, Seg, Sheet, Stack, useNav } from '../ui';
+import { intl, t } from '../i18n';
 
 const fmt = (v: number) => money(v, v < 1 ? 4 : 2);
 
@@ -24,20 +25,20 @@ function Trade({ id, mode, onClose }: { id: string; mode: 'buy' | 'sell'; onClos
   const v = Number(usd);
   const qty = v / c.price;
   const run = () => {
-    if (mode === 'buy' ? v > S.wallet.balance : qty > c.owned) return alert({ title: mode === 'buy' ? 'Insufficient Funds' : 'Not Enough to Sell', message: mode === 'buy' ? 'Your bank balance is too low.' : `You only hold ${c.owned.toFixed(4)} ${c.id}.`, buttons: [{ label: 'OK', kind: 'bold' }] });
+    if (mode === 'buy' ? v > S.wallet.balance : qty > c.owned) return alert({ title: mode === 'buy' ? t('insufficient_funds') : t('crypto_not_enough_to_sell'), message: mode === 'buy' ? t('crypto_your_bank_balance_is_too_low') : t('crypto_you_only_hold_n_id', { n: c.owned.toFixed(4), id: c.id }), buttons: [{ label: t('ok'), kind: 'bold' }] });
     pay(mode === 'buy' ? -v : v, `${mode === 'buy' ? 'Bought' : 'Sold'} ${c.id}`);
     update(() => (c.owned += mode === 'buy' ? qty : -qty));
   };
   return (
-    <Sheet title={`${mode === 'buy' ? 'Buy' : 'Sell'} ${c.name}`} onClose={onClose} action={{ label: mode === 'buy' ? 'Buy' : 'Sell', disabled: !(v > 0), run }}>
-      <Group footer={`${fmt(c.price)} per ${c.id} · Bank balance ${money(s.wallet.balance)}`}>
-        <Field label="Amount" value={usd} onChange={(x) => setUsd(x.replace(/[^\d.]/g, ''))} placeholder="$0.00" />
-        <Row title={`You ${mode === 'buy' ? 'get' : 'sell'}`} value={`${v > 0 ? qty.toFixed(6) : '0'} ${c.id}`} />
+    <Sheet title={`${mode === 'buy' ? 'Buy' : 'Sell'} ${c.name}`} onClose={onClose} action={{ label: mode === 'buy' ? t('crypto_buy') : t('crypto_sell'), disabled: !(v > 0), run }}>
+      <Group footer={t('crypto_price_per_id_bank_balance_amount', { price: fmt(c.price), id: c.id, amount: money(s.wallet.balance) })}>
+        <Field label={t('amount')} value={usd} onChange={(x) => setUsd(x.replace(/[^\d.]/g, ''))} placeholder="$0.00" />
+        <Row title={t('crypto_you_x', { x: mode === 'buy' ? t('undefined') : t('undefined') })} value={`${v > 0 ? qty.toFixed(6) : '0'} ${c.id}`} />
       </Group>
       {mode === 'sell' && (
         <div className="btn-row">
           <button className="btn soft" onClick={() => setUsd((c.owned * c.price).toFixed(2))}>
-            Sell All
+            {t('crypto_sell_all')}
           </button>
         </div>
       )}
@@ -60,29 +61,29 @@ function CoinView({ id }: { id: string }) {
   const c = s.coins.find((x) => x.id === id)!;
   const n = { '1H': 8, '1D': 16, '1W': 24, '1M': 32 }[range];
   return (
-    <Page title={c.name} back="Crypto">
+    <Page title={c.name} back={t('crypto_crypto')}>
       <div className="coin-head">
         <CoinIcon c={c} size={44} />
         <strong>{fmt(c.price)}</strong>
         <span className={c.change >= 0 ? 'pos' : 'neg'}>
           {c.change >= 0 ? '+' : ''}
-          {c.change.toFixed(2)}% today
+          {c.change.toFixed(2)}{t('crypto_today')}
         </span>
       </div>
       <Spark hist={c.hist.slice(-n)} up={c.change >= 0} w={361} h={180} fill />
       <div className="pad-x">
         <Seg value={range} onChange={setRange} options={[['1H', '1H'], ['1D', '1D'], ['1W', '1W'], ['1M', '1M']] as const} />
       </div>
-      <Group header="Your Position">
-        <Row title="Holdings" value={`${c.owned.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${c.id}`} />
-        <Row title="Value" value={money(c.owned * c.price)} />
+      <Group header={t('crypto_your_position')}>
+        <Row title={t('crypto_holdings')} value={`${c.owned.toLocaleString(intl, { maximumFractionDigits: 4 })} ${c.id}`} />
+        <Row title={t('crypto_value')} value={money(c.owned * c.price)} />
       </Group>
       <div className="btn-row">
         <button className="btn" onClick={() => setTrade('buy')}>
-          Buy
+          {t('crypto_buy')}
         </button>
         <button className="btn soft" disabled={!c.owned} onClick={() => setTrade('sell')}>
-          Sell
+          {t('crypto_sell')}
         </button>
       </div>
       {trade && <Trade id={id} mode={trade} onClose={() => setTrade(null)} />}
@@ -111,11 +112,11 @@ function Portfolio() {
   }, []);
   const total = s.coins.reduce((a, c) => a + c.owned * c.price, 0);
   return (
-    <Page title="Crypto" large>
+    <Page title={t('crypto_crypto')} large>
       <div className="balance">
-        <small>Portfolio Value</small>
+        <small>{t('crypto_portfolio_value')}</small>
         <strong>{money(total)}</strong>
-        <span>Bank balance {money(s.wallet.balance)}</span>
+        <span>{t('crypto_bank_balance')}{' '}{money(s.wallet.balance)}</span>
       </div>
       <div className="list coins">
         {s.coins.map((c) => (
@@ -123,7 +124,7 @@ function Portfolio() {
             <CoinIcon c={c} />
             <span className="row-main">
               <span className="row-t">{c.name}</span>
-              <span className="row-s">{c.owned ? `${c.owned.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${c.id}` : c.id}</span>
+              <span className="row-s">{c.owned ? `${c.owned.toLocaleString(intl, { maximumFractionDigits: 4 })} ${c.id}` : c.id}</span>
             </span>
             <Spark hist={c.hist} up={c.change >= 0} />
             <span className="coin-px">

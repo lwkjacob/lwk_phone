@@ -4,6 +4,7 @@ import { ArrowUp, ChevronLeft, ChevronRight, Cloud, CloudRain, CloudSun, MapPin,
 import type { Msg } from './data';
 import { sfx } from './sound';
 import { fmtAgo, fmtDur, fmtTime, money, uid, useNow, view } from './store';
+import { t } from './i18n';
 
 /* ---------- navigation stack: iOS push / pop ---------- */
 
@@ -65,7 +66,7 @@ export function Page({ title, large, left, right, children, footer, back, classN
           {nav.depth > 0 && back !== false && (
             <button className="nav-back" onClick={nav.pop}>
               <ChevronLeft size={28} strokeWidth={2.2} />
-              {back ?? 'Back'}
+              {back ?? t('back')}
             </button>
           )}
           {left}
@@ -92,7 +93,7 @@ export function Tabs({ tabs, initial, accessory }: { tabs: Tab[]; initial?: stri
         <Stack key={cur.id}>{cur.view}</Stack>
       </div>
       {accessory}
-      <nav className="tabbar" aria-label="Tabs">
+      <nav className="tabbar" aria-label={t('ui_tabs')}>
         {tabs.map((t) => (
           <button key={t.id} aria-current={t.id === cur.id ? 'page' : undefined} onClick={() => setTab(t.id)}>
             <span className="tab-ic">
@@ -170,7 +171,7 @@ export function Seg<T extends string>({ value, options, onChange }: { value: T; 
   );
 }
 
-export function Search({ value, onChange, placeholder = 'Search', autoFocus }: { value: string; onChange: (v: string) => void; placeholder?: string; autoFocus?: boolean }) {
+export function Search({ value, onChange, placeholder = t('search'), autoFocus }: { value: string; onChange: (v: string) => void; placeholder?: string; autoFocus?: boolean }) {
   return (
     <label className="search">
       <SearchIcon size={17} strokeWidth={2.4} />
@@ -232,7 +233,7 @@ export function picBg(seed: number) {
   ].join(',');
 }
 
-export function Pic({ seed, className = '', alt = 'Photo', children, style, onClick }: { seed: number; className?: string; alt?: string; children?: ReactNode; style?: CSSProperties; onClick?: () => void }) {
+export function Pic({ seed, className = '', alt = t('photo'), children, style, onClick }: { seed: number; className?: string; alt?: string; children?: ReactNode; style?: CSSProperties; onClick?: () => void }) {
   const Tag = onClick ? 'button' : 'div';
   return (
     <Tag className={`pic ${className}`} style={{ background: picBg(seed), ...style }} role={onClick ? undefined : 'img'} aria-label={alt} onClick={onClick}>
@@ -258,7 +259,7 @@ export function Avatar({ name, size = 40, tint, seed }: { name: string; size?: n
 
 /* ---------- sheets ---------- */
 
-export function Sheet({ title, onClose, action, children, cancel = 'Cancel', fit }: {
+export function Sheet({ title, onClose, action, children, cancel = t('cancel'), fit }: {
   title?: string;
   onClose: () => void;
   action?: { label: string; disabled?: boolean; run: () => void };
@@ -308,7 +309,7 @@ export function Field({ label, value, onChange, placeholder, type = 'text', area
 
 /* ---------- chat ---------- */
 
-export function Composer({ onSend, placeholder = 'Message', left }: { onSend: (text: string) => void; placeholder?: string; left?: ReactNode }) {
+export function Composer({ onSend, placeholder = t('message'), left }: { onSend: (text: string) => void; placeholder?: string; left?: ReactNode }) {
   const [v, setV] = useState('');
   return (
     <form
@@ -324,7 +325,7 @@ export function Composer({ onSend, placeholder = 'Message', left }: { onSend: (t
       <div className="composer-in">
         <input aria-label={placeholder} placeholder={placeholder} value={v} onChange={(e) => setV(e.target.value)} />
         {v.trim() && (
-          <button type="submit" aria-label="Send" className="composer-send">
+          <button type="submit" aria-label={t('send')} className="composer-send">
             <ArrowUp size={18} strokeWidth={3} />
           </button>
         )}
@@ -362,7 +363,7 @@ export function Bubbles({ msgs, who, typing, empty }: { msgs: Msg[]; who?: (from
           <div key={x.id} className="bub-row">
             {(!prev || x.time - prev.time > 3_600_000) && (
               <time className="bub-time">
-                {Date.now() - x.time < 86_400_000 ? 'Today' : fmtAgo(x.time)} {fmtTime(x.time, true)}
+                {Date.now() - x.time < 86_400_000 ? t('today') : fmtAgo(x.time)} {fmtTime(x.time, true)}
               </time>
             )}
             {who && x.from && (!prev || prev.from !== x.from) && <span className="bub-from">{who(x.from)}</span>}
@@ -371,7 +372,7 @@ export function Bubbles({ msgs, who, typing, empty }: { msgs: Msg[]; who?: (from
               {x.pic != null && <Pic seed={x.pic} className="bub-pic ugc" />}
               {x.gif != null && (
                 <Pic seed={x.gif} className="bub-pic gif">
-                  <b>GIF</b>
+                  <b>{t('gif')}</b>
                 </Pic>
               )}
               {x.loc && (
@@ -380,12 +381,12 @@ export function Bubbles({ msgs, who, typing, empty }: { msgs: Msg[]; who?: (from
                     <MapPin size={26} fill="currentColor" stroke="#fff" />
                   </span>
                   <b>{x.loc}</b>
-                  <small>Shared location</small>
+                  <small>{t('ui_shared_location')}</small>
                 </span>
               )}
               {x.money != null && (
                 <span className="bub-money">
-                  <small>{x.me ? 'You sent' : 'You received'}</small>
+                  <small>{x.me ? t('ui_you_sent') : t('ui_you_received')}</small>
                   <b>{money(x.money, 0)}</b>
                 </span>
               )}
@@ -401,7 +402,7 @@ export function Bubbles({ msgs, who, typing, empty }: { msgs: Msg[]; who?: (from
         );
       })}
       {typing && (
-        <div className="bub tail typing" aria-label="Typing">
+        <div className="bub tail typing" aria-label={t('ui_typing')}>
           <i />
           <i />
           <i />

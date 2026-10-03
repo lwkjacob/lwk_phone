@@ -1,5 +1,6 @@
-import { addCustomApp, removeCustomApp, type CustomApp } from './apps';
+import { addCustomApp, applySkin, removeCustomApp, type CustomApp } from './apps';
 import { sendCustomAppMessage } from './apps/Custom';
+import { setLocale, type Strings } from './i18n';
 
 /* The bridge to the game. Lua talks to the phone with SendNUIMessage({ action = ..., ... });
  * the phone talks back by POSTing to https://<resource>/<event>. Outside FiveM both ends are faked:
@@ -20,9 +21,11 @@ export async function nuiFetch<T = unknown>(resource: string | null, event: stri
 type Incoming =
   | { action: 'addCustomApp'; app: CustomApp }
   | { action: 'removeCustomApp'; identifier: string }
-  | { action: 'customAppMessage'; identifier: string; data: unknown };
+  | { action: 'customAppMessage'; identifier: string; data: unknown }
+  /** The active language: the "ui" section of config/locales/<code>.json and its "meta.intl". */
+  | { action: 'setLocale'; ui: Strings; intl?: string };
 
-/** Messages the three custom-app exports send: AddCustomApp, RemoveCustomApp, SendCustomAppMessage. */
+/** Messages from Lua: the three custom-app exports (AddCustomApp, RemoveCustomApp, SendCustomAppMessage) and the language. */
 export function listen() {
   window.addEventListener('message', (e: MessageEvent<Incoming>) => {
     const m = e.data;
@@ -32,5 +35,9 @@ export function listen() {
       if (!ok) console.warn('[phone] AddCustomApp:', error);
     } else if (m.action === 'removeCustomApp') removeCustomApp(m.identifier);
     else if (m.action === 'customAppMessage') sendCustomAppMessage(m.identifier, m.data);
+    else if (m.action === 'setLocale') {
+      setLocale(m.ui, m.intl);
+      applySkin();
+    }
   });
 }

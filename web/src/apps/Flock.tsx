@@ -5,6 +5,7 @@ import { compact, fmtAgo, prompt, share, uid, update, useS } from '../store';
 import { Avatar, Composer, Empty, Page, Pic, Search, Sheet, Tabs, useNav } from '../ui';
 import { PhotoPicker } from './Media';
 import { DMChat, DMList, FollowBtn, Handle, ME, openDM } from './social';
+import { t } from '../i18n';
 
 const rich = (text: string) => text.split(/(#\w+)/).map((part, i) => (part.startsWith('#') ? <span key={i} className="tint">{part}</span> : part));
 
@@ -16,7 +17,7 @@ function PostCard({ id, full }: { id: number; full?: boolean }) {
   const u = s.users[p.user];
   return (
     <article className={`post ${full ? 'full' : ''}`} onClick={full ? undefined : () => nav.push(<PostView id={id} />)}>
-      <button className="post-ava" aria-label={`${u.name} profile`} onClick={(e) => (e.stopPropagation(), nav.push(<Profile user={p.user} />))}>
+      <button className="post-ava" aria-label={t('flock_name_profile', { name: u.name })} onClick={(e) => (e.stopPropagation(), nav.push(<Profile user={p.user} />))}>
         <Avatar name={u.name} size={42} tint />
       </button>
       <div className="post-main">
@@ -29,16 +30,16 @@ function PostCard({ id, full }: { id: number; full?: boolean }) {
         <p>{rich(p.text)}</p>
         {p.pic != null && <Pic seed={p.pic} className="post-pic ugc" />}
         <footer onClick={(e) => e.stopPropagation()}>
-          <button aria-label={`${p.replies.length} replies`} onClick={() => !full && nav.push(<PostView id={id} />)}>
+          <button aria-label={t('flock_count_replies', { count: p.replies.length })} onClick={() => !full && nav.push(<PostView id={id} />)}>
             <MessageCircle size={17} /> {p.replies.length || ''}
           </button>
-          <button aria-label="Repost" aria-pressed={!!p.reposted} className="repost" onClick={() => update(() => ((p.reposted = !p.reposted), (p.reposts += p.reposted ? 1 : -1)))}>
+          <button aria-label={t('flock_repost')} aria-pressed={!!p.reposted} className="repost" onClick={() => update(() => ((p.reposted = !p.reposted), (p.reposts += p.reposted ? 1 : -1)))}>
             <Repeat2 size={19} /> {compact(p.reposts)}
           </button>
-          <button aria-label="Like" aria-pressed={!!p.liked} className="like" onClick={() => update(() => ((p.liked = !p.liked), (p.likes += p.liked ? 1 : -1)))}>
+          <button aria-label={t('like')} aria-pressed={!!p.liked} className="like" onClick={() => update(() => ((p.liked = !p.liked), (p.likes += p.liked ? 1 : -1)))}>
             <Heart size={17} fill={p.liked ? 'currentColor' : 'none'} /> {compact(p.likes)}
           </button>
-          <button aria-label="Share" onClick={() => share({ kind: 'Flock post', label: p.text.slice(0, 60), seed: p.pic })}>
+          <button aria-label={t('share')} onClick={() => share({ kind: t('kind_flock_post'), label: p.text.slice(0, 60), seed: p.pic })}>
             <Share size={17} />
           </button>
         </footer>
@@ -52,7 +53,7 @@ function PostView({ id }: { id: number }) {
   const p = s.flock.find((x) => x.id === id);
   if (!p) return null;
   return (
-    <Page title="Post" footer={<Composer placeholder="Post your reply" onSend={(text) => update(() => p.replies.push({ user: ME, text }))} />}>
+    <Page title={t('post')} footer={<Composer placeholder={t('flock_post_your_reply')} onSend={(text) => update(() => p.replies.push({ user: ME, text }))} />}>
       <PostCard id={id} full />
       {p.replies.map((r, i) => (
         <div key={i} className="post reply">
@@ -82,12 +83,12 @@ function Profile({ user }: { user: string }) {
         <div className="prof-top">
           <Avatar name={u.name} size={72} tint />
           {user === ME ? (
-            <button className="follow on" onClick={() => prompt('Edit Bio', 'Bio', (v) => update(() => (u.bio = v)), u.bio)}>
-              Edit profile
+            <button className="follow on" onClick={() => prompt(t('edit_bio'), t('bio'), (v) => update(() => (u.bio = v)), u.bio)}>
+              {t('flock_edit_profile')}
             </button>
           ) : (
             <span className="prof-btns">
-              <button className="follow on icon" aria-label="Message" onClick={() => nav.push(<DMChat app="flock" id={openDM('flock', user)} />)}>
+              <button className="follow on icon" aria-label={t('message')} onClick={() => nav.push(<DMChat app="flock" id={openDM('flock', user)} />)}>
                 <Mail size={18} />
               </button>
               <FollowBtn user={user} />
@@ -100,10 +101,10 @@ function Profile({ user }: { user: string }) {
         <span className="muted">@{user}</span>
         <p>{u.bio}</p>
         <p className="muted">
-          <b>{compact(u.following)}</b> Following · <b>{compact(u.followers)}</b> Followers
+          <b>{compact(u.following)}</b>{' '}{t('following')}{' '}<b>{compact(u.followers)}</b>{' '}{t('followers')}
         </p>
       </div>
-      {posts.length ? posts.map((p) => <PostCard key={p.id} id={p.id} />) : <Empty icon={<Feather size={40} />} title="No posts yet" />}
+      {posts.length ? posts.map((p) => <PostCard key={p.id} id={p.id} />) : <Empty icon={<Feather size={40} />} title={t('flock_no_posts_yet')} />}
     </Page>
   );
 }
@@ -114,12 +115,12 @@ function ComposeSheet({ onClose }: { onClose: () => void }) {
   const [pick, setPick] = useState(false);
   const post = () => update((s) => s.flock.unshift({ id: uid(), user: ME, text: text.trim(), time: Date.now(), likes: 0, reposts: 0, pic, replies: [] }));
   return (
-    <Sheet title="New Post" onClose={onClose} action={{ label: 'Post', disabled: !text.trim() || text.length > 280, run: post }}>
+    <Sheet title={t('new_post')} onClose={onClose} action={{ label: t('post'), disabled: !text.trim() || text.length > 280, run: post }}>
       <div className="compose">
-        <textarea autoFocus aria-label="Post text" placeholder="What’s happening?" value={text} onChange={(e) => setText(e.target.value)} />
-        {pic != null && <Pic seed={pic} className="post-pic" onClick={() => setPic(undefined)} alt="Remove photo" />}
+        <textarea autoFocus aria-label={t('flock_post_text')} placeholder={t('flock_whats_happening')} value={text} onChange={(e) => setText(e.target.value)} />
+        {pic != null && <Pic seed={pic} className="post-pic" onClick={() => setPic(undefined)} alt={t('flock_remove_photo')} />}
         <div className="compose-bar">
-          <button aria-label="Add photo" onClick={() => setPick(true)}>
+          <button aria-label={t('flock_add_photo')} onClick={() => setPick(true)}>
             <ImageIcon size={22} />
           </button>
           <span className={text.length > 280 ? 'danger' : 'muted'}>{280 - text.length}</span>
@@ -138,7 +139,7 @@ function Feed() {
       {s.flock.map((p) => (
         <PostCard key={p.id} id={p.id} />
       ))}
-      <button className="fab" aria-label="New post" onClick={() => setCompose(true)}>
+      <button className="fab" aria-label={t('new_post_2')} onClick={() => setCompose(true)}>
         <Feather size={24} />
       </button>
       {compose && <ComposeSheet onClose={() => setCompose(false)} />}
@@ -154,16 +155,16 @@ function Explore() {
   const people = Object.entries(s.users).filter(([h, u]) => term && `${h} ${u.name}`.toLowerCase().includes(term));
   const posts = s.flock.filter((p) => term && p.text.toLowerCase().includes(term));
   return (
-    <Page title="Search" large className="flush">
-      <Search value={q} onChange={setQ} placeholder="Search Flock" />
+    <Page title={t('search')} large className="flush">
+      <Search value={q} onChange={setQ} placeholder={t('flock_search_flock')} />
       {!term && (
         <div className="trends">
-          <h2>Trends for you</h2>
+          <h2>{t('flock_trends_for_you')}</h2>
           {trends.map(([tag, n]) => (
             <button key={tag} onClick={() => setQ(tag)}>
-              <small>Trending in Los Santos</small>
+              <small>{t('flock_trending_in_los_santos')}</small>
               <b>{tag}</b>
-              <small>{n} posts</small>
+              <small>{n}{' '}{t('flock_posts')}</small>
             </button>
           ))}
         </div>
@@ -181,7 +182,7 @@ function Explore() {
       {posts.map((p) => (
         <PostCard key={p.id} id={p.id} />
       ))}
-      {term && !people.length && !posts.length && <Empty icon={<SearchIcon size={40} />} title="No results" text={`Nothing matches “${q}”.`} />}
+      {term && !people.length && !posts.length && <Empty icon={<SearchIcon size={40} />} title={t('flock_no_results')} text={t('nothing_matches_q', { q })} />}
     </Page>
   );
 }
@@ -191,7 +192,7 @@ function Activity() {
   const mine = s.flock.filter((p) => p.user === ME);
   const items = mine.flatMap((p) => [...p.replies.map((r) => ({ user: r.user, what: `replied: ${r.text}`, icon: 'reply' })), { user: 'gia', what: `liked your post “${p.text.slice(0, 32)}”`, icon: 'like' }]);
   return (
-    <Page title="Notifications" large className="flush">
+    <Page title={t('notifications')} large className="flush">
       {items.map((it, i) => (
         <div key={i} className="post reply">
           <Avatar name={s.users[it.user].name} size={36} tint />
@@ -203,7 +204,7 @@ function Activity() {
           {it.icon === 'like' ? <Heart size={18} className="danger" fill="currentColor" /> : <MessageCircle size={18} className="tint" />}
         </div>
       ))}
-      {!items.length && <Empty icon={<Bell size={40} />} title="Nothing yet" text="Likes and replies show up here." />}
+      {!items.length && <Empty icon={<Bell size={40} />} title={t('flock_nothing_yet')} text={t('flock_likes_and_replies_show_up_here')} />}
     </Page>
   );
 }
@@ -212,11 +213,11 @@ export function FlockApp() {
   return (
     <Tabs
       tabs={[
-        { id: 'home', label: 'Home', icon: <House size={24} />, view: <Feed /> },
-        { id: 'search', label: 'Search', icon: <SearchIcon size={24} />, view: <Explore /> },
-        { id: 'activity', label: 'Activity', icon: <Bell size={24} />, view: <Activity /> },
-        { id: 'dms', label: 'Messages', icon: <Mail size={24} />, view: <DMList app="flock" /> },
-        { id: 'me', label: 'Profile', icon: <User size={24} />, view: <Profile user={ME} /> },
+        { id: 'home', label: t('home'), icon: <House size={24} />, view: <Feed /> },
+        { id: 'search', label: t('search'), icon: <SearchIcon size={24} />, view: <Explore /> },
+        { id: 'activity', label: t('flock_activity'), icon: <Bell size={24} />, view: <Activity /> },
+        { id: 'dms', label: t('messages'), icon: <Mail size={24} />, view: <DMList app="flock" /> },
+        { id: 'me', label: t('profile'), icon: <User size={24} />, view: <Profile user={ME} /> },
       ]}
     />
   );

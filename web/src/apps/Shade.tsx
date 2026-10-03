@@ -2,6 +2,7 @@ import { Ghost, Hash, Plus } from 'lucide-react';
 import { sfx } from '../sound';
 import { confirm, fmtAgo, preview, prompt, uid, update, useS } from '../store';
 import { Bubbles, Composer, Empty, Page, Stack, useNav } from '../ui';
+import { t } from '../i18n';
 
 const ANON = ['vx', 'needle', 'anon_882', 'static', 'k0i'];
 const LINES = ['who’s asking', 'not here.', 'price?', 'heard the same thing', 'delete that', 'meet at the usual spot'];
@@ -22,13 +23,13 @@ function Channel({ id }: { id: number }) {
       title={`#${ch.name}`}
       back=""
       right={
-        <button className="danger" onClick={() => confirm(`Leave #${ch.name}`, 'You will stop receiving messages from this channel.', 'Leave', () => (nav.pop(), update((x) => (x.shade.channels = x.shade.channels.filter((c) => c !== ch)))))}>
-          Leave
+        <button className="danger" onClick={() => confirm(t('shade_leave_name', { name: ch.name }), t('shade_you_will_stop_receiving_messages_from'), t('shade_leave'), () => (nav.pop(), update((x) => (x.shade.channels = x.shade.channels.filter((c) => c !== ch)))))}>
+          {t('shade_leave')}
         </button>
       }
-      footer={<Composer placeholder={`Message as ${s.shade.alias}`} onSend={send} />}
+      footer={<Composer placeholder={t('shade_message_as_alias', { alias: s.shade.alias })} onSend={send} />}
     >
-      <Bubbles msgs={ch.msgs} who={(from) => from} empty="No messages. Nothing is logged here." />
+      <Bubbles msgs={ch.msgs} who={(from) => from} empty={t('shade_no_messages_nothing_is_logged_here')} />
     </Page>
   );
 }
@@ -37,7 +38,7 @@ function Channels() {
   const s = useS();
   const nav = useNav();
   const join = () =>
-    prompt('Join Channel', 'channel-name', (v) => {
+    prompt(t('shade_join_channel'), t('shade_channel_name'), (v) => {
       const name = v.toLowerCase().replace(/[^a-z0-9_-]/g, '');
       if (!name) return;
       const ch = s.shade.channels.find((c) => c.name === name) ?? { id: uid(), name, members: 1, msgs: [] };
@@ -46,21 +47,21 @@ function Channels() {
     });
   return (
     <Page
-      title="Shade"
+      title={t('shade_shade')}
       large
       right={
-        <button aria-label="Join channel" onClick={join}>
+        <button aria-label={t('shade_join_channel_2')} onClick={join}>
           <Plus size={24} />
         </button>
       }
     >
-      <button className="shade-alias" onClick={() => prompt('Change Alias', 'alias', (v) => update((x) => (x.shade.alias = v.replace(/\s+/g, '_').toLowerCase())), s.shade.alias, 'Nobody sees your number or your name.')}>
+      <button className="shade-alias" onClick={() => prompt(t('shade_change_alias'), t('shade_alias'), (v) => update((x) => (x.shade.alias = v.replace(/\s+/g, '_').toLowerCase())), s.shade.alias, t('shade_nobody_sees_your_number_or_your'))}>
         <Ghost size={20} />
         <span>
-          <small>You appear as</small>
+          <small>{t('shade_you_appear_as')}</small>
           <b>{s.shade.alias}</b>
         </span>
-        <span className="tint">Change</span>
+        <span className="tint">{t('shade_change')}</span>
       </button>
       {s.shade.channels.length ? (
         <div className="list">
@@ -71,18 +72,18 @@ function Channels() {
               </span>
               <span className="row-main">
                 <span className="row-t">{ch.name}</span>
-                <span className="row-s">{ch.msgs.length ? preview(ch.msgs[ch.msgs.length - 1]) : 'No messages'}</span>
+                <span className="row-s">{ch.msgs.length ? preview(ch.msgs[ch.msgs.length - 1]) : t('shade_no_messages')}</span>
               </span>
               <span className="row-v">
                 {ch.msgs.length ? fmtAgo(ch.msgs[ch.msgs.length - 1].time) : ''}
                 <br />
-                {ch.members} online
+                {ch.members}{' '}{t('shade_online')}
               </span>
             </button>
           ))}
         </div>
       ) : (
-        <Empty icon={<Ghost size={44} />} title="No Channels" text="Tap + and enter a channel name to join." />
+        <Empty icon={<Ghost size={44} />} title={t('shade_no_channels')} text={t('shade_tap_and_enter_a_channel_name')} />
       )}
     </Page>
   );

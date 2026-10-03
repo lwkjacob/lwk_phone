@@ -3,6 +3,7 @@ import { LocateFixed, MapPin, Minus, Navigation, Plus, Share, X } from 'lucide-r
 import { places } from '../data';
 import { notify, share, view } from '../store';
 import { Search } from '../ui';
+import { t } from '../i18n';
 
 const ME = { x: 50, y: 66 };
 const SIZE = 900;
@@ -81,18 +82,18 @@ export function MapsApp() {
               <span>{p.name}</span>
             </button>
           ))}
-          <i className="m-me" style={{ left: `${ME.x}%`, top: `${ME.y}%` }} aria-label="Your location" />
+          <i className="m-me" style={{ left: `${ME.x}%`, top: `${ME.y}%` }} aria-label={t('maps_your_location')} />
         </div>
       </div>
 
       <div className="maps-ctl">
-        <button aria-label="My location" onClick={() => center(ME.x, ME.y)}>
+        <button aria-label={t('maps_my_location')} onClick={() => center(ME.x, ME.y)}>
           <LocateFixed size={20} />
         </button>
-        <button aria-label="Zoom in" onClick={() => setZoom((z) => Math.min(2.4, z + 0.3))}>
+        <button aria-label={t('maps_zoom_in')} onClick={() => setZoom((z) => Math.min(2.4, z + 0.3))}>
           <Plus size={20} />
         </button>
-        <button aria-label="Zoom out" onClick={() => setZoom((z) => Math.max(0.6, z - 0.3))}>
+        <button aria-label={t('maps_zoom_out')} onClick={() => setZoom((z) => Math.max(0.6, z - 0.3))}>
           <Minus size={20} />
         </button>
       </div>
@@ -104,10 +105,10 @@ export function MapsApp() {
               <div>
                 <h1>{place.name}</h1>
                 <p>
-                  {place.kind} · {(Math.hypot(place.x - ME.x, place.y - ME.y) * 0.21).toFixed(1)} km away
+                  {place.kind}{' '}{t('maps_n_km_away', { n: (Math.hypot(place.x - ME.x, place.y - ME.y) * 0.21).toFixed(1) })}
                 </p>
               </div>
-              <button aria-label="Close" className="maps-x" onClick={() => setSel(null)}>
+              <button aria-label={t('close')} className="maps-x" onClick={() => setSel(null)}>
                 <X size={16} strokeWidth={3} />
               </button>
             </header>
@@ -116,29 +117,29 @@ export function MapsApp() {
                 className="primary"
                 onClick={() => {
                   setRoute(route === place.id ? null : place.id);
-                  if (route !== place.id) notify({ app: 'maps', title: 'Waypoint set', body: `Route to ${place.name} is on your GPS.` });
+                  if (route !== place.id) notify({ app: 'maps', title: t('waypoint_set'), body: t('route_to_name_is_on_your', { name: place.name }) });
                 }}
               >
                 <Navigation size={18} fill="currentColor" />
-                {route === place.id ? 'Remove Waypoint' : 'Set Waypoint'}
+                {route === place.id ? t('maps_remove_waypoint') : t('set_waypoint')}
               </button>
-              <button onClick={() => share({ kind: 'Location', label: place.name })}>
+              <button onClick={() => share({ kind: t('kind_location'), label: place.name })}>
                 <Share size={18} />
-                Share
+                {t('share')}
               </button>
             </div>
           </>
         ) : (
           <>
-            <Search value={q} onChange={setQ} placeholder="Search Maps" />
+            <Search value={q} onChange={setQ} placeholder={t('maps_search_maps')} />
             <div className="maps-list">
-              <button onClick={() => share({ kind: 'Location', label: 'My Location · Legion Square' })}>
+              <button onClick={() => share({ kind: t('kind_location'), label: t('maps_my_location_legion_square') })}>
                 <span className="maps-dot blue">
                   <LocateFixed size={16} />
                 </span>
                 <span>
-                  <b>Share My Location</b>
-                  <small>Legion Square</small>
+                  <b>{t('share_my_location')}</b>
+                  <small>{t('maps_legion_square')}</small>
                 </span>
               </button>
               {list.map((p) => (

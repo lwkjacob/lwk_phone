@@ -4,6 +4,7 @@ import { APPS, AppIcon, appEvent } from '../apps';
 import { weather } from '../data';
 import { S, badge, confirm, openApp, startCall, update, useS, view } from '../store';
 import { Avatar, ClockFace, Search, WEATHER_ICONS, useDragScroll } from '../ui';
+import { t } from '../i18n';
 
 const WIDGET_APPS = ['weather', 'clock'];
 const has = (id: string) => S.apps.includes(id) || S.dock.includes(id);
@@ -26,7 +27,7 @@ function moveApp(id: string, target: string) {
 }
 
 function removeApp(id: string) {
-  confirm(`Remove “${APPS[id].name}”?`, 'The app is removed from your Home Screen. You can install it again from the App Store.', 'Remove', () =>
+  confirm(t('sys_remove_name', { name: APPS[id].name }), t('sys_the_app_is_removed_from_your'), t('remove'), () =>
     (appEvent(id, 'delete'), update((s) => (s.apps = s.apps.filter((x) => x !== id)))),
   );
 }
@@ -77,7 +78,7 @@ function HomeIcon({ id, dock }: { id: string; dock?: boolean }) {
   };
 
   return (
-    <button className="hicon" data-icon={id} data-nodrag={s.edit ? '' : undefined} onPointerDown={onDown} onClick={onClick} aria-label={count ? `${def.name}, ${count} new` : def.name}>
+    <button className="hicon" data-icon={id} data-nodrag={s.edit ? '' : undefined} onPointerDown={onDown} onClick={onClick} aria-label={count ? t('sys_name_count_new', { name: def.name, count }) : def.name}>
       <span className="hicon-ic">
         <AppIcon id={id} size={60} />
         {!!count && <span className="badge">{count}</span>}
@@ -107,7 +108,7 @@ function Widgets() {
             H:{weather.hi}° L:{weather.lo}°
           </span>
         </span>
-        <span className="hicon-name">Weather</span>
+        <span className="hicon-name">{t('sys_weather')}</span>
       </button>
       )}
       {has('clock') && (
@@ -115,7 +116,7 @@ function Widgets() {
         <span className="widget-box w-clock">
           <ClockFace size={138} numbers />
         </span>
-        <span className="hicon-name">Clock</span>
+        <span className="hicon-name">{t('sys_clock')}</span>
       </button>
       )}
     </>
@@ -129,12 +130,12 @@ function Spotlight() {
   const ids = [...s.dock, ...s.apps].filter((id) => APPS[id].name.toLowerCase().includes(term));
   const people = term ? s.contacts.filter((c) => c.name.toLowerCase().includes(term) || c.number.includes(term)) : [];
   return (
-    <div className="spot" role="dialog" aria-label="Search">
+    <div className="spot" role="dialog" aria-label={t('search')}>
       <div className="spot-bar">
         <Search value={q} onChange={setQ} autoFocus />
-        <button onClick={() => update((x) => (x.search = false))}>Cancel</button>
+        <button onClick={() => update((x) => (x.search = false))}>{t('cancel')}</button>
       </div>
-      {ids.length > 0 && <h3>{term ? 'Applications' : 'Suggestions'}</h3>}
+      {ids.length > 0 && <h3>{term ? t('sys_applications') : t('sys_suggestions')}</h3>}
       <div className="spot-apps">
         {(term ? ids : ids.slice(0, 8)).map((id) => (
           <button key={id} onClick={(e) => openApp(id, e.currentTarget)}>
@@ -145,7 +146,7 @@ function Spotlight() {
       </div>
       {people.length > 0 && (
         <>
-          <h3>Contacts</h3>
+          <h3>{t('contacts')}</h3>
           <div className="spot-list">
             {people.map((c) => (
               <button key={c.id} onClick={() => (update((x) => (x.search = false)), startCall(c.number))}>
@@ -160,7 +161,7 @@ function Spotlight() {
           </div>
         </>
       )}
-      {term && !ids.length && !people.length && <p className="spot-none">No results for “{q}”</p>}
+      {term && !ids.length && !people.length && <p className="spot-none">{t('sys_no_results_for_q', { q })}</p>}
     </div>
   );
 }
@@ -203,12 +204,12 @@ export function Home() {
       {scrolling && pages.length > 1 ? (
         <div className="home-pill dots">
           {pages.map((_, i) => (
-            <button key={i} aria-label={`Page ${i + 1}`} aria-current={i === page ? 'page' : undefined} onClick={() => goTo(i)} />
+            <button key={i} aria-label={t('sys_page_x', { x: i + 1 })} aria-current={i === page ? 'page' : undefined} onClick={() => goTo(i)} />
           ))}
         </div>
       ) : (
         <button className="home-pill" onClick={() => update((x) => (x.search = true))}>
-          <SearchIcon size={11} strokeWidth={3} /> Search
+          <SearchIcon size={11} strokeWidth={3} />{' '}{t('search')}
         </button>
       )}
       <div className="dock">
@@ -218,7 +219,7 @@ export function Home() {
       </div>
       {s.edit && (
         <button className="home-done" onClick={() => update((x) => (x.edit = false))}>
-          Done
+          {t('done')}
         </button>
       )}
       {s.search && <Spotlight />}

@@ -2,20 +2,21 @@ import { useState } from 'react';
 import { Mail as MailIcon, Reply, SquarePen, Trash2 } from 'lucide-react';
 import { fmtAgo, fmtTime, uid, update, useS } from '../store';
 import { Avatar, Empty, Field, Page, Search, Seg, Sheet, Stack, useNav } from '../ui';
+import { t } from '../i18n';
 
 function Compose({ onClose, to = '', subject = '' }: { onClose: () => void; to?: string; subject?: string }) {
   const s = useS();
   const [addr, setAddr] = useState(to);
   const [sub, setSub] = useState(subject);
   const [body, setBody] = useState('');
-  const send = () => update((x) => x.mail.unshift({ id: uid(), from: addr, addr, subject: sub || '(No Subject)', body, time: Date.now(), read: true, sent: true }));
+  const send = () => update((x) => x.mail.unshift({ id: uid(), from: addr, addr, subject: sub || t('mail_no_subject'), body, time: Date.now(), read: true, sent: true }));
   return (
-    <Sheet title="New Message" onClose={onClose} action={{ label: 'Send', disabled: !/.+@.+/.test(addr), run: send }}>
+    <Sheet title={t('new_message')} onClose={onClose} action={{ label: t('send'), disabled: !/.+@.+/.test(addr), run: send }}>
       <div className="form">
-        <Field label="To:" value={addr} onChange={setAddr} type="email" placeholder="name@lsmail.net" />
-        <Field label="From:" value={s.me.email} onChange={() => {}} />
-        <Field label="Subject:" value={sub} onChange={setSub} />
-        <Field label="Message" value={body} onChange={setBody} area />
+        <Field label={t('to_2')} value={addr} onChange={setAddr} type="email" placeholder={t('name_lsmail_net')} />
+        <Field label={t('mail_from')} value={s.me.email} onChange={() => {}} />
+        <Field label={t('mail_subject')} value={sub} onChange={setSub} />
+        <Field label={t('message')} value={body} onChange={setBody} area />
       </div>
     </Sheet>
   );
@@ -29,13 +30,13 @@ function MailView({ id }: { id: number }) {
   if (!m) return null;
   return (
     <Page
-      back="Inbox"
+      back={t('mail_inbox')}
       footer={
         <div className="toolbar">
-          <button aria-label="Delete" onClick={() => (nav.pop(), update((x) => (x.mail = x.mail.filter((y) => y.id !== id))))}>
+          <button aria-label={t('delete')} onClick={() => (nav.pop(), update((x) => (x.mail = x.mail.filter((y) => y.id !== id))))}>
             <Trash2 size={22} />
           </button>
-          <button aria-label="Reply" onClick={() => setReply(true)}>
+          <button aria-label={t('mail_reply')} onClick={() => setReply(true)}>
             <Reply size={24} />
           </button>
         </div>
@@ -47,7 +48,7 @@ function MailView({ id }: { id: number }) {
           <div>
             <b>{m.from}</b>
             <small>
-              {m.sent ? 'To' : 'From'}: {m.addr}
+              {m.sent ? t('to') : t('mail_from_2')}: {m.addr}
             </small>
           </div>
           <time>{fmtTime(m.time, true)}</time>
@@ -70,12 +71,12 @@ function Inbox() {
   const unread = s.mail.filter((m) => !m.read && !m.sent).length;
   return (
     <Page
-      title={box === 'inbox' ? 'Inbox' : 'Sent'}
+      title={box === 'inbox' ? t('mail_inbox') : t('sent')}
       large
       footer={
         <div className="toolbar">
-          <span className="toolbar-note">{unread ? `${unread} Unread` : 'Updated Just Now'}</span>
-          <button aria-label="Compose" onClick={() => setCompose(true)}>
+          <span className="toolbar-note">{unread ? t('mail_unread_unread', { unread }) : t('mail_updated_just_now')}</span>
+          <button aria-label={t('mail_compose')} onClick={() => setCompose(true)}>
             <SquarePen size={22} />
           </button>
         </div>
@@ -83,7 +84,7 @@ function Inbox() {
     >
       <Search value={q} onChange={setQ} />
       <div className="pad-x">
-        <Seg value={box} onChange={setBox} options={[['inbox', 'Inbox'], ['sent', 'Sent']] as const} />
+        <Seg value={box} onChange={setBox} options={[['inbox', t('mail_inbox')], ['sent', t('sent')]] as const} />
       </div>
       {list.length ? (
         <div className="list convos">
@@ -102,7 +103,7 @@ function Inbox() {
           ))}
         </div>
       ) : (
-        <Empty icon={<MailIcon size={44} />} title="No Mail" text={q ? `Nothing matches “${q}”.` : 'This mailbox is empty.'} />
+        <Empty icon={<MailIcon size={44} />} title={t('mail_no_mail')} text={q ? t('nothing_matches_q', { q }) : t('mail_this_mailbox_is_empty')} />
       )}
       {compose && <Compose onClose={() => setCompose(false)} />}
     </Page>

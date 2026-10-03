@@ -4,6 +4,7 @@ import { ember as ALL, replies, type Spark } from '../data';
 import { sfx } from '../sound';
 import { confirm, preview, prompt, uid, update, useS, view } from '../store';
 import { Avatar, Bubbles, Composer, Empty, Group, Page, Pic, Row, Tabs, Toggle, useDragScroll, useNav } from '../ui';
+import { t } from '../i18n';
 
 const DECK = [...ALL];
 const profile = { bio: 'Mechanic. Night driver. Will fix your car, not your life.', visible: true };
@@ -28,7 +29,7 @@ function MatchChat({ id }: { id: number }) {
       }
       footer={<Composer onSend={send} />}
     >
-      <Bubbles msgs={m.msgs} empty={`You matched with ${m.name}. Say something.`} />
+      <Bubbles msgs={m.msgs} empty={t('ember_you_matched_with_name_say_something', { name: m.name })} />
     </Page>
   );
 }
@@ -76,18 +77,18 @@ function Discover() {
 
   if (match)
     return (
-      <div className="ember-match" role="dialog" aria-label="New match">
-        <h1>It’s a Match!</h1>
-        <p>You and {match.name} liked each other.</p>
+      <div className="ember-match" role="dialog" aria-label={t('ember_new_match')}>
+        <h1>{t('ember_its_a_match')}</h1>
+        <p>{t('ember_you_and_name_liked_each_other', { name: match.name })}</p>
         <div>
           <Avatar name={s.me.name} size={110} seed={21} />
           <Avatar name={match.name} size={110} seed={match.seeds[0]} />
         </div>
         <button className="btn" onClick={() => (nav.push(<MatchChat id={s.matches[0].id} />), setMatch(null))}>
-          Send a Message
+          {t('ember_send_a_message')}
         </button>
         <button className="btn ghost" onClick={() => setMatch(null)}>
-          Keep Swiping
+          {t('ember_keep_swiping')}
         </button>
       </div>
     );
@@ -95,11 +96,11 @@ function Discover() {
   return (
     <div className="ember">
       <header>
-        <Flame size={26} fill="currentColor" /> ember
+        <Flame size={26} fill="currentColor" />{' '}{t('ember_ember')}
       </header>
       <div className="ember-deck">
         {!top && (
-          <Empty icon={<Flame size={48} />} title="You’re all caught up" text="No more people nearby right now." />
+          <Empty icon={<Flame size={48} />} title={t('ember_youre_all_caught_up')} text={t('ember_no_more_people_nearby_right_now')} />
         )}
         {s.ember
           .slice(0, 2)
@@ -109,7 +110,7 @@ function Discover() {
             const dx = isTop ? (fly ? fly * 520 : x) : 0;
             return (
               <div key={p.id} className={`ember-card ${isTop && (fly || !x) ? 'ease' : ''}`} style={{ transform: `translateX(${dx}px) rotate(${dx / 18}deg)` }} onPointerDown={isTop ? onDown : undefined}>
-                <Pic seed={p.seeds[(isTop ? photo : 0) % p.seeds.length]} className="ugc" alt={`${p.name}'s photo`} />
+                <Pic seed={p.seeds[(isTop ? photo : 0) % p.seeds.length]} className="ugc" alt={t('ember_names_photo', { name: p.name })} />
                 {p.seeds.length > 1 && (
                   <div className="story-bars">
                     {p.seeds.map((_, i) => (
@@ -117,14 +118,14 @@ function Discover() {
                     ))}
                   </div>
                 )}
-                {isTop && x > 30 && <span className="stamp like">LIKE</span>}
-                {isTop && x < -30 && <span className="stamp nope">NOPE</span>}
+                {isTop && x > 30 && <span className="stamp like">{t('ember_like')}</span>}
+                {isTop && x < -30 && <span className="stamp nope">{t('ember_nope')}</span>}
                 <div className="ember-info">
                   <h2>
                     {p.name} <span>{p.age}</span>
                   </h2>
                   <p>
-                    <MapPin size={13} /> {p.dist} km away · {p.job}
+                    <MapPin size={13} /> {p.dist}{' '}{t('ember_km_away')}{' '}{p.job}
                   </p>
                   <p>{p.bio}</p>
                 </div>
@@ -135,16 +136,16 @@ function Discover() {
       <div className="ember-btns">
         {top ? (
           <>
-            <button className="nope" aria-label="Pass" onClick={() => swipe(-1)}>
+            <button className="nope" aria-label={t('ember_pass')} onClick={() => swipe(-1)}>
               <X size={32} strokeWidth={3.4} />
             </button>
-            <button className="like" aria-label="Like" onClick={() => swipe(1)}>
+            <button className="like" aria-label={t('like')} onClick={() => swipe(1)}>
               <Heart size={30} fill="currentColor" strokeWidth={0} />
             </button>
           </>
         ) : (
           <button className="btn" onClick={() => update((st) => (st.ember = [...DECK]))}>
-            Start Over
+            {t('ember_start_over')}
           </button>
         )}
       </div>
@@ -159,8 +160,8 @@ function Matches() {
   const fresh = s.matches.filter((m) => !m.msgs.length);
   const talking = s.matches.filter((m) => m.msgs.length);
   return (
-    <Page title="Matches" large>
-      <h2 className="sec-h ember-tint">New Matches</h2>
+    <Page title={t('ember_matches')} large>
+      <h2 className="sec-h ember-tint">{t('ember_new_matches')}</h2>
       <div className="stories" ref={row}>
         {fresh.map((m) => (
           <button key={m.id} onClick={() => nav.push(<MatchChat id={m.id} />)}>
@@ -168,9 +169,9 @@ function Matches() {
             {m.name}
           </button>
         ))}
-        {!fresh.length && <p className="muted pad-x">Keep swiping to find new matches.</p>}
+        {!fresh.length && <p className="muted pad-x">{t('ember_keep_swiping_to_find_new_matches')}</p>}
       </div>
-      <h2 className="sec-h ember-tint">Messages</h2>
+      <h2 className="sec-h ember-tint">{t('messages')}</h2>
       {talking.length ? (
         <div className="list convos">
           {talking.map((m) => (
@@ -184,7 +185,7 @@ function Matches() {
           ))}
         </div>
       ) : (
-        <Empty icon={<MessageCircle size={40} />} title="No conversations" text="Message a match to get things going." />
+        <Empty icon={<MessageCircle size={40} />} title={t('ember_no_conversations')} text={t('ember_message_a_match_to_get_things')} />
       )}
     </Page>
   );
@@ -193,19 +194,19 @@ function Matches() {
 function Me() {
   const s = useS();
   return (
-    <Page title="Profile" large>
+    <Page title={t('profile')} large>
       <div className="contact-hero">
         <Avatar name={s.me.name} size={120} seed={21} />
         <h1>{s.me.name.split(' ')[0]}, 28</h1>
         <p className="muted">{profile.bio}</p>
       </div>
       <Group>
-        <Row tone="tint" title="Edit Bio" onClick={() => prompt('Edit Bio', 'About you', (v) => update(() => (profile.bio = v)), profile.bio)} />
-        <Row title="Show Me on Ember" right={<Toggle label="Show me on Ember" on={profile.visible} onChange={(v) => update(() => (profile.visible = v))} />} />
-        <Row title="Maximum Distance" value="15 km" />
+        <Row tone="tint" title={t('edit_bio')} onClick={() => prompt(t('edit_bio'), t('ember_about_you'), (v) => update(() => (profile.bio = v)), profile.bio)} />
+        <Row title={t('ember_show_me_on_ember')} right={<Toggle label={t('ember_show_me_on_ember_2')} on={profile.visible} onChange={(v) => update(() => (profile.visible = v))} />} />
+        <Row title={t('ember_maximum_distance')} value={t('ember_15_km')} />
       </Group>
       <Group>
-        <Row tone="danger" title="Delete Account" onClick={() => confirm('Delete Account', 'Your matches and messages will be removed.', 'Delete', () => update((st) => (st.matches = [])))} />
+        <Row tone="danger" title={t('ember_delete_account')} onClick={() => confirm(t('ember_delete_account'), t('ember_your_matches_and_messages_will_be'), t('delete'), () => update((st) => (st.matches = [])))} />
       </Group>
     </Page>
   );
@@ -216,9 +217,9 @@ export function EmberApp() {
   return (
     <Tabs
       tabs={[
-        { id: 'discover', label: 'Discover', icon: <Flame size={24} fill="currentColor" />, view: <Discover /> },
-        { id: 'matches', label: 'Matches', icon: <MessageCircle size={24} fill="currentColor" strokeWidth={0} />, badge: s.matches.filter((m) => !m.msgs.length).length, view: <Matches /> },
-        { id: 'me', label: 'Profile', icon: <User size={24} fill="currentColor" strokeWidth={0} />, view: <Me /> },
+        { id: 'discover', label: t('ember_discover'), icon: <Flame size={24} fill="currentColor" />, view: <Discover /> },
+        { id: 'matches', label: t('ember_matches'), icon: <MessageCircle size={24} fill="currentColor" strokeWidth={0} />, badge: s.matches.filter((m) => !m.msgs.length).length, view: <Matches /> },
+        { id: 'me', label: t('profile'), icon: <User size={24} fill="currentColor" strokeWidth={0} />, view: <Me /> },
       ]}
     />
   );
