@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowUp, ChevronLeft, ChevronRight, Cloud, CloudRain, CloudSun, MapPin, Moon, Play, Search as SearchIcon, Sun, User } from 'lucide-react';
+import { ArrowUp, CircleAlert, WifiOff, ChevronLeft, ChevronRight, Cloud, CloudRain, CloudSun, MapPin, Moon, Play, Search as SearchIcon, Sun, User } from 'lucide-react';
 import type { Msg } from './data';
 import { sfx } from './sound';
 import { fmtAgo, fmtDur, fmtTime, money, uid, useNow, view } from './store';
@@ -209,6 +209,31 @@ export function ClockFace({ offset, size = 60, numbers }: { offset?: number; siz
   );
 }
 
+/** Placeholder in the rough shape of the content to come. Shapes, not a spinner: the layout does not jump when data lands. */
+export function Skeleton({ kind }: { kind: 'list' | 'grid' | 'feed' }) {
+  return (
+    <div className={`skel skel-${kind}`} role="status" aria-busy="true" aria-label={t('loading')}>
+      <i className="skel-title" />
+      {Array.from({ length: kind === 'grid' ? 12 : kind === 'feed' ? 3 : 7 }, (_, i) => (
+        <i key={i} className="skel-item" style={{ animationDelay: `${i * 60}ms` }} />
+      ))}
+    </div>
+  );
+}
+
+export function LoadError({ onRetry, offline }: { onRetry: () => void; offline?: boolean }) {
+  return (
+    <div className="skel load-error" role="alert">
+      <WifiOff size={44} />
+      <strong>{offline ? t('offline_title') : t('load_failed_title')}</strong>
+      <span>{offline ? t('offline_text') : t('load_failed_text')}</span>
+      <button className="btn soft" onClick={onRetry}>
+        {t('try_again')}
+      </button>
+    </div>
+  );
+}
+
 export function Empty({ icon, title, text }: { icon: ReactNode; title: string; text?: string }) {
   return (
     <div className="empty" role="status">
@@ -398,6 +423,11 @@ export function Bubbles({ msgs, who, typing, empty }: { msgs: Msg[]; who?: (from
                 </span>
               )}
             </div>
+            {x.failed && (
+              <span className="bub-failed">
+                <CircleAlert size={13} /> {t('not_delivered')}
+              </span>
+            )}
           </div>
         );
       })}

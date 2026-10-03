@@ -4,8 +4,9 @@ import { APPS, AppIcon, type AppDef } from '../apps';
 import { nearby, songs } from '../data';
 import { sfx } from '../sound';
 import { S, finishClose, fmtDur, fmtTime, goHome, lock, nameOf, openApp, sendMsg, tapNotif, unlock, update, useNow, useS, view, type AlertDef, type Notif, type ShareDef } from '../store';
+import { inGame, loadApp } from '../nui';
 import { theme } from '../theme';
-import { Avatar, Pic, Wave } from '../ui';
+import { Avatar, LoadError, Pic, Skeleton, Wave } from '../ui';
 import { CallScreen } from './Call';
 import { ControlCenter } from './ControlCenter';
 import { Home } from './Home';
@@ -84,6 +85,19 @@ class Guard extends Component<{ children: ReactNode }, { failed: boolean }> {
   }
 }
 
+/** Shows a placeholder while an app's data is on its way, and a retry screen if it never arrives. */
+function Loaded({ def, children }: { def: AppDef; children: ReactNode }) {
+  const s = useS();
+  const state = s.loaded[def.id];
+  useEffect(() => {
+    if (def.data && !S.loaded[def.id]) loadApp(def.id);
+  }, [def]);
+  // In the browser on a "fast" network the data is already here: skip the placeholder rather than flash it.
+  if (!def.data || state === 'ready' || (!inGame && s.net === 'fast' && !s.settings.airplane && state !== 'error')) return <>{children}</>;
+  if (state === 'error') return <LoadError onRetry={() => loadApp(def.id)} offline={s.settings.airplane} />;
+  return <Skeleton kind={def.data} />;
+}
+
 function AppHost({ def, dark }: { def: AppDef; dark: boolean }) {
   const s = useS();
   const View = def.view;
@@ -97,7 +111,9 @@ function AppHost({ def, dark }: { def: AppDef; dark: boolean }) {
       onAnimationEnd={(e) => e.target === e.currentTarget && finishClose()}
     >
       <Guard>
-        <View />
+        <Loaded def={def}>
+          <View />
+        </Loaded>
       </Guard>
       {/* Sheets and full-screen viewers portal here: inside the app, so they animate and close with it. */}
       <div id="overlay" />

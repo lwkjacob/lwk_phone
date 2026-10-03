@@ -63,6 +63,7 @@ export function DevPanel() {
       <button onClick={() => window.postMessage({ action: 'setLocale', ui: (pseudo = !pseudo) ? pseudoLocale() : {} }, '*')}>Pseudo-language</button>
       <button onClick={() => fetchTheme(theme.name === 'Slate' ? './theme.json' : './themes/slate.json').then(applySkin)}>Skin: {theme.name}</button>
       <button onClick={() => update((x) => (x.settings.dark = !x.settings.dark))}>{s.settings.dark ? 'Light' : 'Dark'} appearance</button>
+      <button onClick={() => update((x) => ((x.net = x.net === 'fast' ? 'slow' : x.net === 'slow' ? 'fail' : 'fast'), (x.loaded = {})))}>Network: {s.net}</button>
       <button onClick={() => update((x) => (x.focus = !x.focus))}>{s.focus ? 'In-game position' : 'Centre and enlarge'}</button>
     </aside>
   );

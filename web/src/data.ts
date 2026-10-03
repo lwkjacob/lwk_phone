@@ -40,7 +40,7 @@ export const voicemail: Voicemail[] = [
   { id: 2, number: '555-0147', time: now - 4 * d, dur: 41, heard: true, text: 'This is the tow yard. Your vehicle is ready for pickup, fee is two fifty.' },
 ];
 
-export type Msg = { id: number; me?: boolean; from?: string; text?: string; pic?: number; loc?: string; money?: number; voice?: number; gif?: number; time: number };
+export type Msg = { id: number; me?: boolean; from?: string; text?: string; pic?: number; loc?: string; money?: number; voice?: number; gif?: number; time: number; failed?: boolean };
 export type Chat = { id: number; numbers: string[]; name?: string; msgs: Msg[]; unread: number; muted?: boolean };
 export const chats: Chat[] = [
   {

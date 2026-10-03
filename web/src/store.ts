@@ -54,6 +54,10 @@ export const S = {
   search: false,
   edit: false,
   flashlight: false,
+  /** Per-app data state. Missing means not requested yet. */
+  loaded: {} as Record<string, 'loading' | 'ready' | 'error'>,
+  /** Browser demo only: how the fake server behaves, to exercise loading and failure states. */
+  net: 'fast' as 'fast' | 'slow' | 'fail',
   /** A full-screen app (a game, say) asked for the home indicator to be hidden. It still works, it is just not drawn. */
   hideHomeBar: false,
   settings: {
@@ -347,12 +351,15 @@ export function sendMsg(chatId: number, msg: Partial<Msg>) {
     if (msg.money > S.wallet.balance) return alert({ title: t('insufficient_funds'), message: t('your_balance_is_too_low_for'), buttons: [{ label: t('ok'), kind: 'bold' }] });
     pay(-msg.money, nameOf(chat.numbers[0]));
   }
+  // No signal: the message stays in the thread, marked as not delivered.
+  const failed = S.settings.airplane || undefined;
   update((s) => {
-    chat.msgs.push({ ...msg, id: uid(), me: true, time: Date.now() });
+    chat.msgs.push({ ...msg, id: uid(), me: true, time: Date.now(), failed });
     s.chats = [chat, ...s.chats.filter((c) => c !== chat)];
   });
+  if (failed) return;
   sfx('sent');
-  if (S.settings.airplane || chat.numbers.length > 1) return;
+  if (chat.numbers.length > 1) return;
   // Mock: the contact types for a moment, then answers.
   window.setTimeout(() => update((s) => (s.typing = chatId)), 900);
   window.setTimeout(() => receiveMsg(chat.numbers[0], { text: D.replies[Math.floor(Math.random() * D.replies.length)] }), 2800);

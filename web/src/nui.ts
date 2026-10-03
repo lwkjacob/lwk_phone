@@ -1,6 +1,7 @@
 import { addCustomApp, applySkin, removeCustomApp, type CustomApp } from './apps';
 import { sendCustomAppMessage } from './apps/Custom';
 import { setLocale, type Strings } from './i18n';
+import { S, update } from './store';
 
 /* The bridge to the game. Lua talks to the phone with SendNUIMessage({ action = ..., ... });
  * the phone talks back by POSTing to https://<resource>/<event>. Outside FiveM both ends are faked:
@@ -16,6 +17,25 @@ export async function nuiFetch<T = unknown>(resource: string | null, event: stri
   const target = resource ?? (window as unknown as { GetParentResourceName: () => string }).GetParentResourceName();
   const res = await fetch(`https://${target}/${event}`, { method: 'POST', headers: { 'Content-Type': 'application/json; charset=UTF-8' }, body: JSON.stringify(data) });
   return res.json();
+}
+
+/**
+ * Fetch what an app needs before it can draw. In-game the reply is merged into the store
+ * (same shapes as data.ts). The browser has the mock data already, so it only simulates the wait.
+ */
+export async function loadApp(id: string) {
+  update((s) => (s.loaded[id] = 'loading'));
+  try {
+    if (S.settings.airplane) throw new Error('offline');
+    if (inGame) Object.assign(S, await nuiFetch<Partial<typeof S>>(null, 'appData', { app: id }));
+    else {
+      await new Promise((r) => window.setTimeout(r, S.net === 'fast' ? 0 : 1400));
+      if (S.net === 'fail') throw new Error('simulated failure');
+    }
+    update((s) => (s.loaded[id] = 'ready'));
+  } catch {
+    update((s) => (s.loaded[id] = 'error'));
+  }
 }
 
 type Incoming =
