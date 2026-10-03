@@ -227,6 +227,53 @@
   to { opacity: 0; }
 }
 
+/* The app's content layer. Sideways it is counter-rotated into an 852 x 393 box, so it reads upright. */
+.app-rot {
+  position: absolute;
+  inset: 0;
+}
+
+.app-rot.landscape {
+  inset: auto;
+  top: 0;
+  left: 393px;
+  width: 852px;
+  height: 393px;
+  transform-origin: top left;
+  transform: rotate(90deg);
+}
+
+.sys-rot {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+}
+
+.sys-rot > * { pointer-events: auto; }
+.sys-rot .banner:not(.show) { pointer-events: none; }
+.sys-rot.landscape .banner { left: 220px; right: 220px; top: 10px; }
+
+/* No status bar sideways; the home indicator moves to the long bottom edge. */
+.screen.landscape > .status,
+.screen.landscape > .homebar { display: none; }
+
+.homebar.land {
+  bottom: 0;
+  z-index: 40;
+  height: 21px;
+  color: #fff;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
+}
+
+.homebar.land i { margin-top: 9px; }
+
+/* Pages in general: no status bar to clear, and the camera cut-out is now on the left. */
+.app-rot.landscape .nav { height: 48px; padding: 0 16px 0 58px; }
+/* Tab bars are dropped sideways: the screens that rotate (viewer, camera, games) want the full height. */
+.app-rot.landscape .tabbar { display: none; }
+.app-rot.landscape .sheet { top: 14px; left: 120px; right: 120px; }
+
 #overlay {
   position: absolute;
   inset: 0;

@@ -53,6 +53,7 @@ export function CustomAppView({ id }: { id: string }) {
 
   useEffect(() => {
     nuiFetch(null, 'customApp', { identifier: id, event: 'open' });
+    if (APPS[id]?.custom?.landscape) update((x) => (x.landscape = true));
     return () => {
       frames.delete(id);
       update((x) => (x.hideHomeBar = false));
@@ -139,8 +140,10 @@ export function CustomAppView({ id }: { id: string }) {
       Object.assign(w, api);
       w.document.documentElement.dataset.theme = theme;
       // Room for the status bar and home indicator, which draw over the app.
-      w.document.documentElement.style.setProperty('--safe-top', '54px');
-      w.document.documentElement.style.setProperty('--safe-bottom', '34px');
+      // Sideways the camera cut-out is on the left and there is no status bar.
+      w.document.documentElement.style.setProperty('--safe-top', app.landscape ? '0px' : '54px');
+      w.document.documentElement.style.setProperty('--safe-bottom', app.landscape ? '21px' : '34px');
+      w.document.documentElement.style.setProperty('--safe-left', app.landscape ? '54px' : '0px');
     } catch (err) {
       console.warn(`[phone] could not reach the page of "${id}" to hand it the phone API`, err);
     }

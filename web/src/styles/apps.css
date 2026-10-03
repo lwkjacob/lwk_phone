@@ -249,6 +249,7 @@
 }
 
 .cam-top [aria-pressed='true'] { background: #ffd60a; color: #000; }
+.cam-top > button:last-child[aria-pressed='true'] { background: #fff; }
 
 .cam-timer {
   padding: 3px 9px;
@@ -372,6 +373,23 @@
   align-items: center;
   justify-content: center;
 }
+
+/* Sideways camera: viewfinder across the screen, controls in a column on the right. */
+.cam-side { flex: none; }
+.app-rot.landscape .cam { flex-direction: row; }
+.app-rot.landscape .cam-top { flex-direction: column; width: 104px; height: auto; padding: 22px 0 22px 54px; }
+.app-rot.landscape .cam-side { width: 132px; display: flex; flex-direction: column; justify-content: center; }
+.app-rot.landscape .cam-modes { padding: 0 0 10px; }
+.app-rot.landscape .cam-modes .seg { flex-direction: column; }
+.app-rot.landscape .cam-bottom { flex: 1; height: auto; flex-direction: column-reverse; padding: 6px 0 22px; }
+.app-rot.landscape .cam-zoom { left: auto; right: 12px; bottom: 50%; transform: translateY(50%); flex-direction: column; }
+
+/* Sideways viewer: the picture gets the whole screen, controls float over it. */
+.app-rot.landscape .viewer .nav { position: absolute; top: 0; left: 0; right: 0; z-index: 2; background: linear-gradient(rgba(0, 0, 0, 0.45), transparent); }
+.app-rot.landscape .viewer .nav, .app-rot.landscape .viewer .nav button, .app-rot.landscape .viewer .nav-t { color: #fff; }
+.app-rot.landscape .viewer-strip { display: none; }
+.app-rot.landscape .viewer-foot { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; }
+.app-rot.landscape .viewer-foot .toolbar { padding: 8px 80px 24px; background: linear-gradient(transparent, rgba(0, 0, 0, 0.5)); color: #fff; }
 
 /* ---------- Messages + Mail ---------- */
 

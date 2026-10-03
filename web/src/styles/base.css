@@ -256,7 +256,7 @@ figure {
   height: calc(878px * var(--k));
   /* Closed: parked below the screen edge. */
   transform: translateY(calc(878px * var(--k) + 8vh));
-  transition: transform 0.55s var(--ease);
+  transition: transform 0.55s var(--ease), width 0.5s var(--ease), height 0.5s var(--ease), margin 0.5s var(--ease);
 }
 
 .phone.focus {
@@ -267,6 +267,15 @@ figure {
 .phone.open {
   transform: none;
 }
+
+/* Sideways: the body turns a quarter-turn anticlockwise and the container takes the swapped footprint. */
+.phone.landscape {
+  width: calc(878px * var(--k));
+  height: calc(419px * var(--k));
+}
+
+.phone.focus.landscape { margin-right: calc(-439px * var(--k)); }
+.phone.landscape .phone-body { transform: translateY(419px) rotate(-90deg); }
 
 /* A notification arrives while the phone is away: lift just the top of it into view. */
 .phone.peek {
@@ -281,6 +290,8 @@ figure {
   height: 878px;
   padding: 5px;
   border-radius: 68px;
+  transform-origin: top left;
+  transition: transform 0.5s var(--ease);
   background:
     linear-gradient(90deg, rgba(0, 0, 0, 0.3), rgba(255, 255, 255, 0.5) 5%, rgba(255, 255, 255, 0.08) 18%, rgba(255, 255, 255, 0.08) 82%, rgba(255, 255, 255, 0.5) 95%, rgba(0, 0, 0, 0.3)),
     linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 10%, rgba(0, 0, 0, 0.06) 90%, rgba(0, 0, 0, 0.28)),

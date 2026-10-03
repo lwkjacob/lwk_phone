@@ -54,6 +54,8 @@ export const S = {
   search: false,
   edit: false,
   flashlight: false,
+  /** The phone is held sideways. Only some screens ask for this: Camera, the photo viewer, community apps with `landscape`. */
+  landscape: false,
   /** First-run setup still to do. */
   setup: !window.localStorage.getItem('phone.setup'),
   /** Per-app data state. Missing means not requested yet. */
@@ -199,6 +201,7 @@ export function openApp(id: string, from?: Element | null, arg?: Record<string, 
   update((s) => {
     s.app = id;
     s.closing = false;
+    s.landscape = false;
     s.origin = origin;
     s.arg = arg ?? null;
     s.cc = s.nc = s.search = s.edit = false;
@@ -218,7 +221,10 @@ export function goHome() {
   update((s) => {
     if (s.cc || s.nc || s.search) s.cc = s.nc = s.search = false;
     else if (s.call && !s.call.min && s.call.state !== 'incoming') s.call.min = true;
-    else if (s.app) s.closing = true;
+    else if (s.app) {
+      s.closing = true;
+      s.landscape = false;
+    }
     else s.edit = false;
   });
   // The animation's end event normally unmounts the app. If that event never arrives (throttled or
@@ -233,7 +239,7 @@ export function lock() {
   sfx('lock');
   update((s) => {
     s.locked = true;
-    s.cc = s.nc = s.search = s.edit = s.passPad = false;
+    s.cc = s.nc = s.search = s.edit = s.passPad = s.landscape = false;
     // An app's open dialog must not float over the lock screen.
     s.ui.alert = s.ui.actions = s.ui.share = null;
   });

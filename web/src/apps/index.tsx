@@ -115,6 +115,8 @@ export type CustomApp = {
   /** "resource-name/ui/index.html". Leave out for an app that only runs a function when tapped. */
   ui?: string;
   icon?: string;
+  /** Open sideways, for games and video. */
+  landscape?: boolean;
   /** In-game money charged on install. */
   price?: number;
   /** Apps without a UI close the phone when tapped unless this is set. */

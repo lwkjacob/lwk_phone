@@ -16,7 +16,7 @@ import { t } from '../i18n';
 
 const H = 878; // screen 852 + bezel
 
-function useScale(size: number, focus: boolean) {
+function useScale(size: number, focus: boolean, landscape: boolean) {
   const [vp, setVp] = useState([window.innerWidth, window.innerHeight]);
   useEffect(() => {
     const f = () => setVp([window.innerWidth, window.innerHeight]);
@@ -24,12 +24,13 @@ function useScale(size: number, focus: boolean) {
     return () => window.removeEventListener('resize', f);
   }, []);
   // In-game the phone takes ~72% of the screen height, like other FiveM phones.
-  return Math.min((vp[1] * (focus ? 0.94 : 0.72)) / H, (vp[0] * 0.92) / 419) * size;
+  // Sideways, the long edge runs across the screen, so width becomes the limit.
+  return Math.min((vp[1] * (focus ? 0.94 : 0.72)) / (landscape ? 419 : H), (vp[0] * 0.92) / (landscape ? H : 419), landscape ? (vp[1] * 0.72) / 419 : Infinity) * size;
 }
 
 export function Phone() {
   const s = useS();
-  const k = useScale(s.settings.size, s.focus);
+  const k = useScale(s.settings.size, s.focus, s.landscape);
   const def = s.app ? APPS[s.app] : null;
   const dark = def ? (def.dark ?? s.settings.dark) : s.settings.dark;
   const callUp = !!s.call && !s.call.min;
@@ -38,7 +39,7 @@ export function Phone() {
   view.k = k;
 
   return (
-    <div className={`phone ${s.open ? 'open' : peek ? 'peek' : ''} ${s.focus ? 'focus' : ''}`} style={{ '--k': k } as CSSProperties} aria-hidden={!s.open && !peek}>
+    <div className={`phone ${s.open ? 'open' : peek ? 'peek' : ''} ${s.focus ? 'focus' : ''} ${s.landscape ? 'landscape' : ''}`} style={{ '--k': k } as CSSProperties} aria-hidden={!s.open && !peek}>
       {/* zoom, not transform: scale(). Zoom re-lays the phone out at its real size, so text and hairlines land on device pixels and stay sharp. */}
       <div className="phone-body" style={{ zoom: k, '--frame': s.settings.frame === 'custom' ? s.settings.frameColor : undefined } as CSSProperties} data-frame={s.settings.frame}>
       <button className="hw hw-action" tabIndex={-1} aria-label={t('sys_toggle_silent_mode')} onClick={() => update((x) => (x.settings.silent = !x.settings.silent))} />
@@ -46,7 +47,7 @@ export function Phone() {
       <button className="hw hw-down" tabIndex={-1} aria-label={t('sys_volume_down')} onClick={() => update((x) => (x.settings.volume = Math.max(0, x.settings.volume - 0.1)))} />
       <button className="hw hw-power" tabIndex={-1} aria-label={t('sys_lock')} onClick={() => (S.locked ? unlock() : lock())} />
       <div className="bezel">
-        <div id="screen" data-island={theme.island} className={`screen ${lightBar ? 'bar-light' : 'bar-dark'} ${s.settings.streamer ? 'streamer' : ''}`} data-theme={s.settings.dark ? 'dark' : 'light'}>
+        <div id="screen" data-island={theme.island} className={`screen ${s.landscape ? 'landscape' : ''} ${lightBar ? 'bar-light' : 'bar-dark'} ${s.settings.streamer ? 'streamer' : ''}`} data-theme={s.settings.dark ? 'dark' : 'light'}>
           {/* Hidden once something opaque covers it: nothing to composite, and no colour fringe at the rounded corners. */}
           <div className={`wall ${s.locked || (def && !s.closing) ? 'covered' : ''}`} data-wall={s.settings.wallpaper} />
           <Home />
@@ -56,12 +57,15 @@ export function Phone() {
           <CallScreen />
           <NotificationCenter />
           <ControlCenter />
-          <Banner />
           <EdgeZones />
           <StatusBar />
           <Island />
           <HomeBar />
-          <Dialogs />
+          {/* Banners and dialogs turn with the content, so they read upright when the phone is sideways. */}
+          <div className={`sys-rot ${s.landscape ? 'app-rot landscape' : ''}`}>
+            <Banner />
+            <Dialogs />
+          </div>
           <div className="screen-dim" style={{ opacity: (1 - s.settings.brightness) * 0.75 }} />
         </div>
       </div>
@@ -112,13 +116,21 @@ function AppHost({ def, dark }: { def: AppDef; dark: boolean }) {
       style={{ transformOrigin: `${s.origin.x}px ${s.origin.y}px`, '--sx': s.origin.w ? s.origin.w / 393 : 0.15, '--sy': s.origin.h ? s.origin.h / 852 : 0.15 } as CSSProperties}
       onAnimationEnd={(e) => e.target === e.currentTarget && finishClose()}
     >
-      <Guard>
-        <Loaded def={def}>
-          <View />
-        </Loaded>
-      </Guard>
-      {/* Sheets and full-screen viewers portal here: inside the app, so they animate and close with it. */}
-      <div id="overlay" />
+      {/* Counter-rotated when the phone is sideways, so the app lays out for an 852 x 393 screen. */}
+      <div className={`app-rot ${s.landscape ? 'landscape' : ''}`}>
+        <Guard>
+          <Loaded def={def}>
+            <View />
+          </Loaded>
+        </Guard>
+        {/* Sheets and full-screen viewers portal here: inside the app, so they animate and close with it. */}
+        <div id="overlay" />
+        {s.landscape && (
+          <button className="homebar land" aria-label={t('home')} onClick={goHome}>
+            <i />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -200,7 +212,7 @@ function EdgeZones() {
     const y = e.clientY;
     window.addEventListener('pointerup', (u) => u.clientY - y > -8 && update((x) => ((x.cc = x.nc = false), (x[which] = true))), { once: true });
   };
-  if (s.cc || s.nc || (s.call && !s.call.min)) return null;
+  if (s.cc || s.nc || s.landscape || (s.call && !s.call.min)) return null;
   return (
     <>
       {!s.locked && <button className="edge edge-l" aria-label={t('sys_open_notification_center')} onPointerDown={pull('nc')} />}

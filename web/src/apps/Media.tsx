@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Heart, Image as ImageIcon, Play, Share, SwitchCamera, Trash2, Video, Zap, ZapOff } from 'lucide-react';
+import { Heart, Image as ImageIcon, Play, RotateCw, Share, SwitchCamera, Trash2, Video, Zap, ZapOff } from 'lucide-react';
 import type { Photo } from '../data';
 import { sfx } from '../sound';
 import { S, addPhoto, confirm, fmtDur, fmtTime, openApp, share, update, useNow, useS } from '../store';
@@ -59,6 +59,9 @@ function Viewer({ id, album }: { id: number; album: string }) {
             </button>
             <button aria-label={t('media_favorite')} aria-pressed={!!p.fav} onClick={() => update(() => (p.fav = !p.fav))}>
               <Heart size={24} fill={p.fav ? 'currentColor' : 'none'} />
+            </button>
+            <button className="plain" aria-label={t('rotate')} aria-pressed={s.landscape} onClick={() => update((x) => (x.landscape = !x.landscape))}>
+              <RotateCw size={24} />
             </button>
             <button aria-label={t('delete')} onClick={() => confirm(p.video ? t('media_delete_video') : t('media_delete_photo'), t('media_this_item_will_be_deleted_from'), t('delete'), () => update((x) => (x.photos = x.photos.filter((y) => y !== p))))}>
               <Trash2 size={24} />
@@ -201,7 +204,9 @@ export function CameraApp() {
           {flash ? <Zap size={18} fill="currentColor" /> : <ZapOff size={18} />}
         </button>
         {rec != null && <span className="cam-timer">{fmtDur((now - rec) / 1000)}</span>}
-        <span />
+        <button aria-label={t('rotate')} aria-pressed={s.landscape} onClick={() => update((x) => (x.landscape = !x.landscape))}>
+          <RotateCw size={18} />
+        </button>
       </div>
       <div className="cam-view">
         <Pic seed={seed} className="cam-scene" alt={t('media_viewfinder')} style={{ transform: `scale(${zoom})` }} />
@@ -215,6 +220,7 @@ export function CameraApp() {
           ))}
         </div>
       </div>
+      <div className="cam-side">
       <div className="cam-modes">
         <Seg value={mode} onChange={(m) => rec == null && setMode(m)} options={[['video', t('media_video')], ['photo', t('media_photo_2')]] as const} />
       </div>
@@ -228,6 +234,7 @@ export function CameraApp() {
         <button className="cam-flip" aria-label={t('media_flip_camera')} onClick={() => setSelfie(!selfie)}>
           <SwitchCamera size={24} />
         </button>
+      </div>
       </div>
     </div>
   );
