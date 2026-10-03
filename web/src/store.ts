@@ -54,6 +54,8 @@ export const S = {
   search: false,
   edit: false,
   flashlight: false,
+  /** First-run setup still to do. */
+  setup: !window.localStorage.getItem('phone.setup'),
   /** Per-app data state. Missing means not requested yet. */
   loaded: {} as Record<string, 'loading' | 'ready' | 'error'>,
   /** Browser demo only: how the fake server behaves, to exercise loading and failure states. */
@@ -235,6 +237,13 @@ export function lock() {
     // An app's open dialog must not float over the lock screen.
     s.ui.alert = s.ui.actions = s.ui.share = null;
   });
+}
+
+/** Setup finished: remember it and go straight to the home screen. */
+export function finishSetup() {
+  // ponytail: remembered per browser. In-game the server should store this per phone and send it with the phone's data.
+  window.localStorage.setItem('phone.setup', 'done');
+  update((s) => ((s.setup = false), (s.locked = false)));
 }
 
 export function unlock(force = false) {

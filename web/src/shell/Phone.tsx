@@ -11,6 +11,7 @@ import { CallScreen } from './Call';
 import { ControlCenter } from './ControlCenter';
 import { Home } from './Home';
 import { Lock, NotificationCenter } from './Lock';
+import { Setup } from './Setup';
 import { t } from '../i18n';
 
 const H = 878; // screen 852 + bezel
@@ -32,7 +33,7 @@ export function Phone() {
   const def = s.app ? APPS[s.app] : null;
   const dark = def ? (def.dark ?? s.settings.dark) : s.settings.dark;
   const callUp = !!s.call && !s.call.min;
-  const lightBar = s.locked || s.cc || s.nc || s.search || callUp || !def || s.closing || (def.bar ? def.bar === 'light' : dark);
+  const lightBar = s.setup ? s.settings.dark : s.locked || s.cc || s.nc || s.search || callUp || !def || s.closing || (def.bar ? def.bar === 'light' : dark);
   const peek = !s.open && !!s.banner;
   view.k = k;
 
@@ -51,6 +52,7 @@ export function Phone() {
           <Home />
           {def && <AppHost key={def.id} def={def} dark={dark} />}
           <Lock />
+          <Setup />
           <CallScreen />
           <NotificationCenter />
           <ControlCenter />

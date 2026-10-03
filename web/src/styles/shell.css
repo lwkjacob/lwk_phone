@@ -956,6 +956,57 @@
   padding-top: 30px;
 }
 
+/* ---------- first-run setup ---------- */
+
+.setup {
+  --pad: var(--fill);
+  position: absolute;
+  inset: 0;
+  z-index: 41;
+  padding: 110px 28px 44px;
+  background: var(--bg);
+  color: var(--label);
+  display: flex;
+  flex-direction: column;
+  animation: fade 0.3s;
+}
+
+.setup-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: setup-in 0.45s var(--ease);
+}
+
+@keyframes setup-in {
+  from { transform: translateX(40px); opacity: 0; }
+}
+
+.setup h1 { margin-top: 14px; font-size: 30px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.15; }
+.setup p { margin-top: 10px; max-width: 290px; font-size: 16px; line-height: 1.35; color: var(--label2); }
+.setup .setup-hello { margin-top: 170px; font-size: 64px; font-weight: 300; letter-spacing: -0.04em; }
+.setup .appearance { width: 100%; margin-top: 34px; }
+.setup .pass-dots { margin: 26px 0 30px; }
+.setup .pass-dots i { border-color: var(--label); }
+.setup .pass-dots i.on { background: var(--label); }
+.setup .pad b { color: var(--label); }
+
+.setup-foot {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.setup-foot .btn { flex: none; width: 100%; }
+.setup-foot .btn.ghost { color: var(--tint); }
+.setup-dots { display: flex; gap: 7px; }
+.setup-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--fill); transition: background 0.3s; }
+.setup-dots i.on { background: var(--label); }
+
 /* ---------- control center ---------- */
 
 .cc {
