@@ -1,21 +1,29 @@
 import { useState, type PointerEvent as RPointerEvent } from 'react';
-import { Flame, Heart, MapPin, MessageCircle, User, X } from 'lucide-react';
-import { ember as ALL, replies, type Spark } from '../data';
+import { Flame, Heart, MapPin, MessageCircle, Plus, User, X } from 'lucide-react';
+import { ember as ALL, replies, type Seed, type Spark } from '../data';
 import { sfx } from '../sound';
-import { confirm, preview, prompt, uid, update, useS, view } from '../store';
-import { Avatar, Bubbles, Composer, Empty, Group, Page, Pic, Row, Tabs, Toggle, useDragScroll, useNav } from '../ui';
+import { inGame, rpc } from '../net';
+import { loadApp } from '../nui';
+import { S, confirm, failed, preview, prompt, uid, update, useS, view } from '../store';
+import { Avatar, Bubbles, Composer, Empty, Field, Group, Page, Pic, Row, Stack, Tabs, Toggle, useDragScroll, useNav } from '../ui';
+import { PhotoPicker } from './Media';
 import { t } from '../i18n';
 
 const DECK = [...ALL];
 const profile = { bio: 'Mechanic. Night driver. Will fix your car, not your life.', visible: true };
 
-function MatchChat({ id }: { id: number }) {
+/** In-game a match is known by its server key; its list position changes whenever the app reloads. */
+const keyOf = (m: { id: number; key?: string }) => m.key ?? m.id;
+
+function MatchChat({ k }: { k: string | number }) {
   const s = useS();
-  const m = s.matches.find((x) => x.id === id);
+  const m = s.matches.find((x) => keyOf(x) === k);
   if (!m) return null;
   const send = (text: string) => {
-    update(() => m.msgs.push({ id: uid(), me: true, text, time: Date.now() }));
+    const msg = { id: uid(), me: true, text, time: Date.now(), failed: undefined as boolean | undefined };
+    update(() => m.msgs.push(msg));
     sfx('sent');
+    if (inGame) return void rpc('ember.send', { key: m.key, text }).then((r) => r?.ok || update(() => (msg.failed = true)));
     window.setTimeout(() => (update(() => m.msgs.push({ id: uid(), text: replies[Math.floor(Math.random() * replies.length)], time: Date.now() })), sfx('received')), 2400);
   };
   return (
@@ -46,12 +54,16 @@ function Discover() {
   const swipe = (dir: 1 | -1) => {
     if (!top || fly) return;
     setFly(dir);
-    window.setTimeout(() => {
+    // In-game the server knows whether they liked you back.
+    const answer = inGame ? rpc<{ match: boolean }>('ember.swipe', { key: top.key, like: dir > 0 }) : null;
+    window.setTimeout(async () => {
+      const matched = inGame ? !!(await answer)?.match : dir > 0 && !!top.likesYou;
       update((st) => {
         st.ember = st.ember.slice(1);
-        if (dir > 0 && top.likesYou) st.matches.unshift({ id: uid(), name: top.name, seed: top.seeds[0], msgs: [] });
+        if (matched && !inGame) st.matches.unshift({ id: uid(), name: top.name, seed: top.seeds[0], msgs: [] });
       });
-      if (dir > 0 && top.likesYou) (setMatch(top), sfx('notify'));
+      if (matched && inGame) await loadApp('ember');
+      if (matched) (setMatch(top), sfx('notify'));
       setFly(0);
       setX(0);
       setPhoto(0);
@@ -81,10 +93,10 @@ function Discover() {
         <h1>{t('ember_its_a_match')}</h1>
         <p>{t('ember_you_and_name_liked_each_other', { name: match.name })}</p>
         <div>
-          <Avatar name={s.me.name} size={110} seed={21} />
+          <Avatar name={s.me.name} size={110} seed={(s.emberProfile || null)?.seeds[0] ?? 21} />
           <Avatar name={match.name} size={110} seed={match.seeds[0]} />
         </div>
-        <button className="btn" onClick={() => (nav.push(<MatchChat id={s.matches[0].id} />), setMatch(null))}>
+        <button className="btn" onClick={() => (nav.push(<MatchChat k={match.key ?? keyOf(s.matches[0])} />), setMatch(null))}>
           {t('ember_send_a_message')}
         </button>
         <button className="btn ghost" onClick={() => setMatch(null)}>
@@ -124,9 +136,8 @@ function Discover() {
                   <h2>
                     {p.name} <span>{p.age}</span>
                   </h2>
-                  <p>
-                    <MapPin size={13} /> {p.dist}{' '}{t('ember_km_away')}{' '}{p.job}
-                  </p>
+                  {/* ponytail: no distance in-game. Compare player positions on the server if it is ever wanted. */}
+                  <p>{inGame ? p.job : <><MapPin size={13} /> {p.dist}{' '}{t('ember_km_away')}{' '}{p.job}</>}</p>
                   <p>{p.bio}</p>
                 </div>
               </div>
@@ -144,9 +155,11 @@ function Discover() {
             </button>
           </>
         ) : (
-          <button className="btn" onClick={() => update((st) => (st.ember = [...DECK]))}>
-            {t('ember_start_over')}
-          </button>
+          !inGame && (
+            <button className="btn" onClick={() => update((st) => (st.ember = [...DECK]))}>
+              {t('ember_start_over')}
+            </button>
+          )
         )}
       </div>
     </div>
@@ -164,7 +177,7 @@ function Matches() {
       <h2 className="sec-h ember-tint">{t('ember_new_matches')}</h2>
       <div className="stories" ref={row}>
         {fresh.map((m) => (
-          <button key={m.id} onClick={() => nav.push(<MatchChat id={m.id} />)}>
+          <button key={keyOf(m)} onClick={() => nav.push(<MatchChat k={keyOf(m)} />)}>
             <Avatar name={m.name} size={66} seed={m.seed} />
             {m.name}
           </button>
@@ -175,7 +188,7 @@ function Matches() {
       {talking.length ? (
         <div className="list convos">
           {talking.map((m) => (
-            <button key={m.id} className="row" onClick={() => nav.push(<MatchChat id={m.id} />)}>
+            <button key={keyOf(m)} className="row" onClick={() => nav.push(<MatchChat k={keyOf(m)} />)}>
               <Avatar name={m.name} size={52} seed={m.seed} />
               <span className="row-main">
                 <span className="row-t">{m.name}</span>
@@ -193,27 +206,95 @@ function Matches() {
 
 function Me() {
   const s = useS();
+  const mine = s.emberProfile || null;
+  const bio = mine?.bio ?? profile.bio;
+  const editBio = () =>
+    prompt(t('edit_bio'), t('ember_about_you'), (v) => (mine ? (update(() => (mine.bio = v)), void rpc('ember.profile', { ...mine, bio: v })) : update(() => (profile.bio = v))), bio);
+  const remove = () => {
+    rpc('ember.delete');
+    update((st) => {
+      st.matches = [];
+      if (inGame) (st.ember = []), (st.emberProfile = false), (st.accounts.ember = undefined);
+    });
+  };
   return (
     <Page title={t('profile')} large>
       <div className="contact-hero">
-        <Avatar name={s.me.name} size={120} seed={21} />
-        <h1>{s.me.name.split(' ')[0]}, 28</h1>
-        <p className="muted">{profile.bio}</p>
+        <Avatar name={mine?.name ?? s.me.name} size={120} seed={mine?.seeds[0] ?? 21} />
+        <h1>{mine ? `${mine.name}, ${mine.age}` : `${s.me.name.split(' ')[0]}, 28`}</h1>
+        <p className="muted">{bio}</p>
       </div>
       <Group>
-        <Row tone="tint" title={t('edit_bio')} onClick={() => prompt(t('edit_bio'), t('ember_about_you'), (v) => update(() => (profile.bio = v)), profile.bio)} />
-        <Row title={t('ember_show_me_on_ember')} right={<Toggle label={t('ember_show_me_on_ember_2')} on={profile.visible} onChange={(v) => update(() => (profile.visible = v))} />} />
-        <Row title={t('ember_maximum_distance')} value={t('ember_15_km')} />
+        <Row tone="tint" title={t('edit_bio')} onClick={editBio} />
+        {!inGame && <Row title={t('ember_show_me_on_ember')} right={<Toggle label={t('ember_show_me_on_ember_2')} on={profile.visible} onChange={(v) => update(() => (profile.visible = v))} />} />}
+        {!inGame && <Row title={t('ember_maximum_distance')} value={t('ember_15_km')} />}
       </Group>
       <Group>
-        <Row tone="danger" title={t('ember_delete_account')} onClick={() => confirm(t('ember_delete_account'), t('ember_your_matches_and_messages_will_be'), t('delete'), () => update((st) => (st.matches = [])))} />
+        <Row tone="danger" title={t('ember_delete_account')} onClick={() => confirm(t('ember_delete_account'), t('ember_your_matches_and_messages_will_be'), t('delete'), remove)} />
       </Group>
+    </Page>
+  );
+}
+
+/** In-game, first open: a short form before anyone can see you. */
+function CreateProfile() {
+  const [name, setName] = useState(S.me.name.split(' ')[0]);
+  const [age, setAge] = useState('');
+  const [job, setJob] = useState('');
+  const [bio, setBio] = useState('');
+  const [seeds, setSeeds] = useState<Seed[]>([]);
+  const [pick, setPick] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const ok = name.trim() && Number(age) >= 18 && Number(age) <= 99;
+  const create = async () => {
+    setBusy(true);
+    const r = await rpc<{ username: string }>('ember.profile', { name, age: Number(age), job, bio, seeds });
+    setBusy(false);
+    if (!r || failed(r)) return;
+    update((s) => ((s.accounts.ember = r.username), delete s.loaded.ember));
+    loadApp('ember');
+  };
+  return (
+    <Page>
+      <div className="contact-hero">
+        <Flame size={56} fill="currentColor" className="ember-tint" />
+        <h1>{t('ember_create_profile')}</h1>
+        <p className="muted">{t('ember_create_profile_text')}</p>
+      </div>
+      <Group>
+        <Field label={t('name')} value={name} onChange={setName} />
+        <Field label={t('ember_age')} value={age} onChange={(v) => setAge(v.replace(/\D/g, '').slice(0, 2))} placeholder="18+" />
+        <Field label={t('ember_job')} value={job} onChange={setJob} />
+        <Field label={t('bio')} value={bio} onChange={setBio} area placeholder={t('ember_about_you')} />
+      </Group>
+      <div className="pgrid pad-x">
+        {seeds.map((seed, i) => (
+          <Pic key={i} seed={seed} className="ugc" alt={t('remove')} onClick={() => setSeeds(seeds.filter((_, j) => j !== i))} />
+        ))}
+        {seeds.length < 4 && (
+          <button className="pgrid-add" aria-label={t('ember_add_photo')} onClick={() => setPick(true)}>
+            <Plus size={28} />
+          </button>
+        )}
+      </div>
+      <div className="btn-row">
+        <button className="btn" disabled={busy || !ok} onClick={create}>
+          {t('continue')}
+        </button>
+      </div>
+      {pick && <PhotoPicker onPick={(seed) => setSeeds([...seeds, seed])} onClose={() => setPick(false)} />}
     </Page>
   );
 }
 
 export function EmberApp() {
   const s = useS();
+  if (inGame && !s.emberProfile)
+    return (
+      <Stack>
+        <CreateProfile />
+      </Stack>
+    );
   return (
     <Tabs
       tabs={[

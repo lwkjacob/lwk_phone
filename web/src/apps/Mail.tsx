@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { Mail as MailIcon, Reply, SquarePen, Trash2 } from 'lucide-react';
-import { fmtAgo, fmtTime, uid, update, useS } from '../store';
+import { inGame, rpc } from '../net';
+import { loadApp } from '../nui';
+import { fmtAgo, fmtTime, send as request, uid, update, useS } from '../store';
 import { Avatar, Empty, Field, Page, Search, Seg, Sheet, Stack, useNav } from '../ui';
+import { signOut } from './social';
 import { t } from '../i18n';
 
 function Compose({ onClose, to = '', subject = '' }: { onClose: () => void; to?: string; subject?: string }) {
@@ -9,7 +12,10 @@ function Compose({ onClose, to = '', subject = '' }: { onClose: () => void; to?:
   const [addr, setAddr] = useState(to);
   const [sub, setSub] = useState(subject);
   const [body, setBody] = useState('');
-  const send = () => update((x) => x.mail.unshift({ id: uid(), from: addr, addr, subject: sub || t('mail_no_subject'), body, time: Date.now(), read: true, sent: true }));
+  const send = () =>
+    inGame
+      ? void request('mail.send', { to: addr.trim(), subject: sub || t('mail_no_subject'), body }).then((r) => r && loadApp('mail'))
+      : update((x) => x.mail.unshift({ id: uid(), from: addr, addr, subject: sub || t('mail_no_subject'), body, time: Date.now(), read: true, sent: true }));
   return (
     <Sheet title={t('new_message')} onClose={onClose} action={{ label: t('send'), disabled: !/.+@.+/.test(addr), run: send }}>
       <div className="form">
@@ -33,7 +39,7 @@ function MailView({ id }: { id: number }) {
       back={t('mail_inbox')}
       footer={
         <div className="toolbar">
-          <button aria-label={t('delete')} onClick={() => (nav.pop(), update((x) => (x.mail = x.mail.filter((y) => y.id !== id))))}>
+          <button aria-label={t('delete')} onClick={() => (nav.pop(), rpc('mail.delete', { id }), update((x) => (x.mail = x.mail.filter((y) => y.id !== id))))}>
             <Trash2 size={22} />
           </button>
           <button aria-label={t('mail_reply')} onClick={() => setReply(true)}>
@@ -73,6 +79,7 @@ function Inbox() {
     <Page
       title={box === 'inbox' ? t('mail_inbox') : t('sent')}
       large
+      left={inGame && <button onClick={() => signOut('mail')}>{t('account_sign_out')}</button>}
       footer={
         <div className="toolbar">
           <span className="toolbar-note">{unread ? t('mail_unread_unread', { unread }) : t('mail_updated_just_now')}</span>
@@ -89,7 +96,7 @@ function Inbox() {
       {list.length ? (
         <div className="list convos">
           {list.map((m) => (
-            <button key={m.id} className="row" onClick={() => (update(() => (m.read = true)), nav.push(<MailView id={m.id} />))}>
+            <button key={m.id} className="row" onClick={() => (m.read || rpc('mail.read', { id: m.id }), update(() => (m.read = true)), nav.push(<MailView id={m.id} />))}>
               <span className="convo-dot">{!m.read && <i className="dot" />}</span>
               <span className="row-main">
                 <span className="convo-top">

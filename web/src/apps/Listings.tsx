@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Image as ImageIcon, Megaphone, MessageCircle, Phone, Plus, Share, Tag } from 'lucide-react';
-import { chatWith, confirm, fmtAgo, money, nameOf, openApp, share, startCall, uid, update, useS } from '../store';
+import type { Seed } from '../data';
+import { inGame, rpc } from '../net';
+import { chatWith, confirm, fmtAgo, money, nameOf, openApp, send, share, startCall, uid, update, useS } from '../store';
 import { Empty, Field, Group, Page, Pic, Search, Sheet, Stack, useNav } from '../ui';
 import { PhotoPicker } from './Media';
 import { t } from '../i18n';
@@ -25,10 +27,14 @@ function NewListing({ kind, onClose }: { kind: Kind; onClose: () => void }) {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [price, setPrice] = useState('');
-  const [seed, setSeed] = useState<number | undefined>();
+  const [seed, setSeed] = useState<Seed | undefined>();
   const [pick, setPick] = useState(false);
   const market = kind === 'market';
-  const save = () => update((x) => x[kind].unshift({ id: uid(), title: title.trim(), body: body.trim(), number: s.me.number, time: Date.now(), seed, mine: true, price: market ? Number(price) : undefined }));
+  // In-game the server stores the listing and tells every phone showing this app to reload.
+  const save = () =>
+    inGame
+      ? void send('post.create', { app: kind, body: { title: title.trim(), body: body.trim(), price: market ? Number(price) : undefined, seed } })
+      : update((x) => x[kind].unshift({ id: uid(), title: title.trim(), body: body.trim(), number: s.me.number, time: Date.now(), seed, mine: true, price: market ? Number(price) : undefined }));
   return (
     <Sheet title={market ? t('listings_sell_an_item') : t('listings_new_advert')} onClose={onClose} action={{ label: t('post'), disabled: !title.trim() || (market && !(Number(price) > 0)), run: save }}>
       <Group>
@@ -48,7 +54,7 @@ function NewListing({ kind, onClose }: { kind: Kind; onClose: () => void }) {
 }
 
 const remove = (kind: Kind, id: number, done: () => void) =>
-  confirm(t('listings_remove_listing'), t('listings_this_listing_will_be_taken_down'), t('remove'), () => (done(), update((x) => (x[kind] = x[kind].filter((a) => a.id !== id)))));
+  confirm(t('listings_remove_listing'), t('listings_this_listing_will_be_taken_down'), t('remove'), () => (done(), rpc('post.delete', { id }), update((x) => (x[kind] = x[kind].filter((a) => a.id !== id)))));
 
 /* ---------- Adverts: classifieds with a phone number ---------- */
 

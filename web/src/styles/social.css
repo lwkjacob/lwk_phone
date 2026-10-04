@@ -196,6 +196,7 @@
 }
 
 .story-pic { position: absolute; inset: 0; }
+canvas.story-pic, video.story-pic, video.clip-pic { width: 100%; height: 100%; object-fit: cover; }
 
 .story-bars {
   position: absolute;

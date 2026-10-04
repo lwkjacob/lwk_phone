@@ -1,34 +1,108 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Aperture, Bookmark, Compass, Heart, House, MessageCircle, Plus, Radio, Send, User, X } from 'lucide-react';
-import { compact, fmtAgo, prompt, share, uid, update, useS } from '../store';
+import type { Seed, Story } from '../data';
+import { gameView, type GameView } from '../gameview';
+import { inGame, rpc } from '../net';
+import { connect } from '../rtc';
+import { S, actions, compact, failed, fmtAgo, prompt, send, share, uid, update, useS } from '../store';
 import { Avatar, Composer, Empty, Page, Pic, Tabs, useDragScroll, useNav } from '../ui';
 import { PhotoPicker } from './Media';
-import { DMChat, DMList, FollowBtn, Handle, ME, openDM } from './social';
+import { DMChat, DMList, FollowBtn, Handle, me, react, reply, signOut, userOf } from './social';
 import { t } from '../i18n';
 
 const LIVE_LINES = ['hiii', 'where is this??', 'show the car', 'first', 'that view though', 'say hi to Paleto', '🔥🔥', 'lol'];
 
+const ME = () => me('lumen');
+
+/** Stories watched this session. In-game the list is reloaded from the server, which does not keep track. */
+const watched = new Set<string>();
+const storyKey = (st: Story) => `${st.user}:${st.seeds[st.seeds.length - 1]}`;
+
+type LiveEvent = { event: 'viewer' | 'count' | 'say' | 'ended'; host: string; user?: string; text?: string; n?: number };
+
 /** Live broadcast: watch someone else's, or host your own (the game camera in FiveM). */
 function Live({ user, onClose }: { user: string; onClose: () => void }) {
-  const s = useS();
-  const mine = user === ME;
-  const [viewers, setViewers] = useState(mine ? 1 : 148);
+  const mine = user === ME();
+  const [viewers, setViewers] = useState(inGame ? 0 : mine ? 1 : 148);
   const [lines, setLines] = useState<{ id: number; user: string; text: string }[]>([]);
   const [hearts, setHearts] = useState<number[]>([]);
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const video = useRef<HTMLVideoElement>(null);
+  const say = (who: string, text: string) => setLines((l) => [...l.slice(-5), { id: uid(), user: who, text }]);
+
+  // Browser demo: a made-up audience.
   useEffect(() => {
-    const names = Object.keys(s.users).filter((h) => h !== user);
-    const t = window.setInterval(() => {
+    if (inGame) return;
+    const names = Object.keys(S.users).filter((h) => h !== user);
+    const timer = window.setInterval(() => {
       setViewers((v) => Math.max(1, v + Math.floor(Math.random() * 7) - 2));
-      setLines((l) => [...l.slice(-5), { id: uid(), user: names[Math.floor(Math.random() * names.length)], text: LIVE_LINES[Math.floor(Math.random() * LIVE_LINES.length)] }]);
+      say(names[Math.floor(Math.random() * names.length)], LIVE_LINES[Math.floor(Math.random() * LIVE_LINES.length)]);
     }, 1600);
-    return () => window.clearInterval(t);
-  }, [s.users, user]);
+    return () => window.clearInterval(timer);
+  }, [user]);
+
+  // In-game the host's phone sends the game camera and their microphone straight to each viewer over
+  // WebRTC. The server only says who is watching and relays the chat (see live.* in server/social.lua).
+  useEffect(() => {
+    if (!inGame) return;
+    const peers: (() => void)[] = [];
+    let over = false;
+    let view: GameView | null = null;
+    let stream: MediaStream | undefined;
+    let mic: MediaStream | undefined;
+    const onLive = (e: Event) => {
+      const m = (e as CustomEvent<LiveEvent>).detail;
+      if (m.host !== user) return;
+      if (m.event === 'count') setViewers(m.n ?? 0);
+      else if (m.event === 'say') say(m.user ?? '', m.text ?? '');
+      else if (m.event === 'ended') onClose();
+      else if (mine && stream && m.user) peers.push(connect(`lumen:${m.user}`, { initiator: true, stream, onStream: () => {} }));
+    };
+    window.addEventListener('phone:live', onLive);
+    if (mine) {
+      rpc('camera', { on: true, selfie: true });
+      view = canvas.current && gameView(canvas.current);
+      stream = view?.stream();
+      navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .catch(() => undefined)
+        .then((m) => {
+          if (over) return m?.getTracks().forEach((track) => track.stop());
+          mic = m;
+          m?.getAudioTracks().forEach((track) => stream?.addTrack(track));
+          rpc('live.start').then((r) => failed(r) && onClose());
+        });
+    } else {
+      // Ready for the host's offer before the server tells them we joined.
+      peers.push(connect(`lumen:${user}`, { initiator: false, onStream: (st) => video.current && (video.current.srcObject = st) }));
+      rpc('live.join', { host: user }).then((r) => failed(r) && onClose());
+    }
+    return () => {
+      over = true;
+      window.removeEventListener('phone:live', onLive);
+      peers.forEach((off) => off());
+      if (!mine) return void rpc('live.join', { host: user, leave: true });
+      rpc('live.stop');
+      rpc('camera', { on: false });
+      view?.destroy();
+      mic?.getTracks().forEach((track) => track.stop());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one broadcast per mount
+  }, [user]);
+
+  const name = userOf(user).name;
   return (
-    <div className="story live" role="dialog" aria-label={t('lumen_name_live', { name: s.users[user].name })}>
-      <Pic seed={mine ? 88 : 8} className="story-pic pan ugc" alt={t('lumen_live_video')} />
+    <div className="story live" role="dialog" aria-label={t('lumen_name_live', { name })}>
+      {!inGame ? (
+        <Pic seed={mine ? 88 : 8} className="story-pic pan ugc" alt={t('lumen_live_video')} />
+      ) : mine ? (
+        <canvas ref={canvas} className="story-pic" aria-label={t('lumen_live_video')} />
+      ) : (
+        <video ref={video} className="story-pic" autoPlay playsInline aria-label={t('lumen_live_video')} />
+      )}
       <header>
-        <Avatar name={s.users[user].name} size={34} tint />
+        <Avatar name={name} size={34} tint />
         <Handle user={user} />
         <span className="live-badge">{t('lumen_live')}</span>
         <span className="live-count">{compact(viewers)}{' '}{t('lumen_watching')}</span>
@@ -44,10 +118,10 @@ function Live({ user, onClose }: { user: string; onClose: () => void }) {
         ))}
       </div>
       {hearts.map((h) => (
-        <Heart key={h} size={26} fill="currentColor" className="float-heart" style={{ right: 18 + (h % 5) * 6 }} />
+        <Heart key={h} size={26} fill="currentColor" className="float-heart" style={{ right: 18 + (Math.abs(h) % 5) * 6 }} />
       ))}
       <footer>
-        <Composer placeholder={t('lumen_comment')} onSend={(text) => setLines((l) => [...l.slice(-5), { id: uid(), user: ME, text }])} />
+        <Composer placeholder={t('lumen_comment')} onSend={(text) => (inGame ? void rpc('live.say', { host: user, text }) : say(ME(), text))} />
         <button aria-label={t('lumen_send_heart')} onClick={() => setHearts((h) => [...h.slice(-8), uid()])}>
           <Heart size={26} />
         </button>
@@ -67,13 +141,17 @@ function StoryViewer({ start, onClose }: { start: number; onClose: () => void })
   };
   const prev = () => setAt(at.i > 0 ? { who: at.who, i: at.i - 1 } : at.who > 0 && !s.stories[at.who - 1].live ? { who: at.who - 1, i: 0 } : at);
   useEffect(() => {
+    // The list reloaded and this story is gone.
+    if (!story) return onClose();
+    watched.add(storyKey(story));
     if (!story.seen) update(() => (story.seen = true));
     const t = window.setTimeout(next, 4000);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- restart the timer per story frame only
   }, [at.who, at.i]);
+  if (!story) return null;
   return (
-    <div className="story" role="dialog" aria-label={t('lumen_name_story', { name: s.users[story.user].name })}>
+    <div className="story" role="dialog" aria-label={t('lumen_name_story', { name: userOf(story.user).name })}>
       <Pic seed={story.seeds[at.i]} className="story-pic ugc" alt={t('lumen_story')} />
       <div className="story-bars">
         {story.seeds.map((_, i) => (
@@ -81,7 +159,7 @@ function StoryViewer({ start, onClose }: { start: number; onClose: () => void })
         ))}
       </div>
       <header>
-        <Avatar name={s.users[story.user].name} size={34} tint />
+        <Avatar name={userOf(story.user).name} size={34} tint />
         <Handle user={story.user} />
         <button aria-label={t('close')} onClick={onClose}>
           <X size={24} />
@@ -98,7 +176,7 @@ function Comments({ id }: { id: number }) {
   const g = s.lumen.find((x) => x.id === id);
   if (!g) return null;
   return (
-    <Page title={t('comments')} footer={<Composer placeholder={t('lumen_add_a_comment')} onSend={(text) => update(() => g.comments.push({ user: ME, text }))} />}>
+    <Page title={t('comments')} footer={<Composer placeholder={t('lumen_add_a_comment')} onSend={(text) => (update(() => g.comments.push({ user: ME(), text })), reply('lumen', id, text))} />}>
       <div className="comments">
         <p>
           <Handle user={g.user} /> {g.caption}
@@ -119,20 +197,20 @@ function GramCard({ id }: { id: number }) {
   const [pop, setPop] = useState(0);
   const g = s.lumen.find((x) => x.id === id);
   if (!g) return null;
-  const like = (force?: boolean) =>
-    update(() => {
-      const next = force ?? !g.liked;
-      if (next !== !!g.liked) g.likes += next ? 1 : -1;
-      g.liked = next;
-    });
+  const like = (force?: boolean) => {
+    const next = force ?? !g.liked;
+    if (next === !!g.liked) return;
+    update(() => ((g.liked = next), (g.likes += next ? 1 : -1)));
+    react(id, 'like', next);
+  };
   return (
     <article className="gram">
       <header>
         <button onClick={() => nav.push(<Profile user={g.user} />)}>
-          <Avatar name={s.users[g.user].name} size={32} tint />
+          <Avatar name={userOf(g.user).name} size={32} tint />
           <Handle user={g.user} />
         </button>
-        <FollowBtn user={g.user} />
+        <FollowBtn app="lumen" user={g.user} />
       </header>
       <Pic seed={g.seed} className="gram-pic ugc" alt={g.caption}>
         <span className="gram-tap" onDoubleClick={() => (like(true), setPop((n) => n + 1))} />
@@ -149,7 +227,7 @@ function GramCard({ id }: { id: number }) {
           <Send size={24} />
         </button>
         <span />
-        <button aria-label={t('save')} aria-pressed={!!g.saved} onClick={() => update(() => (g.saved = !g.saved))}>
+        <button aria-label={t('save')} aria-pressed={!!g.saved} onClick={() => (update(() => (g.saved = !g.saved)), react(id, 'save', !!g.saved))}>
           <Bookmark size={25} fill={g.saved ? 'currentColor' : 'none'} />
         </button>
       </div>
@@ -172,8 +250,9 @@ function GramCard({ id }: { id: number }) {
 function Profile({ user }: { user: string }) {
   const s = useS();
   const nav = useNav();
-  const u = s.users[user];
+  const u = userOf(user);
   const posts = s.lumen.filter((g) => g.user === user);
+  const editBio = () => prompt(t('edit_bio'), t('bio'), (v) => (update(() => (u.bio = v)), rpc('profile.set', { app: 'lumen', bio: v })), u.bio);
   return (
     <Page title={<Handle user={user} />}>
       <div className="lprof">
@@ -190,14 +269,14 @@ function Profile({ user }: { user: string }) {
       </div>
       <p className="lprof-bio">{u.bio}</p>
       <div className="btn-row">
-        {user === ME ? (
-          <button className="btn soft" onClick={() => prompt(t('edit_bio'), t('bio'), (v) => update(() => (u.bio = v)), u.bio)}>
+        {user === ME() ? (
+          <button className="btn soft" onClick={() => (inGame ? actions({ options: [{ label: t('edit_bio'), run: editBio }, { label: t('account_sign_out'), destructive: true, run: () => signOut('lumen') }] }) : editBio())}>
             {t('lumen_edit_profile')}
           </button>
         ) : (
           <>
-            <FollowBtn user={user} />
-            <button className="btn soft" onClick={() => nav.push(<DMChat app="lumen" id={openDM('lumen', user)} />)}>
+            <FollowBtn app="lumen" user={user} />
+            <button className="btn soft" onClick={() => nav.push(<DMChat app="lumen" user={user} />)}>
               {t('message')}
             </button>
           </>
@@ -234,16 +313,28 @@ function Feed() {
   const row = useDragScroll<HTMLDivElement>('x');
   const [story, setStory] = useState<number | null>(null);
   const [live, setLive] = useState<string | null>(null);
-  const [pick, setPick] = useState(false);
+  const [pick, setPick] = useState<'post' | 'story' | null>(null);
   const overlay = document.getElementById('overlay');
-  const post = (seed: number) => prompt(t('new_post'), t('lumen_write_a_caption'), (caption) => update((x) => x.lumen.unshift({ id: uid(), user: ME, seed, caption, time: Date.now(), likes: 0, comments: [] })));
+  // In-game the server stores it and tells every open Lumen to reload, this one included.
+  const post = (seed: Seed) =>
+    prompt(t('new_post'), t('lumen_write_a_caption'), (caption) =>
+      inGame ? void send('post.create', { app: 'lumen', body: { seed, caption } }) : update((x) => x.lumen.unshift({ id: uid(), user: ME(), seed, caption, time: Date.now(), likes: 0, comments: [] })),
+    );
+  const addStory = (seed: Seed) =>
+    inGame
+      ? void send('post.create', { app: 'lumen', kind: 'story', body: { seed } })
+      : update((x) => {
+          const mine = x.stories.find((st) => st.user === ME() && !st.live);
+          if (mine) mine.seeds.push(seed), (mine.seen = false);
+          else x.stories.unshift({ user: ME(), seeds: [seed], seen: false });
+        });
   return (
     <Page
       className="flush"
       left={<span className="wordmark">{t('lumen_lumen')}</span>}
       right={
         <>
-          <button aria-label={t('new_post_2')} onClick={() => setPick(true)}>
+          <button aria-label={t('new_post_2')} onClick={() => actions({ options: [{ label: t('new_post'), run: () => setPick('post') }, { label: t('lumen_add_to_story'), run: () => setPick('story') }] })}>
             <Plus size={26} />
           </button>
           <button aria-label={t('messages')} onClick={() => nav.push(<DMList app="lumen" />)}>
@@ -253,7 +344,7 @@ function Feed() {
       }
     >
       <div className="stories" ref={row}>
-        <button onClick={() => setLive(ME)}>
+        <button onClick={() => setLive(ME())}>
           <span className="ring mine">
             <Avatar name={s.me.name} size={62} tint />
             <i>
@@ -263,9 +354,9 @@ function Feed() {
           {t('lumen_go_live')}
         </button>
         {s.stories.map((st, i) => (
-          <button key={st.user} onClick={() => (st.live ? setLive(st.user) : setStory(i))}>
-            <span className={`ring ${st.seen ? 'seen' : ''} ${st.live ? 'is-live' : ''}`}>
-              <Avatar name={s.users[st.user].name} size={62} tint />
+          <button key={`${st.user}${st.live ? ':live' : ''}`} onClick={() => (st.live ? setLive(st.user) : setStory(i))}>
+            <span className={`ring ${st.seen || watched.has(storyKey(st)) ? 'seen' : ''} ${st.live ? 'is-live' : ''}`}>
+              <Avatar name={userOf(st.user).name} size={62} tint />
               {st.live && <i className="live-badge">{t('lumen_live')}</i>}
             </span>
             {st.user}
@@ -275,7 +366,7 @@ function Feed() {
       {s.lumen.map((g) => (
         <GramCard key={g.id} id={g.id} />
       ))}
-      {pick && <PhotoPicker onPick={post} onClose={() => setPick(false)} />}
+      {pick && <PhotoPicker onPick={pick === 'post' ? post : addStory} onClose={() => setPick(null)} />}
       {overlay && story != null && createPortal(<StoryViewer start={story} onClose={() => setStory(null)} />, overlay)}
       {overlay && live && createPortal(<Live user={live} onClose={() => setLive(null)} />, overlay)}
     </Page>
@@ -314,7 +405,7 @@ export function LumenApp() {
       tabs={[
         { id: 'home', label: t('home'), icon: <House size={24} />, view: <Feed /> },
         { id: 'explore', label: t('lumen_explore'), icon: <Compass size={24} />, view: <Explore /> },
-        { id: 'me', label: t('profile'), icon: <User size={24} />, view: <Profile user={ME} /> },
+        { id: 'me', label: t('profile'), icon: <User size={24} />, view: <Profile user={ME()} /> },
       ]}
     />
   );

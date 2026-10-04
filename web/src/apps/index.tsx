@@ -22,6 +22,7 @@ import { MusicApp } from './Music';
 import { PhoneApp } from './Phone';
 import { SettingsApp } from './Settings';
 import { ShadeApp } from './Shade';
+import { gated } from './social';
 import { StoreApp } from './Store';
 import { CalculatorApp, MemosApp, NotesApp, WeatherApp } from './Utilities';
 
@@ -60,7 +61,7 @@ const list: AppDef[] = [
   { id: 'camera', name: 'Camera', bg: grad('#e6e6eb', '#b4b5bb'), fg: '#2c2c2e', glyph: <Camera fill="currentColor" stroke="#cdced3" />, view: CameraApp, dark: true, system: true, core: true, cat: 'Photo & Video', desc: 'Photos, selfies and video.' },
   { id: 'music', name: 'Music', bg: grad('#ff6482', '#f3193d'), glyph: <Music strokeWidth={2.6} />, view: MusicApp, data: 'list', cat: 'Music', desc: 'Songs and playlists, with controls on the Lock Screen and in Control Center.' },
   { id: 'photos', name: 'Photos', bg: '#fff', glyph: <i className="g-photos" />, view: PhotosApp, system: true, core: true, data: 'grid', cat: 'Photo & Video', desc: 'Your library, albums and favourites.' },
-  { id: 'mail', name: 'Mail', bg: grad('#3aa9ff', '#1763ee'), glyph: <Mail fill="currentColor" stroke="#2a86f6" />, view: MailApp, data: 'list', cat: 'Productivity', desc: 'Send and receive email around the city.' },
+  { id: 'mail', name: 'Mail', bg: grad('#3aa9ff', '#1763ee'), glyph: <Mail fill="currentColor" stroke="#2a86f6" />, view: gated('mail', MailApp), data: 'list', cat: 'Productivity', desc: 'Send and receive email around the city.' },
   { id: 'clock', name: 'Clock', bg: '#0b0b0c', glyph: <ClockFace size={52} numbers />, view: ClockApp, dark: true, system: true, cat: 'Utilities', desc: 'World clock, alarms, stopwatch and timers.' },
   { id: 'weather', name: 'Weather', bg: grad('#2271e3', '#62c8fc'), glyph: <CloudSun fill="currentColor" />, view: WeatherApp, bar: 'light', data: 'feed', cat: 'Weather', desc: 'Current conditions and the week ahead.' },
   { id: 'maps', name: 'Maps', bg: 'linear-gradient(135deg, #6fd97a 0 51%, #46a6f7 53%)', glyph: <Navigation {...fill} />, view: MapsApp, bar: 'dark', core: true, cat: 'Navigation', desc: 'Find places, set waypoints and share where you are.' },
@@ -73,14 +74,14 @@ const list: AppDef[] = [
   { id: 'services', name: 'Services', bg: grad('#ff8a5c', '#e6412b'), glyph: <Siren strokeWidth={2.4} />, view: ServicesApp, core: true, data: 'list', cat: 'Business', desc: 'Reach police, EMS, mechanics and more. Manage your own company.' },
   { id: 'store', name: 'App Store', bg: grad('#1fc8ff', '#1a6df4'), glyph: <LayoutGrid {...fill} />, view: StoreApp, system: true, core: true, cat: 'Utilities', desc: 'Install and remove apps.' },
   { id: 'settings', name: 'Settings', bg: grad('#b9bcc4', '#70747c'), glyph: <Settings strokeWidth={2.2} />, view: SettingsApp, system: true, core: true, cat: 'Utilities', desc: 'Appearance, sounds, security and more.' },
-  { id: 'flock', name: 'Flock', bg: grad('#3ebcff', '#0a84ff'), glyph: <Feather strokeWidth={2.4} />, view: FlockApp, data: 'feed', cat: 'Social', desc: 'Short posts from the whole city. Reply, repost, follow trends.' },
-  { id: 'lumen', name: 'Lumen', bg: 'linear-gradient(45deg, #ffb53e, #ff3d77 55%, #8a3ffc)', glyph: <Aperture strokeWidth={2.4} />, view: LumenApp, data: 'feed', cat: 'Photo & Video', desc: 'Share photos and stories, or go live to your followers.' },
-  { id: 'loop', name: 'Loop', bg: '#0b0b0c', glyph: <Play {...fill} className="g-loop" />, view: LoopApp, dark: true, data: 'feed', cat: 'Entertainment', desc: 'Endless short videos. Post your own clips.' },
+  { id: 'flock', name: 'Flock', bg: grad('#3ebcff', '#0a84ff'), glyph: <Feather strokeWidth={2.4} />, view: gated('flock', FlockApp), data: 'feed', cat: 'Social', desc: 'Short posts from the whole city. Reply, repost, follow trends.' },
+  { id: 'lumen', name: 'Lumen', bg: 'linear-gradient(45deg, #ffb53e, #ff3d77 55%, #8a3ffc)', glyph: <Aperture strokeWidth={2.4} />, view: gated('lumen', LumenApp), data: 'feed', cat: 'Photo & Video', desc: 'Share photos and stories, or go live to your followers.' },
+  { id: 'loop', name: 'Loop', bg: '#0b0b0c', glyph: <Play {...fill} className="g-loop" />, view: gated('loop', LoopApp), dark: true, data: 'feed', cat: 'Entertainment', desc: 'Endless short videos. Post your own clips.' },
   { id: 'adverts', name: 'Adverts', bg: grad('#ffd84a', '#ffae00'), fg: '#1c1c1e', glyph: <Megaphone fill="currentColor" stroke="#ffc21a" />, view: AdvertsApp, data: 'feed', cat: 'Business', desc: 'Classified ads with a number to call.' },
   { id: 'market', name: 'Market', bg: grad('#4a8cff', '#2350d8'), glyph: <Store strokeWidth={2.2} />, view: MarketApp, data: 'grid', cat: 'Shopping', desc: 'Buy and sell items with people nearby.' },
   { id: 'crypto', name: 'Crypto', bg: '#111113', fg: '#f7931a', glyph: <Coins strokeWidth={2.2} />, view: CryptoApp, dark: true, data: 'list', cat: 'Finance', desc: 'Track prices, buy and sell coins from your bank balance.' },
   { id: 'ember', name: 'Ember', bg: 'linear-gradient(160deg, #ff8a3c, #ff2d6b)', glyph: <Flame {...fill} />, view: EmberApp, data: 'feed', cat: 'Lifestyle', desc: 'Swipe, match and chat with people around you.' },
-  { id: 'shade', name: 'Shade', bg: '#111113', fg: '#a78bfa', glyph: <Ghost fill="currentColor" stroke="#111113" />, view: ShadeApp, dark: true, data: 'list', cat: 'Social', desc: 'Anonymous channels. No names, no numbers.' },
+  { id: 'shade', name: 'Shade', bg: '#111113', fg: '#a78bfa', glyph: <Ghost fill="currentColor" stroke="#111113" />, view: gated('shade', ShadeApp), dark: true, data: 'list', cat: 'Social', desc: 'Anonymous channels. No names, no numbers.' },
 ];
 
 export const APPS: Record<string, AppDef> = Object.fromEntries(list.map((a) => [a.id, a]));
@@ -92,6 +93,8 @@ const BUILT_IN = Object.fromEntries(list.map((a) => [a.id, { bg: a.bg, fg: a.fg,
 export function applySkin(file?: ThemeFile) {
   if (file) applyTheme(file);
   for (const id of Object.keys(BUILT_IN)) {
+    // In-game, apps the server cannot back are removed (see init in nui.ts).
+    if (!APPS[id]) continue;
     const { cat, ...look } = BUILT_IN[id];
     Object.assign(APPS[id], look, { name: t(`app_${id}`), desc: t(`app_${id}_desc`), cat: t(cat) }, theme.apps[id]);
   }

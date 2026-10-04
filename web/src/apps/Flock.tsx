@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { Bell, Feather, Heart, House, Image as ImageIcon, Mail, MessageCircle, Repeat2, Search as SearchIcon, Share, User } from 'lucide-react';
-import { trends } from '../data';
-import { compact, fmtAgo, prompt, share, uid, update, useS } from '../store';
+import { trends, type Seed } from '../data';
+import { inGame, rpc } from '../net';
+import { actions, compact, fmtAgo, prompt, send, share, uid, update, useS } from '../store';
 import { Avatar, Composer, Empty, Page, Pic, Search, Sheet, Tabs, useNav } from '../ui';
 import { PhotoPicker } from './Media';
-import { DMChat, DMList, FollowBtn, Handle, ME, openDM } from './social';
+import { DMChat, DMList, FollowBtn, Handle, me, react, reply, signOut, userOf } from './social';
+
+const ME = () => me('flock');
 import { t } from '../i18n';
 
 const rich = (text: string) => text.split(/(#\w+)/).map((part, i) => (part.startsWith('#') ? <span key={i} className="tint">{part}</span> : part));
@@ -14,7 +17,7 @@ function PostCard({ id, full }: { id: number; full?: boolean }) {
   const nav = useNav();
   const p = s.flock.find((x) => x.id === id);
   if (!p) return null;
-  const u = s.users[p.user];
+  const u = userOf(p.user);
   return (
     <article className={`post ${full ? 'full' : ''}`} onClick={full ? undefined : () => nav.push(<PostView id={id} />)}>
       <button className="post-ava" aria-label={t('flock_name_profile', { name: u.name })} onClick={(e) => (e.stopPropagation(), nav.push(<Profile user={p.user} />))}>
@@ -33,10 +36,10 @@ function PostCard({ id, full }: { id: number; full?: boolean }) {
           <button aria-label={t('flock_count_replies', { count: p.replies.length })} onClick={() => !full && nav.push(<PostView id={id} />)}>
             <MessageCircle size={17} /> {p.replies.length || ''}
           </button>
-          <button aria-label={t('flock_repost')} aria-pressed={!!p.reposted} className="repost" onClick={() => update(() => ((p.reposted = !p.reposted), (p.reposts += p.reposted ? 1 : -1)))}>
+          <button aria-label={t('flock_repost')} aria-pressed={!!p.reposted} className="repost" onClick={() => (update(() => ((p.reposted = !p.reposted), (p.reposts += p.reposted ? 1 : -1))), react(id, 'repost', !!p.reposted))}>
             <Repeat2 size={19} /> {compact(p.reposts)}
           </button>
-          <button aria-label={t('like')} aria-pressed={!!p.liked} className="like" onClick={() => update(() => ((p.liked = !p.liked), (p.likes += p.liked ? 1 : -1)))}>
+          <button aria-label={t('like')} aria-pressed={!!p.liked} className="like" onClick={() => (update(() => ((p.liked = !p.liked), (p.likes += p.liked ? 1 : -1))), react(id, 'like', !!p.liked))}>
             <Heart size={17} fill={p.liked ? 'currentColor' : 'none'} /> {compact(p.likes)}
           </button>
           <button aria-label={t('share')} onClick={() => share({ kind: t('kind_flock_post'), label: p.text.slice(0, 60), seed: p.pic })}>
@@ -53,11 +56,11 @@ function PostView({ id }: { id: number }) {
   const p = s.flock.find((x) => x.id === id);
   if (!p) return null;
   return (
-    <Page title={t('post')} footer={<Composer placeholder={t('flock_post_your_reply')} onSend={(text) => update(() => p.replies.push({ user: ME, text }))} />}>
+    <Page title={t('post')} footer={<Composer placeholder={t('flock_post_your_reply')} onSend={(text) => (update(() => p.replies.push({ user: ME(), text })), reply('flock', id, text))} />}>
       <PostCard id={id} full />
       {p.replies.map((r, i) => (
         <div key={i} className="post reply">
-          <Avatar name={s.users[r.user].name} size={36} tint />
+          <Avatar name={userOf(r.user).name} size={36} tint />
           <div className="post-main">
             <header>
               <Handle user={r.user} />
@@ -74,24 +77,25 @@ function PostView({ id }: { id: number }) {
 function Profile({ user }: { user: string }) {
   const s = useS();
   const nav = useNav();
-  const u = s.users[user];
+  const u = userOf(user);
   const posts = s.flock.filter((p) => p.user === user);
+  const editBio = () => prompt(t('edit_bio'), t('bio'), (v) => (update(() => (u.bio = v)), rpc('profile.set', { app: 'flock', bio: v })), u.bio);
   return (
     <Page title={u.name} className="flush">
       <Pic seed={u.name.length * 9} className="banner-pic" alt="" />
       <div className="prof">
         <div className="prof-top">
           <Avatar name={u.name} size={72} tint />
-          {user === ME ? (
-            <button className="follow on" onClick={() => prompt(t('edit_bio'), t('bio'), (v) => update(() => (u.bio = v)), u.bio)}>
+          {user === ME() ? (
+            <button className="follow on" onClick={() => (inGame ? actions({ options: [{ label: t('edit_bio'), run: editBio }, { label: t('account_sign_out'), destructive: true, run: () => signOut('flock') }] }) : editBio())}>
               {t('flock_edit_profile')}
             </button>
           ) : (
             <span className="prof-btns">
-              <button className="follow on icon" aria-label={t('message')} onClick={() => nav.push(<DMChat app="flock" id={openDM('flock', user)} />)}>
+              <button className="follow on icon" aria-label={t('message')} onClick={() => nav.push(<DMChat app="flock" user={user} />)}>
                 <Mail size={18} />
               </button>
-              <FollowBtn user={user} />
+              <FollowBtn app="flock" user={user} />
             </span>
           )}
         </div>
@@ -111,9 +115,10 @@ function Profile({ user }: { user: string }) {
 
 function ComposeSheet({ onClose }: { onClose: () => void }) {
   const [text, setText] = useState('');
-  const [pic, setPic] = useState<number | undefined>();
+  const [pic, setPic] = useState<Seed | undefined>();
   const [pick, setPick] = useState(false);
-  const post = () => update((s) => s.flock.unshift({ id: uid(), user: ME, text: text.trim(), time: Date.now(), likes: 0, reposts: 0, pic, replies: [] }));
+  // In-game the server stores the post and tells every open Flock to reload, this one included.
+  const post = () => (inGame ? void send('post.create', { app: 'flock', body: { text: text.trim(), pic } }) : update((s) => s.flock.unshift({ id: uid(), user: ME(), text: text.trim(), time: Date.now(), likes: 0, reposts: 0, pic, replies: [] })));
   return (
     <Sheet title={t('new_post')} onClose={onClose} action={{ label: t('post'), disabled: !text.trim() || text.length > 280, run: post }}>
       <div className="compose">
@@ -176,7 +181,7 @@ function Explore() {
             <Handle user={h} />
             <span className="row-s">@{h}</span>
           </span>
-          <FollowBtn user={h} />
+          <FollowBtn app="flock" user={h} />
         </button>
       ))}
       {posts.map((p) => (
@@ -189,13 +194,14 @@ function Explore() {
 
 function Activity() {
   const s = useS();
-  const mine = s.flock.filter((p) => p.user === ME);
-  const items = mine.flatMap((p) => [...p.replies.map((r) => ({ user: r.user, what: `replied: ${r.text}`, icon: 'reply' })), { user: 'gia', what: `liked your post “${p.text.slice(0, 32)}”`, icon: 'like' }]);
+  const mine = s.flock.filter((p) => p.user === ME());
+  // ponytail: in-game this lists replies to your posts. Likes are only counted, not attributed; store who liked to list them here.
+  const items = mine.flatMap((p) => [...p.replies.filter((r) => r.user !== ME()).map((r) => ({ user: r.user, what: `replied: ${r.text}`, icon: 'reply' })), ...(inGame ? [] : [{ user: 'gia', what: `liked your post “${p.text.slice(0, 32)}”`, icon: 'like' }])]);
   return (
     <Page title={t('notifications')} large className="flush">
       {items.map((it, i) => (
         <div key={i} className="post reply">
-          <Avatar name={s.users[it.user].name} size={36} tint />
+          <Avatar name={userOf(it.user).name} size={36} tint />
           <div className="post-main">
             <p>
               <Handle user={it.user} /> {it.what}
@@ -217,7 +223,7 @@ export function FlockApp() {
         { id: 'search', label: t('search'), icon: <SearchIcon size={24} />, view: <Explore /> },
         { id: 'activity', label: t('flock_activity'), icon: <Bell size={24} />, view: <Activity /> },
         { id: 'dms', label: t('messages'), icon: <Mail size={24} />, view: <DMList app="flock" /> },
-        { id: 'me', label: t('profile'), icon: <User size={24} />, view: <Profile user={ME} /> },
+        { id: 'me', label: t('profile'), icon: <User size={24} />, view: <Profile user={ME()} /> },
       ]}
     />
   );

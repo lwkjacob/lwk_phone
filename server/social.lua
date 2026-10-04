@@ -233,7 +233,7 @@ local function postBody(app, kind, d, reply)
         return seed and { seed = seed, caption = kind == 'post' and Util.text(d.caption, 0, 300) or nil }
     elseif app == 'loop' then
         local seed = Util.url(d.seed)
-        return seed and { seed = seed, caption = Util.text(d.caption, 0, 200) or '', sound = Util.text(d.sound, 0, 80) or '' }
+        return seed and { seed = seed, src = Util.url(d.src), caption = Util.text(d.caption, 0, 200) or '', sound = Util.text(d.sound, 0, 80) or '' }
     elseif app == 'adverts' or app == 'market' then
         local title, body = Util.text(d.title, 1, 60), Util.text(d.body, 0, 400)
         local price = app == 'market' and Util.int(d.price, 1, 1000000000) or nil
