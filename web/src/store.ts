@@ -1,12 +1,14 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import * as D from './data';
 import base from './theme.default.json';
-import type { Msg } from './data';
+import type { Chat, Msg, Seed } from './data';
+import { inGame, rpc, type Res } from './net';
 import { ring, setVolume, sfx } from './sound';
 import { intl, t } from './i18n';
 
 let n = 5000;
-export const uid = () => ++n;
+/** A local id. In-game these are negative and time-based, so they never collide with ids the server hands out, now or after a reload. */
+export const uid = () => (inGame ? -(Date.now() * 100 + (++n % 100)) : ++n);
 
 /** Current phone zoom factor, set by the shell. Pointer deltas are viewport px: divide by this for layout px. */
 export const view = { k: 1 };
@@ -34,14 +36,14 @@ export type AlertDef = {
   buttons: { label: string; kind?: 'cancel' | 'destructive' | 'bold'; run?: (input: string) => void }[];
 };
 export type ActionDef = { title?: string; options: { label: string; destructive?: boolean; run: () => void }[] };
-export type ShareDef = { kind: string; label: string; seed?: number };
+export type ShareDef = { kind: string; label: string; seed?: Seed; /** What the receiver gets over AirShare. */ item?: Record<string, unknown> };
 
 /* ponytail: one mutable object + a version counter. Every subscriber re-renders on any change,
  * which is fine for a phone-sized tree; move to per-slice selectors if profiling ever says so. */
 export const S = {
-  open: true,
+  open: !inGame,
   /** Browser demo: centre the phone and enlarge it. In-game it sits bottom-right. */
-  focus: true,
+  focus: !inGame,
   locked: true,
   unlocking: false,
   passPad: false,
@@ -57,7 +59,7 @@ export const S = {
   /** The phone is held sideways. Only some screens ask for this: Camera, the photo viewer, community apps with `landscape`. */
   landscape: false,
   /** First-run setup still to do. */
-  setup: !window.localStorage.getItem('phone.setup'),
+  setup: inGame ? false : !window.localStorage.getItem('phone.setup'),
   /** Per-app data state. Missing means not requested yet. */
   loaded: {} as Record<string, 'loading' | 'ready' | 'error'>,
   /** Browser demo only: how the fake server behaves, to exercise loading and failure states. */
@@ -100,6 +102,21 @@ export const S = {
   viewChat: null as number | null,
   seenCalls: Date.now() - 3 * 3_600_000,
   ui: { alert: null as AlertDef | null, actions: null as ActionDef | null, share: null as ShareDef | null },
+  /** In-game: the account this phone is signed in to, per social app. */
+  accounts: {} as Record<string, string | undefined>,
+  /** In-game: this phone's Ember profile; false = none yet. */
+  emberProfile: null as null | false | { name: string; age: number; bio: string; job: string; seeds: Seed[] },
+  /** In-game: where the player is (Maps). */
+  position: null as null | { x: number; y: number; street: string },
+  /** Server settings the UI needs. */
+  cfg: {
+    map: { image: '', bounds: { minX: -4000, maxX: 4500, minY: -4000, maxY: 8000 } },
+    upload: false,
+    mailDomain: 'lsmail.net',
+    garage: { valetFee: 100, impoundFee: 250 },
+    unique: false,
+    admin: false,
+  },
   me: D.me,
   contacts: D.contacts,
   calls: D.calls,
@@ -113,7 +130,7 @@ export const S = {
   wallet: D.wallet,
   houses: D.houses,
   vehicles: D.vehicles,
-  job: D.job,
+  job: D.job as D.Job | false,
   users: D.users,
   dms: D.dms,
   flock: D.flock,
@@ -137,6 +154,85 @@ export function update(fn?: (s: typeof S) => void) {
   version++;
   setVolume(S.settings.volume, S.settings.silent);
   subs.forEach((f) => f());
+  autosave();
+  syncAudio();
+}
+
+/* ---------- server data ---------- */
+
+/**
+ * Lay data from the server over the state. Keys are slices of S; a few lists live in data.ts as
+ * module-level arrays (services, songs, places...) and are refilled in place so every import sees them.
+ */
+export function hydrate(data: Record<string, unknown>) {
+  const s = S as Record<string, unknown>;
+  const d = D as Record<string, unknown>;
+  for (const [k, v] of Object.entries(data)) {
+    if (v == null) continue;
+    if (k === 'settings' || k === 'dms' || k === 'cfg') Object.assign(s[k] as object, v);
+    else if (k in s) s[k] = v;
+    else if (Array.isArray(d[k])) (d[k] as unknown[]).splice(0, Infinity, ...(v as unknown[]));
+    else if (d[k] && typeof d[k] === 'object') Object.assign(d[k] as object, v);
+  }
+  update();
+}
+
+/** Throw away the browser demo's mock data. In-game everything comes from the server instead. */
+export function blank() {
+  hydrate({
+    contacts: [], calls: [], voicemail: [], chats: [], photos: [], notes: [], mail: [], alarms: [], memos: [], notifs: [],
+    wallet: { balance: 0, cash: 0, iban: '', txs: [] }, houses: [], vehicles: [], job: false, users: {}, accounts: {},
+    dms: { flock: [], lumen: [] }, flock: [], lumen: [], stories: [], loop: [], ember: [], matches: [], emberProfile: null,
+    shade: { alias: '', channels: [] }, adverts: [], market: [], coins: [], loaded: {},
+    services: [], songs: [], playlists: [], trends: [], places: [],
+  });
+}
+
+/* Private data (contacts, notes, settings...) is saved generically: after any change, the slices below are
+ * compared with what the server last got and the changed ones are sent. To persist a new private slice,
+ * add its key here and to SAVE in server/main.lua. */
+const SAVE_KEYS = ['contacts', 'notes', 'alarms', 'memos', 'photos', 'settings', 'apps', 'dock', 'seenCalls', 'setup', 'playlists', 'worldClocks'];
+const saved: Record<string, string> = {};
+let synced = false;
+let saveTimer: number | undefined;
+const sliceOf = (k: string) => JSON.stringify((S as Record<string, unknown>)[k] ?? (D as Record<string, unknown>)[k]);
+
+/** The state now matches the server: start watching for changes from here. Pass false to stop watching (the phone is being swapped). */
+export function markSaved(on = true) {
+  if (on) for (const k of SAVE_KEYS) saved[k] = sliceOf(k);
+  synced = on;
+}
+
+function autosave() {
+  if (!inGame || !synced) return;
+  window.clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => {
+    for (const k of SAVE_KEYS) {
+      const v = sliceOf(k);
+      if (v === saved[k]) continue;
+      saved[k] = v;
+      rpc('save', { k, v });
+    }
+  }, 600);
+}
+
+/**
+ * A request whose answer carries fresh slices (wallet, vehicles, job...). Shows the error if it fails;
+ * otherwise lays the slices over the state and resolves to the answer. Null in the browser demo.
+ */
+export async function send<T = object>(name: string, data?: unknown) {
+  const r = await rpc<T>(name, data);
+  if (!r || failed(r)) return null;
+  const { ok: _ok, ...slices } = r;
+  hydrate(slices);
+  return r;
+}
+
+/** Show why a request failed. Returns true when it did, so callers can `if (failed(r)) return`. */
+export function failed(r: Res<unknown> | null): boolean {
+  if (!r || r.ok) return false;
+  alert({ title: r.error ?? t('load_failed_title'), buttons: [{ label: t('ok'), kind: 'bold' }] });
+  return true;
 }
 
 export function useS() {
@@ -247,8 +343,8 @@ export function lock() {
 
 /** Setup finished: remember it and go straight to the home screen. */
 export function finishSetup() {
-  // ponytail: remembered per browser. In-game the server should store this per phone and send it with the phone's data.
-  window.localStorage.setItem('phone.setup', 'done');
+  // The browser demo remembers this locally; in-game `setup` is one of the saved slices.
+  if (!inGame) window.localStorage.setItem('phone.setup', 'done');
   update((s) => ((s.setup = false), (s.locked = false)));
 }
 
@@ -305,13 +401,18 @@ export function badge(app: string) {
 /* ---------- calls ---------- */
 
 let callTimer: number | undefined;
-export function startCall(number: string, video = false) {
+/** `company` rings every on-duty employee of that job instead of one number. */
+export function startCall(number: string, video = false, company?: string) {
   if (S.settings.airplane) return alert({ title: t('airplane_mode'), message: t('sys_turn_off_airplane_mode_to_make'), buttons: [{ label: t('ok'), kind: 'bold' }] });
   if (S.call) return;
   update((s) => (s.call = { number, state: 'outgoing', video, start: Date.now(), muted: false, speaker: video, min: false, out: true }));
   ring('ringback');
+  if (inGame) {
+    rpc('call.start', { number, video, company }).then((r) => failed(r) && ended());
+    return;
+  }
   // Mock: the other side picks up after a few seconds.
-  callTimer = window.setTimeout(answer, 3400);
+  callTimer = window.setTimeout(answered, 3400);
 }
 
 export function incomingCall(number: string, video = false) {
@@ -319,18 +420,37 @@ export function incomingCall(number: string, video = false) {
   if (contactOf(number)?.blocked) return;
   update((s) => (s.call = { number, state: 'incoming', video, start: Date.now(), muted: false, speaker: video, min: false, out: false }));
   if (!S.settings.dnd) ring('ring');
+  // The phone is put away: lift it into view so the call can be seen.
+  if (!S.open) notify({ app: 'phone', title: nameOf(number), body: t('incoming_call') });
 }
 
-export function answer() {
+/** The call connected (either side picked up). */
+export function answered() {
   ring(null);
   update((s) => {
     if (s.call) Object.assign(s.call, { state: 'active', start: Date.now() });
   });
+  // Phone to the ear, unless it is a video call: then it is held out in front, by the camera.
+  rpc('callAnim', { on: !S.call?.video });
 }
 
+/** Pick up an incoming call. */
+export function answer() {
+  if (!inGame) return answered();
+  rpc('call.answer').then((r) => (failed(r) ? ended() : answered()));
+}
+
+/** Hang up, decline or cancel. */
 export function hangup() {
+  if (S.call) rpc('call.end');
+  ended();
+}
+
+/** The call is over, whoever ended it: log it and clear the screen. */
+export function ended() {
   const c = S.call;
   if (!c) return;
+  rpc('callAnim', { on: false });
   window.clearTimeout(callTimer);
   ring(null);
   sfx('end');
@@ -349,6 +469,13 @@ export function hangup() {
 
 /* ---------- messages ---------- */
 
+/** Typed-in numbers in the form used as an id everywhere: digits, and seven digits read 555-0142. Mirrors Util.number in Lua. */
+export function canon(input: string) {
+  const digits = input.replace(/\D/g, '');
+  if (digits.length < 3 || digits.length > 11) return input.trim();
+  return digits.length === 7 ? `${digits.slice(0, 3)}-${digits.slice(3)}` : digits;
+}
+
 export function chatWith(number: string) {
   let c = S.chats.find((x) => x.numbers.length === 1 && x.numbers[0] === number);
   if (!c) {
@@ -364,17 +491,33 @@ export const preview = (msg?: Msg) =>
 export function sendMsg(chatId: number, msg: Partial<Msg>) {
   const chat = S.chats.find((c) => c.id === chatId);
   if (!chat) return;
+  if (inGame) {
+    // The message shows at once; the server confirms it, or it is marked as not delivered.
+    const local = { ...msg, id: uid(), me: true, time: Date.now() } as Msg;
+    update((s) => {
+      chat.msgs.push(local);
+      s.chats = [chat, ...s.chats.filter((c) => c !== chat)];
+    });
+    rpc<{ ch: number; id: number }>('msg.send', { ch: chat.ch, to: chat.numbers, body: msg }).then((r) => {
+      update(() => {
+        if (r?.ok) Object.assign(chat, { ch: r.ch }), (local.id = r.id);
+        else local.failed = true;
+      });
+      if (msg.money) failed(r);
+    });
+    return;
+  }
   if (msg.money) {
     if (msg.money > S.wallet.balance) return alert({ title: t('insufficient_funds'), message: t('your_balance_is_too_low_for'), buttons: [{ label: t('ok'), kind: 'bold' }] });
     pay(-msg.money, nameOf(chat.numbers[0]));
   }
   // No signal: the message stays in the thread, marked as not delivered.
-  const failed = S.settings.airplane || undefined;
+  const undelivered = S.settings.airplane || undefined;
   update((s) => {
-    chat.msgs.push({ ...msg, id: uid(), me: true, time: Date.now(), failed });
+    chat.msgs.push({ ...msg, id: uid(), me: true, time: Date.now(), failed: undelivered });
     s.chats = [chat, ...s.chats.filter((c) => c !== chat)];
   });
-  if (failed) return;
+  if (undelivered) return;
   sfx('sent');
   if (chat.numbers.length > 1) return;
   // Mock: the contact types for a moment, then answers.
@@ -382,29 +525,52 @@ export function sendMsg(chatId: number, msg: Partial<Msg>) {
   window.setTimeout(() => receiveMsg(chat.numbers[0], { text: D.replies[Math.floor(Math.random() * D.replies.length)] }), 2800);
 }
 
-export function receiveMsg(number: string, msg: Partial<Msg>) {
-  const id = chatWith(number);
-  const chat = S.chats.find((c) => c.id === id)!;
-  const viewing = S.app === 'messages' && S.viewChat === id && !S.locked;
-  const full = { ...msg, id: uid(), time: Date.now() };
+/** A message arrived in `chat`: add it, and notify unless that conversation is on screen. */
+function deliver(chat: Chat, full: Msg) {
+  const viewing = S.open && S.app === 'messages' && S.viewChat === chat.id && !S.locked;
   update((s) => {
     s.typing = null;
     chat.msgs.push(full);
     if (!viewing) chat.unread++;
     s.chats = [chat, ...s.chats.filter((c) => c !== chat)];
   });
-  if (viewing) sfx('received');
-  else notify({ app: 'messages', title: nameOf(number), body: preview(full), tap: () => openApp('messages', null, { chat: id }) });
+  if (viewing) {
+    sfx('received');
+    if (chat.ch) rpc('msg.read', { ch: chat.ch });
+  } else if (!chat.muted) {
+    const title = chat.name ?? nameOf(full.from ?? chat.numbers[0]);
+    notify({ app: 'messages', title, body: preview(full), tap: () => openApp('messages', null, { chat: chat.id }) });
+  }
 }
 
+export function receiveMsg(number: string, msg: Partial<Msg>) {
+  const id = chatWith(number);
+  deliver(S.chats.find((c) => c.id === id)!, { ...msg, id: uid(), time: Date.now() });
+}
+
+/** In-game: a text pushed by the server. `members` is everyone in the conversation, this phone included. */
+export function serverMsg(m: { ch: number; members: string[]; name?: string; msg: Msg }) {
+  if (contactOf(m.msg.from ?? '')?.blocked) return;
+  const numbers = m.members.filter((x) => x !== S.me.number);
+  let chat = S.chats.find((c) => c.ch === m.ch) ?? (numbers.length === 1 ? S.chats.find((c) => !c.ch && c.numbers.length === 1 && c.numbers[0] === numbers[0]) : undefined);
+  if (!chat) {
+    chat = { id: m.ch, ch: m.ch, numbers, name: m.name, msgs: [], unread: 0 };
+    S.chats.unshift(chat);
+  }
+  chat.ch = m.ch;
+  deliver(chat, m.msg);
+}
+
+/** Browser demo only: in-game the server moves the money and pushes the new balance. */
 export function pay(amount: number, label: string) {
+  if (inGame) return;
   update((s) => {
     s.wallet.balance += amount;
     s.wallet.txs.unshift({ id: uid(), label, amount, time: Date.now() });
   });
 }
 
-export function addPhoto(p: { video?: number; selfie?: boolean; seed?: number } = {}) {
+export function addPhoto(p: { video?: number; selfie?: boolean; seed?: Seed; src?: string } = {}) {
   const photo = { id: uid(), seed: Math.floor(Math.random() * 200), time: Date.now(), ...p };
   update((s) => s.photos.unshift(photo));
   return photo;
@@ -421,11 +587,39 @@ export function skip(dir: 1 | -1) {
   const i = list.indexOf(id ?? -1);
   playSong(list[(i + dir + list.length) % list.length]);
 }
-// ponytail: playback is a ticking position, no audio. Wire real streams (or xsound) here when the Lua side exists.
+
+/* Songs with a `url` (Config.music, in-game) play for real through this element. The demo's songs
+ * have none, so there playback is only a position that ticks. */
+const player = new Audio();
+let playerUrl = '';
+player.onended = () => skip(1);
+
+/** Bring the audio element in line with S.music: which song, playing or paused, where in the song. */
+function syncAudio() {
+  const mu = S.music;
+  const url = (mu.id != null && D.songs.find((x) => x.id === mu.id)?.url) || '';
+  if (url !== playerUrl) {
+    playerUrl = url;
+    if (url) player.src = url;
+    else player.removeAttribute('src');
+  }
+  if (!url) return;
+  player.volume = S.settings.volume;
+  // More than a tick apart means the scrubber was moved (or the song restarted).
+  if (Math.abs(player.currentTime - mu.pos) > 2) player.currentTime = mu.pos;
+  if (mu.playing && player.paused) player.play().catch(() => {});
+  else if (!mu.playing && !player.paused) player.pause();
+}
+
 window.setInterval(() => {
   const mu = S.music;
   if (!mu.playing || mu.id == null) return;
-  const song = D.songs.find((x) => x.id === mu.id)!;
+  const song = D.songs.find((x) => x.id === mu.id);
+  if (!song) return;
+  if (song.url) {
+    if (Number.isFinite(player.duration)) song.dur = Math.round(player.duration);
+    return update((s) => (s.music.pos = Math.floor(player.currentTime)));
+  }
   if (mu.pos + 1 >= song.dur) skip(1);
   else update((s) => s.music.pos++);
 }, 1000);

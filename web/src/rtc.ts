@@ -1,11 +1,9 @@
-import { nuiFetch } from './nui';
+import { inGame, rpc, upload } from './net';
 
-/* Audio and video between players travel over WebRTC, the way LB Phone does it: video calls,
- * live streams, and recording nearby voices. The game only relays the handshake ("signals");
- * the media itself goes player to player, or through a TURN server when a direct route fails.
- *
- * Game side still to write: relay `rtc` posts to the other player as { action = 'rtc', from, signal },
- * and send { action = 'rtcConfig', config } with the server's ICE/TURN servers (LB: Config.RTCConfig). */
+/* Video between players travels over WebRTC, the way LB Phone does it: video calls and live streams.
+ * The game only relays the handshake ("signals", RPC['rtc'] in server/calls.lua); the media itself goes
+ * player to player, or through a TURN server when a direct route fails (Config.rtc). Peers are named by
+ * role ('call', 'lumen:<username>'), never by phone number. */
 
 /** ICE servers. Empty works on a LAN; real servers need STUN and usually TURN, supplied by the game. */
 let config: RTCConfiguration = { iceServers: [] };
@@ -14,15 +12,19 @@ export const setRtcConfig = (c: RTCConfiguration) => (config = c);
 export type Signal = { sdp?: RTCSessionDescriptionInit; ice?: RTCIceCandidateInit };
 type Peer = { pc: RTCPeerConnection; send: (s: Signal) => void; pending: RTCIceCandidateInit[] };
 const peers = new Map<string, Peer>();
+/** Signals that arrived before this side opened its end. connect() replays the recent ones. */
+const early = new Map<string, { s: Signal; at: number }[]>();
 
 /**
  * Open a connection to another player. The caller is the initiator; the other side just connects and waits.
  * `send` carries our signals to them (default: through the game); theirs come back in through `signal`.
  */
 export function connect(id: string, opts: { initiator: boolean; stream?: MediaStream; onStream: (s: MediaStream) => void; send?: (s: Signal) => void }) {
-  const send = opts.send ?? ((signal: Signal) => void nuiFetch(null, 'rtc', { to: id, signal }));
+  const send = opts.send ?? ((signal: Signal) => void rpc('rtc', { to: id, signal }));
   const pc = new RTCPeerConnection(config);
   peers.set(id, { pc, send, pending: [] });
+  for (const e of early.get(id) ?? []) if (Date.now() - e.at < 10_000) void signal(id, e.s);
+  early.delete(id);
   if (opts.stream) opts.stream.getTracks().forEach((track) => pc.addTrack(track, opts.stream!));
   // Nothing to send still means we want to hear them.
   else pc.addTransceiver('audio', { direction: 'recvonly' });
@@ -39,23 +41,28 @@ export function connect(id: string, opts: { initiator: boolean; stream?: MediaSt
 export function disconnect(id: string) {
   peers.get(id)?.pc.close();
   peers.delete(id);
+  early.delete(id);
 }
 
 /** Feed in a signal that arrived from the other player. */
 export async function signal(id: string, s: Signal) {
   const peer = peers.get(id);
-  if (!peer) return;
+  if (!peer) {
+    const queue = early.get(id) ?? [];
+    if (queue.length < 40) queue.push({ s, at: Date.now() });
+    return void early.set(id, queue);
+  }
   const { pc } = peer;
   if (s.sdp) {
     await pc.setRemoteDescription(s.sdp);
     // Candidates can outrun the description they belong to; apply the ones that were waiting.
-    for (const ice of peer.pending.splice(0)) await pc.addIceCandidate(ice);
+    for (const ice of peer.pending.splice(0)) await pc.addIceCandidate(ice).catch(() => {});
     if (s.sdp.type === 'offer') {
       await pc.setLocalDescription(await pc.createAnswer());
       peer.send({ sdp: pc.localDescription! });
     }
   } else if (s.ice) {
-    if (pc.remoteDescription) await pc.addIceCandidate(s.ice);
+    if (pc.remoteDescription) await pc.addIceCandidate(s.ice).catch(() => {});
     else peer.pending.push(s.ice);
   }
 }
@@ -100,10 +107,11 @@ export async function record(): Promise<Recording | null> {
     return {
       stop: () =>
         new Promise((resolve) => {
-          rec.onstop = () => {
+          rec.onstop = async () => {
             stream.getTracks().forEach((track) => track.stop());
-            // ponytail: a local blob URL only plays on this phone. Upload it (LB: components.uploadMedia) once hosting exists.
-            resolve(URL.createObjectURL(new Blob(chunks, { type: rec.mimeType })));
+            const blob = new Blob(chunks, { type: rec.mimeType });
+            // In-game the recording is uploaded so other phones can play it; '' if hosting is not set up.
+            resolve(inGame ? ((await upload(blob, 'voice.webm')) ?? '') : URL.createObjectURL(blob));
           };
           rec.stop();
         }),

@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowUp, CircleAlert, Smile, WifiOff, ChevronLeft, ChevronRight, Cloud, CloudRain, CloudSun, MapPin, Moon, Play, Search as SearchIcon, Sun, User } from 'lucide-react';
-import type { Msg } from './data';
+import type { Msg, Seed } from './data';
 import { sfx } from './sound';
 import { fmtAgo, fmtDur, fmtTime, money, uid, useNow, view } from './store';
 import { t } from './i18n';
 import { EmojiGrid } from './pickers';
+import { rpc } from './net';
 
 /* ---------- navigation stack: iOS push / pop ---------- */
 
@@ -248,14 +249,16 @@ export function Empty({ icon, title, text }: { icon: ReactNode; title: string; t
 /* ---------- generated imagery: no bundled or remote photos ---------- */
 
 /** The same generated picture as a real image URL, for places that need a `src` (community apps). */
-export function picUrl(seed: number) {
+export function picUrl(seed: Seed) {
+  if (typeof seed === 'string') return seed;
   const h = (seed * 137) % 360;
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='hsl(${h} 78% 50%)'/><stop offset='1' stop-color='hsl(${(h + 75) % 360} 82% 62%)'/></linearGradient><radialGradient id='r' cx='${(seed * 13) % 100}%' cy='${(seed * 7) % 100}%' r='70%'><stop offset='0' stop-color='hsl(${(h + 45) % 360} 100% 80%)'/><stop offset='1' stop-color='hsl(${(h + 45) % 360} 100% 80%)' stop-opacity='0'/></radialGradient></defs><rect width='100' height='100' fill='url(#g)'/><rect width='100' height='100' fill='url(#r)'/></svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
 /** A soft mesh gradient per seed. Only blurred blobs, never hard colour stops: those alias into jagged edges. */
-export function picBg(seed: number) {
+export function picBg(seed: Seed) {
+  if (typeof seed === 'string') return `center / cover no-repeat url(${JSON.stringify(seed)}), var(--fill2)`;
   const h = (seed * 137) % 360; // golden-angle steps keep neighbouring seeds visually distinct
   const at = (a: number, b: number) => `${(seed * a) % 100}% ${(seed * b) % 100}%`;
   return [
@@ -266,7 +269,7 @@ export function picBg(seed: number) {
   ].join(',');
 }
 
-export function Pic({ seed, className = '', alt = t('photo'), children, style, onClick }: { seed: number; className?: string; alt?: string; children?: ReactNode; style?: CSSProperties; onClick?: () => void }) {
+export function Pic({ seed, className = '', alt = t('photo'), children, style, onClick }: { seed: Seed; className?: string; alt?: string; children?: ReactNode; style?: CSSProperties; onClick?: () => void }) {
   const Tag = onClick ? 'button' : 'div';
   return (
     <Tag className={`pic ${className}`} style={{ background: picBg(seed), ...style }} role={onClick ? undefined : 'img'} aria-label={alt} onClick={onClick}>
@@ -279,7 +282,7 @@ export const WEATHER_ICONS = { sun: Sun, cloudsun: CloudSun, cloud: Cloud, rain:
 
 const hash = (s: string) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
 
-export function Avatar({ name, size = 40, tint, seed }: { name: string; size?: number; tint?: boolean; seed?: number }) {
+export function Avatar({ name, size = 40, tint, seed }: { name: string; size?: number; tint?: boolean; seed?: Seed }) {
   const letters = /^[\d+(]/.test(name) ? '' : name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
   const hue = hash(name) % 360;
   const background = seed != null ? picBg(seed) : tint ? `linear-gradient(hsl(${hue} 62% 62%), hsl(${hue} 62% 44%))` : undefined;
@@ -416,7 +419,7 @@ export function Bubbles({ msgs, who, typing, empty }: { msgs: Msg[]; who?: (from
                 </Pic>
               )}
               {x.loc && (
-                <span className="bub-loc">
+                <span className="bub-loc" role={x.x != null ? 'button' : undefined} onClick={() => x.x != null && x.y != null && rpc('waypoint', { x: x.x, y: x.y })}>
                   <span className="bub-map">
                     <MapPin size={26} fill="currentColor" stroke="#fff" />
                   </span>

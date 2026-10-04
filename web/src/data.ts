@@ -5,6 +5,9 @@ const m = 60_000;
 const h = 60 * m;
 const d = 24 * h;
 
+/** A picture: a number is a generated placeholder (browser demo), a string is the URL of an uploaded image. */
+export type Seed = number | string;
+
 export const me = { name: 'Marcus Reyes', number: '555-0199', handle: 'marcus', email: 'marcus@lsmail.net' };
 
 export type Contact = { id: number; name: string; number: string; fav?: boolean; blocked?: boolean; email?: string };
@@ -40,8 +43,8 @@ export const voicemail: Voicemail[] = [
   { id: 2, number: '555-0147', time: now - 4 * d, dur: 41, heard: true, text: 'This is the tow yard. Your vehicle is ready for pickup, fee is two fifty.' },
 ];
 
-export type Msg = { id: number; me?: boolean; from?: string; text?: string; pic?: number; loc?: string; money?: number; voice?: number; gif?: number; time: number; failed?: boolean; /** Recorded audio for a voice message. */ audio?: string };
-export type Chat = { id: number; numbers: string[]; name?: string; msgs: Msg[]; unread: number; muted?: boolean };
+export type Msg = { id: number; me?: boolean; from?: string; text?: string; pic?: Seed; loc?: string; money?: number; voice?: number; gif?: Seed; x?: number; y?: number; time: number; failed?: boolean; /** Recorded audio for a voice message. */ audio?: string };
+export type Chat = { id: number; /** Server channel id, once the conversation exists there. */ ch?: number; numbers: string[]; name?: string; msgs: Msg[]; unread: number; muted?: boolean };
 export const chats: Chat[] = [
   {
     id: 1, numbers: ['555-0142'], unread: 2,
@@ -89,7 +92,7 @@ export const chats: Chat[] = [
 ];
 export const replies = ['Sounds good', 'On my way', 'Haha no chance', 'Give me 10 minutes', 'Call me', 'Deal.', 'Where are you?', '👍'];
 
-export type Photo = { id: number; seed: number; time: number; fav?: boolean; video?: number; selfie?: boolean };
+export type Photo = { id: number; seed: Seed; /** Video file, when this is a video; `seed` is then its poster frame. */ src?: string; time: number; fav?: boolean; video?: number; selfie?: boolean };
 export const photos: Photo[] = [
   { id: 1, seed: 7, time: now - 2 * h, fav: true },
   { id: 2, seed: 12, time: now - 5 * h },
@@ -149,7 +152,8 @@ export const weather = {
   wind: 11, humidity: 48, uv: 6, feels: 25, visibility: 16, sunset: '7:42 PM',
 };
 
-export const places = [
+export type Place = { id: number; name: string; kind: string; /** Position on the map, in percent. */ x: number; y: number; /** Game coordinates, in-game. */ wx?: number; wy?: number };
+export const places: Place[] = [
   { id: 1, name: 'Legion Square', kind: 'Landmark', x: 52, y: 62 },
   { id: 2, name: 'Del Perro Pier', kind: 'Attraction', x: 18, y: 58 },
   { id: 3, name: 'Benny’s Motorworks', kind: 'Mechanic', x: 46, y: 74 },
@@ -172,7 +176,7 @@ export const wallet = {
   ] as Tx[],
 };
 
-export type House = { id: number; name: string; addr: string; locked: boolean; lights: boolean; keys: string[]; seed: number };
+export type House = { id: number; name: string; addr: string; locked: boolean; lights: boolean; keys: string[]; seed: Seed; x?: number; y?: number };
 export const houses: House[] = [
   { id: 1, name: 'Vinewood Apartment', addr: '12 Eclipse Blvd', locked: true, lights: false, keys: ['555-0142'], seed: 33 },
   { id: 2, name: 'Paleto Cabin', addr: '4 Procopio Dr', locked: false, lights: true, keys: [], seed: 58 },
@@ -186,7 +190,7 @@ export const vehicles: Vehicle[] = [
   { id: 4, name: 'Pegassi Bati 801', plate: '21BKR450', state: 'impound', garage: 'Davis Impound', fuel: 12, engine: 48, body: 40, color: '#d0d0d4' },
 ];
 
-export type Service = { id: string; name: string; desc: string; color: string; online: number; open: boolean; number: string };
+export type Service = { id: string; icon?: string; name: string; desc: string; color: string; online: number; open: boolean; number: string };
 export const services: Service[] = [
   { id: 'police', name: 'Police', desc: 'Los Santos Police Department', color: '#0a84ff', online: 8, open: true, number: '911' },
   { id: 'ambulance', name: 'Ambulance', desc: 'Emergency Medical Services', color: '#ff3b30', online: 5, open: true, number: '912' },
@@ -195,7 +199,8 @@ export const services: Service[] = [
   { id: 'realestate', name: 'Real Estate', desc: 'Dynasty 8', color: '#34c759', online: 0, open: false, number: '555-0180' },
   { id: 'lawyer', name: 'Lawyer', desc: 'Legal counsel', color: '#af52de', online: 1, open: true, number: '555-0166' },
 ];
-export const job = {
+export type Job = { company: string; label?: string; grade: string; duty?: boolean; balance?: number; boss: boolean; staff: { id?: string; name: string; grade: string; online: boolean }[] };
+export const job: Job = {
   company: 'mechanic', grade: 'Manager', duty: true, balance: 48200, boss: true,
   staff: [
     { name: 'Benny Okafor', grade: 'Owner', online: true },
@@ -205,7 +210,7 @@ export const job = {
   ],
 };
 
-export type Song = { id: number; title: string; artist: string; album: string; dur: number; seed: number };
+export type Song = { id: number; title: string; artist: string; album: string; dur: number; seed: Seed; url?: string };
 export const songs: Song[] = [
   { id: 1, title: 'Night Shift', artist: 'Vespucci Drive', album: 'Coastlines', dur: 214, seed: 11 },
   { id: 2, title: 'Neon Tide', artist: 'Vespucci Drive', album: 'Coastlines', dur: 187, seed: 11 },
@@ -235,7 +240,7 @@ export const users: Record<string, User> = {
   jules: { name: 'Jules Mercer', bio: 'Real estate, Dynasty 8', followers: 1320, following: 760 },
 };
 
-export type Post = { id: number; user: string; text: string; time: number; likes: number; liked?: boolean; reposts: number; reposted?: boolean; pic?: number; replies: { user: string; text: string }[] };
+export type Post = { id: number; user: string; text: string; time: number; likes: number; liked?: boolean; reposts: number; reposted?: boolean; pic?: Seed; replies: { user: string; text: string }[] };
 export const flock: Post[] = [
   { id: 1, user: 'weazel', text: 'BREAKING: Traffic on the Del Perro Freeway is at a standstill after a truck spilled 4,000 oranges. Avoid the area. #LSTraffic', time: now - 12 * m, likes: 1204, reposts: 388, pic: 19, replies: [{ user: 'dex', text: 'Free juice' }, { user: 'gia', text: 'I was late anyway' }] },
   { id: 2, user: 'ava', text: 'Golden hour at the pier never misses.', time: now - 50 * m, likes: 312, liked: true, reposts: 21, pic: 7, replies: [{ user: 'marcus', text: 'Unreal' }] },
@@ -247,7 +252,7 @@ export const flock: Post[] = [
 ];
 export const trends = [['#LSTraffic', '12.4K'], ['#LSCarMeet', '4,210'], ['#BeanMachine', '2,960'], ['#DriveSafe', '1,877'], ['#PaletoBay', '964']];
 
-export type Gram = { id: number; user: string; seed: number; caption: string; time: number; likes: number; liked?: boolean; saved?: boolean; comments: { user: string; text: string }[] };
+export type Gram = { id: number; user: string; seed: Seed; caption: string; time: number; likes: number; liked?: boolean; saved?: boolean; comments: { user: string; text: string }[] };
 export const lumen: Gram[] = [
   { id: 1, user: 'ava', seed: 7, caption: 'Pier lights', time: now - h, likes: 842, comments: [{ user: 'gia', text: 'Stunning' }, { user: 'marcus', text: 'Teach me' }] },
   { id: 2, user: 'gia', seed: 23, caption: 'New wheels day', time: now - 5 * h, likes: 311, liked: true, comments: [{ user: 'dex', text: 'Offset?' }] },
@@ -257,7 +262,8 @@ export const lumen: Gram[] = [
   { id: 6, user: 'marcus', seed: 12, caption: 'Mount Chiliad at 6am', time: now - 9 * d, likes: 132, comments: [] },
   { id: 7, user: 'jules', seed: 64, caption: 'Just listed: 3 bed in Rockford Hills.', time: now - 3 * d, likes: 62, comments: [] },
 ];
-export const stories = [
+export type Story = { user: string; seeds: Seed[]; seen: boolean; live?: boolean };
+export const stories: Story[] = [
   { user: 'ava', seeds: [8, 15], seen: false, live: true },
   { user: 'gia', seeds: [24], seen: false },
   { user: 'dex', seeds: [50, 51, 53], seen: false },
@@ -274,7 +280,7 @@ export const dms: Record<'flock' | 'lumen', Thread[]> = {
   lumen: [{ id: 1, user: 'ava', msgs: [{ id: 1, text: 'Sent you the full-res ones', time: now - 5 * h }, { id: 2, pic: 15, time: now - 5 * h + m }] }],
 };
 
-export type Clip ={ id: number; user: string; seed: number; caption: string; sound: string; likes: number; liked?: boolean; saved?: boolean; comments: { user: string; text: string }[]; shares: number };
+export type Clip ={ id: number; user: string; seed: Seed; src?: string; caption: string; sound: string; likes: number; liked?: boolean; saved?: boolean; comments: { user: string; text: string }[]; shares: number };
 export const loop: Clip[] = [
   { id: 1, user: 'gia', seed: 23, caption: 'POV: the turbo finally spools #LSCarMeet', sound: 'Night Shift · Vespucci Drive', likes: 48_200, comments: [{ user: 'dex', text: 'That sound though' }, { user: 'ava', text: 'I can hear this video' }], shares: 912 },
   { id: 2, user: 'ava', seed: 8, caption: 'Sunrise from Mount Chiliad, worth the hike', sound: 'Mirror Park · Aly Nova', likes: 12_900, liked: true, comments: [{ user: 'marcus', text: 'Take me next time' }], shares: 240 },
@@ -283,7 +289,7 @@ export const loop: Clip[] = [
   { id: 5, user: 'weazel', seed: 19, caption: '4,000 oranges. One freeway. #LSTraffic', sound: 'Weazel News', likes: 96_500, comments: [], shares: 5100 },
 ];
 
-export type Spark = { id: number; name: string; age: number; bio: string; job: string; dist: number; seeds: number[]; likesYou?: boolean };
+export type Spark = { id: number; /** Server-side handle for swipes and chats. */ key?: string; name: string; age: number; bio: string; job: string; dist: number; seeds: Seed[]; likesYou?: boolean };
 export const ember: Spark[] = [
   { id: 1, name: 'Nora', age: 27, bio: 'Paramedic. Will absolutely judge your driving.', job: 'EMS', dist: 2, seeds: [72, 73], likesYou: true },
   { id: 2, name: 'Tasha', age: 25, bio: 'Looking for someone to split a boat with.', job: 'Bartender', dist: 5, seeds: [81, 82] },
@@ -291,7 +297,8 @@ export const ember: Spark[] = [
   { id: 4, name: 'Sam', age: 31, bio: 'Lawyer by day. Still a lawyer at night, sadly.', job: 'Lawyer', dist: 3, seeds: [97, 98] },
   { id: 5, name: 'Mika', age: 24, bio: 'I own four cars and no furniture.', job: 'Tuner', dist: 8, seeds: [105] },
 ];
-export const matches = [
+export type Match = { id: number; key?: string; name: string; seed: Seed; msgs: Msg[] };
+export const matches: Match[] = [
   { id: 101, name: 'Lena', seed: 113, msgs: [{ id: 1, text: 'So is that your Sultan in the second photo?', time: now - 3 * h }] as Msg[] },
   { id: 102, name: 'Priya', seed: 120, msgs: [] as Msg[] },
 ];
@@ -305,7 +312,7 @@ export const shade = {
   ],
 };
 
-export type Ad = { id: number; title: string; body: string; number: string; time: number; price?: number; seed?: number; mine?: boolean };
+export type Ad = { id: number; title: string; body: string; number: string; time: number; price?: number; seed?: Seed; mine?: boolean };
 export const adverts: Ad[] = [
   { id: 1, title: 'Tow driver wanted', body: 'Weekends, paid per job. Own licence required. Call Benny.', number: '555-0117', time: now - 2 * h },
   { id: 2, title: 'Lost dog near Mirror Park', body: 'Brown lab, answers to Chop. Reward offered.', number: '555-0156', time: now - 6 * h, seed: 77 },

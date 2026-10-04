@@ -4,6 +4,7 @@ import { APPS, AppIcon, type AppDef } from '../apps';
 import { nearby, songs } from '../data';
 import { sfx } from '../sound';
 import { S, finishClose, fmtDur, fmtTime, goHome, lock, nameOf, openApp, sendMsg, tapNotif, unlock, update, useNow, useS, view, type AlertDef, type Notif, type ShareDef } from '../store';
+import { rpc } from '../net';
 import { inGame, loadApp } from '../nui';
 import { theme } from '../theme';
 import { Avatar, LoadError, Pic, Skeleton, Wave } from '../ui';
@@ -36,6 +37,7 @@ export function Phone() {
   const callUp = !!s.call && !s.call.min;
   const lightBar = s.setup ? s.settings.dark : s.locked || s.cc || s.nc || s.search || callUp || !def || s.closing || (def.bar ? def.bar === 'light' : dark);
   const peek = !s.open && !!s.banner;
+  useEffect(() => void rpc('flashlight', { on: s.flashlight && s.open }), [s.flashlight, s.open]);
   view.k = k;
 
   return (
@@ -96,7 +98,8 @@ function Loaded({ def, children }: { def: AppDef; children: ReactNode }) {
   const s = useS();
   const state = s.loaded[def.id];
   useEffect(() => {
-    if (def.data && !S.loaded[def.id]) loadApp(def.id);
+    // In-game, reopening an app refreshes it (the old data stays on screen meanwhile).
+    if (def.data && (inGame || !S.loaded[def.id])) loadApp(def.id);
   }, [def]);
   // In the browser on a "fast" network the data is already here: skip the placeholder rather than flash it.
   if (!def.data || state === 'ready' || (!inGame && s.net === 'fast' && !s.settings.airplane && state !== 'error')) return <>{children}</>;
@@ -287,11 +290,18 @@ function AlertView({ a }: { a: AlertDef }) {
 
 function ShareSheet({ d }: { d: ShareDef }) {
   const s = useS();
-  const [sent, setSent] = useState<string | null>(null);
+  const [sent, setSent] = useState<string | number | null>(null);
+  // In-game: the players standing close enough. The demo has a made-up few.
+  const [people, setPeople] = useState<{ id: string | number; name: string }[]>(inGame ? [] : nearby.map((name) => ({ id: name, name })));
+  useEffect(() => {
+    if (inGame) rpc<{ people: { id: number; name: string }[] }>('share.nearby').then((r) => r?.ok && Array.isArray(r.people) && setPeople(r.people));
+  }, []);
   const close = () => update((x) => (x.ui.share = null));
-  const air = (name: string) => {
-    setSent(name);
+  const air = (id: string | number) => {
+    setSent(id);
     sfx('sent');
+    // Things with no form of their own (a post, a listing) arrive as a photo or a line of text.
+    rpc('share.send', { to: id, item: d.item ?? (typeof d.seed === 'string' ? { kind: 'photo', label: d.label, seed: d.seed } : { kind: 'text', label: d.label }) });
     window.setTimeout(close, 1100);
   };
   return (
@@ -309,17 +319,18 @@ function ShareSheet({ d }: { d: ShareDef }) {
         </header>
         <h3>{t('sys_airshare_nearby')}</h3>
         <div className="share-people">
-          {nearby.map((p) => (
-            <button key={p} onClick={() => air(p)}>
+          {!people.length && <p className="muted">{t('life_nobody_nearby')}</p>}
+          {people.map(({ id, name: p }) => (
+            <button key={id} onClick={() => air(id)}>
               <span className="share-ava">
                 <Avatar name={p} size={58} />
-                {sent === p && (
+                {sent === id && (
                   <span className="share-ok">
                     <Check size={26} strokeWidth={3} />
                   </span>
                 )}
               </span>
-              <span>{sent === p ? t('sent') : p.split(' ')[0]}</span>
+              <span>{sent === id ? t('sent') : p.split(' ')[0]}</span>
             </button>
           ))}
         </div>
