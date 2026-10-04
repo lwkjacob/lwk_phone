@@ -17,7 +17,9 @@ Needs [ox_lib](https://github.com/overextended/ox_lib), [oxmysql](https://github
 
 The built UI ships in `web/dist`, so Node is not needed to run the phone.
 
-`F1` opens the phone (players rebind it under Settings > Key Bindings > FiveM), as does `/phone`. Hold `Left Alt` to hand the mouse back to the game while the phone stays up.
+`F1` opens the phone (players rebind it under Settings > Key Bindings > FiveM), as does `/phone`. `Left Alt` hands the mouse back to the game while the phone stays up, and again to take it back.
+
+In the camera, `Left Alt` lets the mouse aim (in selfie mode it moves the phone around your face), `Enter` is the shutter and `Up` flips the camera. The viewfinder lists these keys.
 
 ### The phone as an item
 
@@ -81,9 +83,9 @@ A Discord webhook in `config/keys.lua` (or `set lwk_phone_webhook`) logs posts a
 
 ## What ships
 
-Ten core apps are installed on a new phone: Phone, Messages, Camera, Photos, Settings, App Store, Wallet, Maps, Garage, Services.
+A new phone starts with fifteen apps: Phone, Messages, Camera, Photos, Settings, App Store, Wallet, Maps, Garage, Services, Clock, Notes, Voice Memos, Flock and Loop.
 
-Sixteen add-ons are in the App Store: Clock, Weather, Notes, Calculator, Voice Memos, Mail, Music, Home, Flock, Lumen, Loop, Ember, Shade, Adverts, Market, Crypto. Change which apps start installed with `defaults.apps` and `defaults.dock` in the theme file.
+The rest are in the App Store: Weather, Calculator, Mail, Music, Home, Lumen, Ember, Shade, Adverts, Market, Crypto. Change which apps start installed with `defaults.apps` and `defaults.dock` in the theme file. A phone that has already rearranged its home screen keeps its own list.
 
 ## Exports
 

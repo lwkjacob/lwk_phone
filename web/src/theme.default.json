@@ -28,7 +28,7 @@
     "wallpaper": "graphite",
     "lockWallpaper": "graphite",
     "frame": "natural",
-    "apps": ["settings", "store", "wallet", "maps", "garage", "services"],
+    "apps": ["settings", "store", "wallet", "maps", "garage", "services", "clock", "notes", "memos", "flock", "loop"],
     "dock": ["phone", "messages", "camera", "photos"]
   }
 }
