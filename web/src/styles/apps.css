@@ -286,6 +286,39 @@ video.viewer-pic { object-fit: contain; background: #000; }
     linear-gradient(rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.25)) 0 66.6% / 100% 1px no-repeat;
 }
 
+/* In-game: which keys work the camera. Clicks pass through to the viewfinder. */
+.cam-keys {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+}
+
+.cam-keys kbd {
+  display: inline-block;
+  min-width: 22px;
+  margin-right: 4px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+  text-shadow: none;
+}
+
 .cam-flash {
   position: absolute;
   inset: 0;

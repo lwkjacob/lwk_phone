@@ -14,6 +14,38 @@ local function nui(msg) SendNUIMessage(msg) end
 
 function IsPhoneOpen() return isOpen end
 
+--- True while the phone is up but the mouse has been handed back to the game (Config.cursorKey).
+function GameHasMouse() return isOpen and cursorOff end
+
+Keys = {}   -- the phone's keybinds, by purpose
+
+local NAMES = {
+    LMENU = 'Left Alt', RMENU = 'Right Alt', LSHIFT = 'Left Shift', LCONTROL = 'Left Ctrl', RETURN = 'Enter',
+    SPACE = 'Space', TAB = 'Tab', UP = '↑', DOWN = '↓', LEFT = '←', RIGHT = '→',
+}
+
+--- What to print for a keybind in an on-screen hint.
+-- ponytail: a rebound letter or F-key is followed; keys the game reports as an icon number (Alt, Enter,
+-- arrows) show the default key's name even after rebinding. Map those numbers if it ever matters.
+function KeyLabel(bind)
+    local key = bind.currentKey or ''
+    if key == '' or tonumber(key) then key = bind.defaultKey end
+    return NAMES[key] or key
+end
+
+--- The key that closed the phone is still down when the game gets the keyboard back, and Escape
+--- would open the pause menu. Keep pause blocked until that key has been let go.
+local function swallowPause()
+    CreateThread(function()
+        local atLeast = GetGameTimer() + 250
+        while GetGameTimer() < atLeast or IsDisabledControlPressed(0, 200) do
+            DisableControlAction(0, 199, true)
+            DisableControlAction(0, 200, true)
+            Wait(0)
+        end
+    end)
+end
+
 --- Hand out mouse and keyboard. With Config.walk the game keeps the keyboard so the player can
 --- move; while a text field has focus it does not, or typing would walk the character about.
 local function focus()
@@ -39,6 +71,7 @@ function ClosePhone()
     isOpen, typing, cursorOff = false, false, false
     nui({ action = 'close' })
     focus()
+    swallowPause()
     Camera.stop()
     Prop.lower()
 end
@@ -66,7 +99,7 @@ end
 
 -- Keys ---------------------------------------------------------------------------------------
 
-lib.addKeybind({
+Keys.open = lib.addKeybind({
     name = 'lwk_phone',
     description = L('key_open'),
     defaultKey = Config.keybind,
@@ -76,7 +109,7 @@ lib.addKeybind({
 })
 
 -- Gives the mouse back to the game while the phone stays up: look around, aim the camera.
-lib.addKeybind({
+Keys.cursor = lib.addKeybind({
     name = 'lwk_phone_cursor',
     description = L('key_cursor'),
     defaultKey = Config.cursorKey,

@@ -185,6 +185,8 @@ export function CameraApp() {
   const [rec, setRec] = useState<number | null>(null);
   const [snap, setSnap] = useState(0);
   const [saving, setSaving] = useState(false);
+  /** In-game: the names of the keys that work the camera, for the hints in the viewfinder. */
+  const [keys, setKeys] = useState<{ aim: string; shutter: string; flip: string } | null>(null);
   // In-game the viewfinder is the game camera; here it is a generated scene.
   const seed = selfie ? 21 : 88;
   const last = s.photos[0];
@@ -201,7 +203,7 @@ export function CameraApp() {
       rpc('camera', { on: false });
     };
   }, []);
-  useEffect(() => void (inGame && rpc('camera', { on: true, selfie })), [selfie]);
+  useEffect(() => void (inGame && rpc<{ keys: typeof keys }>('camera', { on: true, selfie }).then((r) => r?.ok && r.keys && setKeys(r.keys))), [selfie]);
 
   const noUpload = () => alert({ title: t('camera_no_upload'), message: t('camera_no_upload_text'), buttons: [{ label: t('ok'), kind: 'bold' }] });
 
@@ -267,6 +269,19 @@ export function CameraApp() {
           <canvas ref={canvas} className="cam-scene" aria-label={t('media_viewfinder')} style={{ transform: `scale(${zoom})` }} />
         ) : (
           <Pic seed={seed} className="cam-scene" alt={t('media_viewfinder')} style={{ transform: `scale(${zoom})` }} />
+        )}
+        {keys && (
+          <ul className="cam-keys">
+            <li>
+              <kbd>{keys.aim}</kbd> {t('camera_key_aim')}
+            </li>
+            <li>
+              <kbd>{keys.shutter}</kbd> {mode === 'photo' ? t('media_take_photo') : rec != null ? t('stop_recording') : t('media_record_video')}
+            </li>
+            <li>
+              <kbd>{keys.flip}</kbd> {t('media_flip_camera')}
+            </li>
+          </ul>
         )}
         {snap > 0 && <i key={snap} className="cam-flash" />}
         <div className="cam-zoom">

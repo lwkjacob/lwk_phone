@@ -125,6 +125,7 @@
     "brightness": "Brightness",
     "call": "Call",
     "camera": "Camera",
+    "camera_key_aim": "Mouse aims the camera",
     "camera_no_upload": "Camera Unavailable",
     "camera_no_upload_text": "Photo and video storage is not set up on this server.",
     "cancel": "Cancel",
