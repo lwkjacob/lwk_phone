@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Heart, Image as ImageIcon, Play, RotateCw, Share, SwitchCamera, Trash2, Video, Zap, ZapOff } from 'lucide-react';
-import type { Photo } from '../data';
+import type { Photo, Seed } from '../data';
+import { gameView, type GameView } from '../gameview';
+import { inGame, rpc, upload } from '../net';
 import { sfx } from '../sound';
-import { S, addPhoto, confirm, fmtDur, fmtTime, openApp, share, update, useNow, useS } from '../store';
+import { S, addPhoto, alert, confirm, fmtDur, fmtTime, openApp, share, update, useNow, useS } from '../store';
 import { Empty, Page, Pic, Seg, Sheet, Tabs, useNav } from '../ui';
 import { intl, t } from '../i18n';
 
@@ -54,7 +56,7 @@ function Viewer({ id, album }: { id: number; album: string }) {
             ))}
           </div>
           <div className="toolbar">
-            <button aria-label={t('share')} onClick={() => share({ kind: p.video ? t('kind_video') : t('kind_photo'), label: p.video ? t('video') : t('media_photo'), seed: p.seed })}>
+            <button aria-label={t('share')} onClick={() => share({ kind: p.video ? t('kind_video') : t('kind_photo'), label: p.video ? t('video') : t('media_photo'), seed: p.seed, item: { kind: 'photo', label: t('media_photo'), seed: p.seed } })}>
               <Share size={24} />
             </button>
             <button aria-label={t('media_favorite')} aria-pressed={!!p.fav} onClick={() => update(() => (p.fav = !p.fav))}>
@@ -70,7 +72,8 @@ function Viewer({ id, album }: { id: number; album: string }) {
         </div>
       }
     >
-      <Pic seed={p.seed} className={`viewer-pic ugc ${playing ? 'pan' : ''}`} alt={p.video ? t('video') : t('media_photo')}>
+      {p.src && playing && <video className="viewer-pic ugc" src={p.src} autoPlay loop controls />}
+      <Pic seed={p.seed} className={`viewer-pic ugc ${playing ? 'pan' : ''}`} alt={p.video ? t('video') : t('media_photo')} style={p.src && playing ? { display: 'none' } : undefined}>
         {p.video && !playing && (
           <button className="viewer-play" aria-label={t('media_play_video')} onClick={() => setPlaying(true)}>
             <Play size={30} fill="currentColor" strokeWidth={0} />
@@ -151,7 +154,7 @@ export function PhotosApp() {
 }
 
 /** Sheet for attaching a photo from the library (Messages, social apps, listings). */
-export function PhotoPicker({ onPick, onClose, videos }: { onPick: (seed: number) => void; onClose: () => void; videos?: boolean }) {
+export function PhotoPicker({ onPick, onClose, videos }: { onPick: (seed: Seed, photo: Photo) => void; onClose: () => void; videos?: boolean }) {
   const list = S.photos.filter((p) => (videos ? p.video : !p.video));
   return (
     <Sheet title={videos ? t('media_videos') : t('photos')} onClose={onClose}>
@@ -159,7 +162,7 @@ export function PhotoPicker({ onPick, onClose, videos }: { onPick: (seed: number
         list.length ? (
           <div className="pgrid">
             {list.map((p) => (
-              <Thumb key={p.id} p={p} onClick={() => (onPick(p.seed), close())} />
+              <Thumb key={p.id} p={p} onClick={() => (onPick(p.seed, p), close())} />
             ))}
           </div>
         ) : (
@@ -181,11 +184,53 @@ export function CameraApp() {
   const [zoom, setZoom] = useState(1);
   const [rec, setRec] = useState<number | null>(null);
   const [snap, setSnap] = useState(0);
+  const [saving, setSaving] = useState(false);
   // In-game the viewfinder is the game camera; here it is a generated scene.
   const seed = selfie ? 21 : 88;
   const last = s.photos[0];
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const view = useRef<GameView | null>(null);
+  const clip = useRef<ReturnType<GameView['record']> | null>(null);
+
+  // Switch the game into its phone-camera view for as long as this app is open.
+  useEffect(() => {
+    if (!inGame) return;
+    view.current = canvas.current && gameView(canvas.current);
+    return () => {
+      view.current?.destroy();
+      rpc('camera', { on: false });
+    };
+  }, []);
+  useEffect(() => void (inGame && rpc('camera', { on: true, selfie })), [selfie]);
+
+  const noUpload = () => alert({ title: t('camera_no_upload'), message: t('camera_no_upload_text'), buttons: [{ label: t('ok'), kind: 'bold' }] });
+
+  /** In-game: capture from the game view, upload, and file the result in Photos. */
+  const capture = async () => {
+    const v = view.current;
+    if (!v || saving) return;
+    if (!S.cfg.upload) return noUpload();
+    const aspect = S.landscape ? 16 / 9 : 3 / 4;
+    if (mode === 'video' && rec == null) {
+      clip.current = v.record();
+      return setRec(Date.now());
+    }
+    setSaving(true);
+    setSnap((n) => n + 1);
+    const poster = await v.photo(aspect);
+    const seconds = rec == null ? 0 : Math.max(1, Math.round((Date.now() - rec) / 1000));
+    const video = clip.current && (await clip.current.stop());
+    clip.current = null;
+    setRec(null);
+    const url = poster && (await upload(poster, 'photo.jpg'));
+    const src = video ? await upload(video, 'video.webm') : undefined;
+    setSaving(false);
+    if (!url || (video && !src)) return noUpload();
+    addPhoto({ seed: url, selfie, ...(src ? { src, video: seconds } : {}) });
+  };
 
   const shutter = () => {
+    if (inGame) return void capture();
     if (mode === 'photo') {
       sfx('shutter');
       setSnap((n) => n + 1);
@@ -196,6 +241,15 @@ export function CameraApp() {
       setRec(null);
     }
   };
+
+  // With the mouse handed back to the game, the shutter and flip come from keys (see client/camera.lua).
+  const press = useRef(shutter);
+  press.current = shutter;
+  useEffect(() => {
+    const onKey = (e: Event) => ((e as CustomEvent).detail.event === 'shutter' ? press.current() : setSelfie((v) => !v));
+    window.addEventListener('phone:camera', onKey);
+    return () => window.removeEventListener('phone:camera', onKey);
+  }, []);
 
   return (
     <div className="cam">
@@ -209,7 +263,11 @@ export function CameraApp() {
         </button>
       </div>
       <div className="cam-view">
-        <Pic seed={seed} className="cam-scene" alt={t('media_viewfinder')} style={{ transform: `scale(${zoom})` }} />
+        {inGame ? (
+          <canvas ref={canvas} className="cam-scene" aria-label={t('media_viewfinder')} style={{ transform: `scale(${zoom})` }} />
+        ) : (
+          <Pic seed={seed} className="cam-scene" alt={t('media_viewfinder')} style={{ transform: `scale(${zoom})` }} />
+        )}
         {snap > 0 && <i key={snap} className="cam-flash" />}
         <div className="cam-zoom">
           {([['.5', 1], ['1', 1.5], ['2', 2.4]] as const).map(([label, scale]) => (
@@ -228,7 +286,7 @@ export function CameraApp() {
         <button className="cam-last" aria-label={t('media_open_photos')} onClick={(e) => openApp('photos', e.currentTarget)}>
           {last ? <Pic seed={last.seed} className="ugc" /> : <Video size={20} />}
         </button>
-        <button className={`cam-shutter ${mode} ${rec != null ? 'rec' : ''}`} aria-label={mode === 'photo' ? t('media_take_photo') : rec != null ? t('stop_recording') : t('media_record_video')} onClick={shutter}>
+        <button className={`cam-shutter ${mode} ${rec != null ? 'rec' : ''}`} disabled={saving} aria-label={mode === 'photo' ? t('media_take_photo') : rec != null ? t('stop_recording') : t('media_record_video')} onClick={shutter}>
           <i />
         </button>
         <button className="cam-flip" aria-label={t('media_flip_camera')} onClick={() => setSelfie(!selfie)}>

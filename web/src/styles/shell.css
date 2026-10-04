@@ -1264,6 +1264,9 @@ button.cc-mod:active { transform: scale(0.93); }
   animation: pan 14s ease-in-out infinite alternate;
 }
 
+video.call-remote { width: 100%; height: 100%; object-fit: cover; animation: none; background: #000; }
+canvas.call-self { object-fit: cover; }
+
 .call-self {
   position: absolute;
   top: 62px;

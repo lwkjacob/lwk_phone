@@ -133,6 +133,7 @@
 .pgrid.tall .pic { aspect-ratio: 3 / 4; }
 .pgrid.gifs { gap: 6px; padding: 0 12px; grid-template-columns: repeat(2, 1fr); }
 .pgrid.gifs .pic { aspect-ratio: 4 / 3; height: auto; border-radius: 10px; }
+.pgrid-add { aspect-ratio: 1; display: grid; place-items: center; background: var(--fill2); color: var(--tint); }
 .pgrid .picked { outline: 4px solid var(--tint); outline-offset: -4px; }
 
 .thumb-fav {
@@ -270,6 +271,9 @@
   inset: 0;
   transition: transform 0.4s var(--ease);
 }
+
+canvas.cam-scene { width: 100%; height: 100%; object-fit: cover; }
+video.viewer-pic { object-fit: contain; background: #000; }
 
 .cam-scene::after {
   content: '';
@@ -738,6 +742,7 @@
 }
 
 .maps-canvas > svg { position: absolute; inset: 0; }
+.maps-canvas > img { position: absolute; inset: 0; width: 100%; height: 100%; user-select: none; }
 .m-sea { fill: #a9d3f0; }
 .m-land { fill: #f3efe4; }
 .m-park { fill: #c5e6b3; }

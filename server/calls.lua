@@ -14,7 +14,8 @@ function Calls.active(number) return calls[inCall[number] or 0] end
 --- Recent calls for the Phone app, from this phone's point of view.
 function Calls.log(number)
     local out = {}
-    for i, r in ipairs(MySQL.query.await('SELECT * FROM lwk_phone_calls WHERE caller = ? OR callee = ? ORDER BY id DESC LIMIT 60', { number, number })) do
+    local since = tonumber(Phone.get(number, 'callsCleared')) or 0
+    for i, r in ipairs(MySQL.query.await('SELECT * FROM lwk_phone_calls WHERE (caller = ? OR callee = ?) AND created > ? ORDER BY id DESC LIMIT 60', { number, number, since })) do
         local outgoing = r.caller == number
         out[i] = {
             id = r.id, time = r.created, video = r.video == 1 or r.video == true or nil,
@@ -78,6 +79,12 @@ function Calls.start(number, opts)
         Phone.push(n, { action = 'call', event = 'incoming', number = call.hidden and L('no_caller_id') or number, video = call.video })
     end
     return call
+end
+
+--- Clear this phone's call history (the other side keeps theirs).
+RPC['call.clear'] = function(_, number)
+    Phone.set(number, 'callsCleared', Phone.now())
+    return Phone.ok()
 end
 
 RPC['call.start'] = function(_, number, data)

@@ -11,6 +11,7 @@ end
 
 Local['waypoint'] = function(data)
     local x, y = tonumber(data.x), tonumber(data.y)
+    if data.clear then SetWaypointOff() end
     if x and y then SetNewWaypoint(x + 0.0, y + 0.0) end
     return ok()
 end

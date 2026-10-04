@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Phone, Plus, SquarePen, Video } from 'lucide-react';
-import { S, actions, chatWith, confirm, contactOf, fmtAgo, fmtDur, nameOf, preview, prompt, sendMsg, startCall, uid, update, useNow, useS } from '../store';
+import { actions, canon, chatWith, confirm, contactOf, fmtAgo, fmtDur, nameOf, preview, prompt, S, sendMsg, startCall, uid, update, useNow, useS } from '../store';
 import { Avatar, Bubbles, Composer, Empty, Group, Page, Pic, Row, Search, Sheet, Stack, Toggle, Wave, useNav } from '../ui';
 import { record, type Recording } from '../rtc';
 import { PhotoPicker } from './Media';
 import { ContactView } from './Phone';
 import { t } from '../i18n';
 import { GifSheet } from '../pickers';
+import { inGame, rpc } from '../net';
+import { APPS } from './index';
+
+/** Share where the player is. In-game that is the real street and coordinates, tappable for a waypoint. */
+async function sendLocation(chat: number) {
+  const here = await rpc<{ x: number; y: number; street: string }>('position');
+  sendMsg(chat, here?.ok ? { loc: here.street || t('my_location'), x: here.x, y: here.y } : { loc: 'Legion Square' });
+}
 
 const titleOf = (c: { name?: string; numbers: string[] }) => c.name ?? c.numbers.map(nameOf).join(', ');
 
@@ -21,7 +29,7 @@ function ChatInfo({ id }: { id: number }) {
       <div className="contact-hero">
         <Avatar name={titleOf(c)} size={96} tint={group} />
         <h1>{titleOf(c)}</h1>
-        {group && <button className="tint" onClick={() => prompt(t('messages_group_name'), t('name'), (v) => update(() => (c.name = v)), c.name)}>{t('messages_change_name')}</button>}
+        {group && <button className="tint" onClick={() => prompt(t('messages_group_name'), t('name'), (v) => (rpc('msg.name', { ch: c.ch, name: v }), update(() => (c.name = v))), c.name)}>{t('messages_change_name')}</button>}
       </div>
       <Group header={group ? t('messages_x_people', { x: c.numbers.length + 1 }) : undefined}>
         {c.numbers.map((num) => (
@@ -31,19 +39,19 @@ function ChatInfo({ id }: { id: number }) {
           <Row
             tone="tint"
             title={t('messages_add_contact')}
-            onClick={() => actions({ title: t('messages_add_to_group'), options: s.contacts.filter((x) => !c.numbers.includes(x.number)).slice(0, 6).map((x) => ({ label: x.name, run: () => update(() => c.numbers.push(x.number)) })) })}
+            onClick={() => actions({ title: t('messages_add_to_group'), options: s.contacts.filter((x) => !c.numbers.includes(x.number)).slice(0, 6).map((x) => ({ label: x.name, run: () => (rpc('msg.add', { ch: c.ch, number: x.number }), update(() => c.numbers.push(x.number))) })) })}
           />
         )}
       </Group>
       <Group>
         <Row title={t('messages_hide_alerts')} right={<Toggle label={t('messages_hide_alerts')} on={!!c.muted} onChange={(v) => update(() => (c.muted = v))} />} />
-        <Row tone="tint" title={t('share_my_location')} onClick={() => (sendMsg(id, { loc: 'Legion Square' }), nav.pop())} />
+        <Row tone="tint" title={t('share_my_location')} onClick={() => (sendLocation(id), nav.pop())} />
       </Group>
       <Group>
         <Row
           tone="danger"
           title={group ? t('messages_leave_this_conversation') : t('messages_delete_conversation')}
-          onClick={() => confirm(t('messages_delete_conversation'), t('messages_this_conversation_will_be_deleted_from'), t('delete'), () => (nav.pop(), nav.pop(), update((x) => (x.chats = x.chats.filter((y) => y.id !== id)))))}
+          onClick={() => confirm(t('messages_delete_conversation'), t('messages_this_conversation_will_be_deleted_from'), t('delete'), () => (nav.pop(), nav.pop(), c.ch && rpc('msg.leave', { ch: c.ch }), update((x) => (x.chats = x.chats.filter((y) => y.id !== id)))))}
         />
       </Group>
     </Page>
@@ -60,6 +68,7 @@ function ChatView({ id }: { id: number }) {
     update((x) => {
       x.viewChat = id;
       const chat = x.chats.find((y) => y.id === id);
+      if (chat?.unread && chat.ch) rpc('msg.read', { ch: chat.ch });
       if (chat) chat.unread = 0;
     });
     return () => update((x) => (x.viewChat = null));
@@ -73,10 +82,10 @@ function ChatView({ id }: { id: number }) {
     actions({
       options: [
         { label: t('messages_photo_library'), run: () => setPick('photo') },
-        { label: t('gif'), run: () => setPick('gif') },
-        { label: t('messages_send_location'), run: () => sendMsg(id, { loc: 'Legion Square' }) },
+        ...(inGame ? [] : [{ label: t('gif'), run: () => setPick('gif') }]),
+        { label: t('messages_send_location'), run: () => sendLocation(id) },
         { label: t('messages_voice_message'), run: () => setPick('voice') },
-        ...(group ? [] : [{ label: t('send_money'), run: () => prompt(t('send_money'), t('amount'), (v) => Number(v) > 0 && sendMsg(id, { money: Math.floor(Number(v)) }), '', t('messages_to_name', { name: titleOf(c) })) }]),
+        ...(group || (inGame && !APPS.wallet) ? [] : [{ label: t('send_money'), run: () => prompt(t('send_money'), t('amount'), (v) => Number(v) > 0 && sendMsg(id, { money: Math.floor(Number(v)) }), '', t('messages_to_name', { name: titleOf(c) })) }]),
       ],
     });
   return (
@@ -153,8 +162,8 @@ function NewMessage({ onClose, onOpen }: { onClose: () => void; onOpen: (id: num
   const [to, setTo] = useState<string[]>([]);
   const list = s.contacts.filter((c) => !to.includes(c.number) && (c.name.toLowerCase().includes(q.toLowerCase()) || c.number.includes(q)));
   const start = () => {
-    if (to.length === 1) return onOpen(chatWith(to[0]));
-    const chat = { id: uid(), numbers: to, name: undefined, msgs: [], unread: 0 };
+    if (to.length === 1) return onOpen(chatWith(canon(to[0])));
+    const chat = { id: uid(), numbers: to.map(canon), name: undefined, msgs: [], unread: 0 };
     update((x) => x.chats.unshift(chat));
     onOpen(chat.id);
   };

@@ -10,7 +10,7 @@ import { t } from '../i18n';
 const sw = { running: false, base: 0, start: 0, laps: [] as number[] };
 const swElapsed = () => sw.base + (sw.running ? Date.now() - sw.start : 0);
 const tm = { total: 0, end: 0, left: 0, running: false, handle: 0 };
-const clocks = [...worldClocks];
+const clocks = worldClocks;
 const CITIES = [
   { city: 'Paleto Bay', offset: -7 },
   { city: 'Vice City', offset: -4 },

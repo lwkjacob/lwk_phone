@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Clock, Delete, Grip, Info, Mail, MessageCircle, Phone, PhoneMissed, PhoneOutgoing, Play, Plus, Star, User, Video, Voicemail as VoicemailIcon } from 'lucide-react';
-import { S, alert, chatWith, confirm, contactOf, fmtAgo, fmtDur, nameOf, openApp, share, startCall, uid, update, useS } from '../store';
+import { alert, canon, chatWith, confirm, contactOf, fmtAgo, fmtDur, nameOf, openApp, S, share, startCall, uid, update, useS } from '../store';
 import { Avatar, DialPad, Empty, Field, Group, Page, Row, Search, Seg, Sheet, Tabs, useNav } from '../ui';
 import { t } from '../i18n';
+import { inGame, rpc } from '../net';
 
 const message = (number: string) => openApp('messages', null, { chat: chatWith(number) });
 
@@ -13,8 +14,8 @@ export function ContactSheet({ id, number = '', onClose }: { id?: number; number
   const [email, setEmail] = useState(c?.email ?? '');
   const save = () =>
     update((s) => {
-      if (c) Object.assign(c, { name: name.trim(), number: num.trim(), email });
-      else s.contacts.push({ id: uid(), name: name.trim(), number: num.trim(), email });
+      if (c) Object.assign(c, { name: name.trim(), number: canon(num), email });
+      else s.contacts.push({ id: uid(), name: name.trim(), number: canon(num), email });
     });
   return (
     <Sheet title={c ? t('phone_edit_contact') : t('phone_new_contact')} onClose={onClose} action={{ label: t('done'), disabled: !name.trim() || !num.trim(), run: save }}>
@@ -74,7 +75,7 @@ export function ContactView({ number }: { number: string }) {
       </Group>
       <Group>
         <Row tone="tint" title={t('phone_send_message')} onClick={() => message(number)} />
-        <Row tone="tint" title={t('phone_share_contact')} onClick={() => share({ kind: t('kind_contact'), label: `${name} · ${number}` })} />
+        <Row tone="tint" title={t('phone_share_contact')} onClick={() => share({ kind: t('kind_contact'), label: `${name} · ${number}`, item: { kind: 'contact', label: name, name, number } })} />
         {c && <Row tone="tint" title={c.fav ? t('phone_remove_from_favorites') : t('phone_add_to_favorites')} onClick={() => update(() => (c.fav = !c.fav))} />}
         {!c && <Row tone="tint" title={t('phone_create_new_contact')} onClick={() => setEdit(true)} />}
       </Group>
@@ -132,7 +133,7 @@ function Recents() {
   useEffect(() => update((x) => (x.seenCalls = Date.now())), []);
   const list = s.calls.filter((c) => filter === 'all' || c.dir === 'missed');
   return (
-    <Page title={<Seg value={filter} onChange={setFilter} options={[['all', t('phone_all')], ['missed', t('phone_missed')]] as const} />} right={list.length > 0 && <button onClick={() => confirm(t('phone_clear_all_recents'), t('phone_this_removes_your_entire_call_history'), t('phone_clear'), () => update((x) => (x.calls = [])))}>{t('phone_clear')}</button>}>
+    <Page title={<Seg value={filter} onChange={setFilter} options={[['all', t('phone_all')], ['missed', t('phone_missed')]] as const} />} right={list.length > 0 && <button onClick={() => confirm(t('phone_clear_all_recents'), t('phone_this_removes_your_entire_call_history'), t('phone_clear'), () => (rpc('call.clear'), update((x) => (x.calls = []))))}>{t('phone_clear')}</button>}>
       <h1 className="lg-title">{t('phone_recents')}</h1>
       {list.length ? (
         <div className="list">
@@ -295,7 +296,8 @@ export function PhoneApp() {
         { id: 'recents', label: t('phone_recents'), icon: <Clock size={24} fill="currentColor" stroke="var(--bar-solid)" />, badge: missed, view: <Recents /> },
         { id: 'contacts', label: t('contacts'), icon: <User size={24} fill="currentColor" strokeWidth={0} />, view: <Contacts /> },
         { id: 'keypad', label: t('keypad'), icon: <Grip size={24} strokeWidth={2.6} />, view: <Keypad /> },
-        { id: 'voicemail', label: t('phone_voicemail'), icon: <VoicemailIcon size={24} strokeWidth={2.4} />, badge: s.voicemail.filter((v) => !v.heard).length, view: <Voicemail /> },
+        // ponytail: voicemail is demo-only. In-game nothing records a message yet, so the tab is left out.
+        ...(inGame ? [] : [{ id: 'voicemail', label: t('phone_voicemail'), icon: <VoicemailIcon size={24} strokeWidth={2.4} />, badge: s.voicemail.filter((v) => !v.heard).length, view: <Voicemail /> }]),
       ]}
     />
   );

@@ -25,7 +25,7 @@ function NoteView({ id }: { id: number }) {
       back={t('util_notes')}
       right={
         <>
-          <button aria-label={t('util_share_note')} onClick={() => share({ kind: t('kind_note'), label: n.title || t('util_new_note') })}>
+          <button aria-label={t('util_share_note')} onClick={() => share({ kind: t('kind_note'), label: n.title || t('util_new_note'), item: { kind: 'note', label: n.title || t('util_new_note'), title: n.title, body: n.body } })}>
             <Share size={22} />
           </button>
           <button aria-label={t('util_delete_note')} onClick={() => (nav.pop(), update((x) => (x.notes = x.notes.filter((y) => y.id !== id))))}>

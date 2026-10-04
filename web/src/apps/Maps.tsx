@@ -1,15 +1,16 @@
-import { useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { LocateFixed, MapPin, Minus, Navigation, Plus, Share, X } from 'lucide-react';
 import { places } from '../data';
-import { notify, share, view } from '../store';
+import { inGame, rpc } from '../net';
+import { mapPercent } from '../nui';
+import { notify, share, update, useS, view } from '../store';
 import { Search } from '../ui';
 import { t } from '../i18n';
 
-const ME = { x: 50, y: 66 };
+const DEMO = { x: 50, y: 66 };
 const SIZE = 900;
 
-/* ponytail: an invented map so the demo ships no game assets. In-game, swap the <svg> for map tiles
- * and feed `places` / ME from blips and the player's coords. */
+/* An invented map, so the phone ships no game assets. Servers point Config.map.image at a real one. */
 function MapArt() {
   return (
     <svg viewBox="0 0 100 100" width={SIZE} height={SIZE} aria-hidden="true">
@@ -37,6 +38,10 @@ function MapArt() {
 }
 
 export function MapsApp() {
+  const s = useS();
+  // The map picture's height over its width: the canvas takes the picture's shape, so pins stay true.
+  const [ratio, setRatio] = useState(1);
+  const ME = s.position ? mapPercent(s.position.x, s.position.y) : DEMO;
   const [pos, setPos] = useState({ x: -ME.x * 9 + 196, y: -ME.y * 9 + 340 });
   const [zoom, setZoom] = useState(1);
   const [q, setQ] = useState('');
@@ -47,7 +52,30 @@ export function MapsApp() {
   const dest = places.find((p) => p.id === route);
   const list = places.filter((p) => `${p.name} ${p.kind}`.toLowerCase().includes(q.toLowerCase()));
 
-  const center = (x: number, y: number) => setPos({ x: -x * 9 * zoom + 196, y: -y * 9 * zoom + 300 });
+  const center = (x: number, y: number) => setPos({ x: -x * 9 * zoom + 196, y: -y * 9 * ratio * zoom + 300 });
+
+  // In-game: where the player really is, re-read while the app is open.
+  useEffect(() => {
+    if (!inGame) return;
+    const read = async () => {
+      const r = await rpc<{ x: number; y: number; street: string }>('position');
+      if (r?.ok) update((st) => (st.position = { x: r.x, y: r.y, street: r.street }));
+    };
+    read();
+    const timer = window.setInterval(read, 2000);
+    return () => window.clearInterval(timer);
+  }, []);
+  // Start on the player once the first position (and the map's shape) is known.
+  const found = !!s.position;
+  useEffect(() => {
+    if (found) center(ME.x, ME.y);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, not on every step the player takes
+  }, [found, ratio]);
+
+  /** Distance to a place in km: real in-game, a rough guess on the demo map. */
+  const km = (p: { x: number; y: number; wx?: number; wy?: number }) =>
+    (s.position && p.wx != null && p.wy != null ? Math.hypot(p.wx - s.position.x, p.wy - s.position.y) / 1000 : Math.hypot(p.x - ME.x, p.y - ME.y) * 0.21).toFixed(1);
+  const here = s.position?.street || t('maps_legion_square');
   const onDown = (e: RPointerEvent<HTMLDivElement>) => {
     const k = view.k;
     const start = { x: e.clientX, y: e.clientY, px: pos.x, py: pos.y };
@@ -69,10 +97,10 @@ export function MapsApp() {
   return (
     <div className="maps">
       <div className="maps-view" onPointerDown={onDown} onWheel={(e) => setZoom((z) => Math.min(2.4, Math.max(0.6, z - Math.sign(e.deltaY) * 0.2)))}>
-        <div className="maps-canvas" style={{ transform: `translate(${pos.x}px, ${pos.y}px) scale(${zoom})` }}>
-          <MapArt />
+        <div className="maps-canvas" style={{ height: SIZE * ratio, transform: `translate(${pos.x}px, ${pos.y}px) scale(${zoom})` }}>
+          {s.cfg.map.image ? <img src={s.cfg.map.image} alt="" draggable={false} onLoad={(e) => setRatio(e.currentTarget.naturalHeight / e.currentTarget.naturalWidth || 1)} /> : <MapArt />}
           {dest && (
-            <svg viewBox="0 0 100 100" width={SIZE} height={SIZE} className="m-route" aria-hidden="true">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" width={SIZE} height={SIZE * ratio} className="m-route" aria-hidden="true">
               <path d={`M${ME.x} ${ME.y} Q${(ME.x + dest.x) / 2 + 6} ${(ME.y + dest.y) / 2 - 4} ${dest.x} ${dest.y}`} />
             </svg>
           )}
@@ -105,7 +133,7 @@ export function MapsApp() {
               <div>
                 <h1>{place.name}</h1>
                 <p>
-                  {place.kind}{' '}{t('maps_n_km_away', { n: (Math.hypot(place.x - ME.x, place.y - ME.y) * 0.21).toFixed(1) })}
+                  {place.kind}{' '}{t('maps_n_km_away', { n: km(place) })}
                 </p>
               </div>
               <button aria-label={t('close')} className="maps-x" onClick={() => setSel(null)}>
@@ -117,13 +145,14 @@ export function MapsApp() {
                 className="primary"
                 onClick={() => {
                   setRoute(route === place.id ? null : place.id);
+                  rpc('waypoint', route === place.id ? { clear: true } : { x: place.wx, y: place.wy });
                   if (route !== place.id) notify({ app: 'maps', title: t('waypoint_set'), body: t('route_to_name_is_on_your', { name: place.name }) });
                 }}
               >
                 <Navigation size={18} fill="currentColor" />
                 {route === place.id ? t('maps_remove_waypoint') : t('set_waypoint')}
               </button>
-              <button onClick={() => share({ kind: t('kind_location'), label: place.name })}>
+              <button onClick={() => share({ kind: t('kind_location'), label: place.name, item: { kind: 'location', label: place.name, x: place.wx, y: place.wy } })}>
                 <Share size={18} />
                 {t('share')}
               </button>
@@ -133,13 +162,13 @@ export function MapsApp() {
           <>
             <Search value={q} onChange={setQ} placeholder={t('maps_search_maps')} />
             <div className="maps-list">
-              <button onClick={() => share({ kind: t('kind_location'), label: t('maps_my_location_legion_square') })}>
+              <button onClick={() => share({ kind: t('kind_location'), label: s.position ? here : t('maps_my_location_legion_square'), item: { kind: 'location', label: here, x: s.position?.x, y: s.position?.y } })}>
                 <span className="maps-dot blue">
                   <LocateFixed size={16} />
                 </span>
                 <span>
                   <b>{t('share_my_location')}</b>
-                  <small>{t('maps_legion_square')}</small>
+                  <small>{here}</small>
                 </span>
               </button>
               {list.map((p) => (

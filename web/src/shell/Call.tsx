@@ -3,7 +3,8 @@ import { Grip, MessageCircle, MicOff, Phone, Plus, SwitchCamera, User, Video, Vi
 import { answer, chatWith, fmtDur, hangup, nameOf, openApp, update, useNow, useS, type Call } from '../store';
 import { Avatar, DialPad, Pic } from '../ui';
 import { t } from '../i18n';
-import { inGame } from '../nui';
+import { gameView } from '../gameview';
+import { inGame, rpc } from '../net';
 import { connect } from '../rtc';
 
 function CallBtn({ label, on, onClick, children }: { label: string; on?: boolean; onClick: () => void; children: ReactNode }) {
@@ -26,38 +27,39 @@ function CallView({ c }: { c: Call }) {
   const status = c.state === 'incoming' ? (c.video ? t('sys_incoming_video_call') : t('sys_mobile')) : c.state === 'outgoing' ? t('sys_calling') : fmtDur(Math.max(0, (now - c.start) / 1000));
   const set = (patch: Partial<Call>) => update((s) => s.call && Object.assign(s.call, patch));
   const video = c.video && live;
-  const remote = useRef<HTMLAudioElement>(null);
+  const remote = useRef<HTMLVideoElement>(null);
+  const self = useRef<HTMLCanvasElement>(null);
+  const [selfie, setSelfie] = useState(true);
 
-  // Video-call audio goes player to player over WebRTC (as in LB Phone). Only in-game: the browser demo has nobody to connect to.
+  // Video calls: each phone sends its game camera to the other over WebRTC (as in LB Phone). Voices go
+  // through the server's voice system, like any call. Only in-game: the demo has nobody to connect to.
   useEffect(() => {
     if (!inGame || !video) return;
-    let hangUp = () => {};
-    let mic: MediaStream | undefined;
-    let over = false;
-    navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .catch(() => undefined)
-      .then((stream) => {
-        if (over) return stream?.getTracks().forEach((track) => track.stop());
-        mic = stream;
-        hangUp = connect(c.number, { initiator: c.out, stream, onStream: (s) => remote.current && (remote.current.srcObject = s) });
-      });
+    const cam = self.current && gameView(self.current);
+    const hangUp = connect('call', { initiator: c.out, stream: cam?.stream(), onStream: (s) => remote.current && (remote.current.srcObject = s) });
     return () => {
-      over = true;
       hangUp();
-      mic?.getTracks().forEach((track) => track.stop());
+      cam?.destroy();
+      rpc('camera', { on: false });
     };
-  }, [video, c.number, c.out]);
+  }, [video, c.out]);
+  useEffect(() => void (inGame && video && rpc('camera', { on: true, selfie })), [video, selfie]);
 
   return (
-    <div className={`call ${video ? 'video' : ''}`} role="dialog" aria-label={t('sys_call_with_name', { name })}>
-      <audio ref={remote} autoPlay />
-      {video && (
-        <>
-          <Pic seed={name.length * 7 + 3} className="call-remote ugc" alt={t('sys_names_camera', { name })} />
-          <Pic seed={21} className="call-self ugc" alt={t('sys_your_camera')} />
-        </>
-      )}
+    // Minimised, the call stays mounted (hidden) so a video connection is not dropped.
+    <div className={`call ${video ? 'video' : ''}`} role="dialog" aria-label={t('sys_call_with_name', { name })} style={c.min ? { display: 'none' } : undefined}>
+      {video &&
+        (inGame ? (
+          <>
+            <video ref={remote} className="call-remote" autoPlay playsInline muted aria-label={t('sys_names_camera', { name })} />
+            <canvas ref={self} className="call-self" aria-label={t('sys_your_camera')} />
+          </>
+        ) : (
+          <>
+            <Pic seed={name.length * 7 + 3} className="call-remote ugc" alt={t('sys_names_camera', { name })} />
+            <Pic seed={21} className="call-self ugc" alt={t('sys_your_camera')} />
+          </>
+        ))}
       <div className="call-head">
         {!video && <Avatar name={name} size={96} />}
         <h2>{name}</h2>
@@ -93,7 +95,7 @@ function CallView({ c }: { c: Call }) {
                 <MicOff size={30} />
               </CallBtn>
               {video ? (
-                <CallBtn label={t('sys_flip')} onClick={() => {}}>
+                <CallBtn label={t('sys_flip')} onClick={() => setSelfie(!selfie)}>
                   <SwitchCamera size={30} />
                 </CallBtn>
               ) : (
@@ -107,9 +109,12 @@ function CallView({ c }: { c: Call }) {
               <CallBtn label={t('sys_add_call')} onClick={() => openApp('phone')}>
                 <Plus size={30} strokeWidth={2.6} />
               </CallBtn>
-              <CallBtn label={c.video ? t('sys_stop_video') : t('video')} on={c.video} onClick={() => set({ video: !c.video })}>
-                {c.video ? <VideoOff size={30} /> : <Video size={30} fill="currentColor" />}
-              </CallBtn>
+              {/* ponytail: in-game a call stays voice or video as it started; switching would need telling the other phone. */}
+              {!inGame && (
+                <CallBtn label={c.video ? t('sys_stop_video') : t('video')} on={c.video} onClick={() => set({ video: !c.video })}>
+                  {c.video ? <VideoOff size={30} /> : <Video size={30} fill="currentColor" />}
+                </CallBtn>
+              )}
               <CallBtn label={t('contacts')} onClick={() => openApp('phone')}>
                 <User size={30} fill="currentColor" />
               </CallBtn>
@@ -133,5 +138,5 @@ function CallView({ c }: { c: Call }) {
 
 export function CallScreen() {
   const c = useS().call;
-  return c && !c.min ? <CallView key={c.number} c={c} /> : null;
+  return c ? <CallView key={c.number} c={c} /> : null;
 }

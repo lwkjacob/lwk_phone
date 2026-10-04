@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Ambulance, Briefcase, Building2, Car, DoorClosed, DoorOpen, KeyRound, Lightbulb, MapPin, MessageCircle, Phone, Scale, Shield, Wrench } from 'lucide-react';
 import { services } from '../data';
-import { S, actions, alert, chatWith, confirm, fmtAgo, money, nameOf, notify, openApp, pay, prompt, share, startCall, update, useS } from '../store';
-import { Avatar, Field, Group, Page, Pic, Row, Seg, Sheet, Stack, Tabs, Toggle, useNav } from '../ui';
+import type * as D from '../data';
+import { actions, alert, chatWith, confirm, fmtAgo, money, nameOf, notify, openApp, pay, prompt, S, send, share, startCall, update, useS } from '../store';
+import { Avatar, Empty, Field, Group, Page, Pic, Row, Seg, Sheet, Stack, Tabs, Toggle, useNav } from '../ui';
 import { t } from '../i18n';
+import { inGame, rpc } from '../net';
 
 /* ---------- Wallet ---------- */
 
@@ -14,6 +16,7 @@ function MoneySheet({ onClose }: { onClose: () => void }) {
   const [amount, setAmount] = useState('');
   const v = Math.floor(Number(amount));
   const run = () => {
+    if (inGame) return void send(mode === 'request' ? 'wallet.request' : 'wallet.send', { to, amount: v });
     if (mode === 'request') return notify({ app: 'wallet', title: t('life_request_sent'), body: t('life_name_was_asked_for_amount', { name: nameOf(to), amount: money(v, 0) }) });
     if (v > S.wallet.balance) return alert({ title: t('insufficient_funds'), message: t('your_balance_is_too_low_for'), buttons: [{ label: t('ok'), kind: 'bold' }] });
     pay(-v, nameOf(to));
@@ -83,7 +86,11 @@ export function WalletApp() {
 
 /* ---------- Home ---------- */
 
-const waypoint = (name: string) => notify({ app: 'maps', title: t('waypoint_set'), body: t('route_to_name_is_on_your', { name }) });
+/** Put a GPS route on the minimap. In-game that needs coordinates; the demo only says it did. */
+function waypoint(name: string, x?: number, y?: number) {
+  if (inGame && x != null && y != null) rpc('waypoint', { x, y });
+  notify({ app: 'maps', title: t('waypoint_set'), body: t('route_to_name_is_on_your', { name }) });
+}
 
 function HouseView({ id }: { id: number }) {
   const s = useS();
@@ -93,7 +100,7 @@ function HouseView({ id }: { id: number }) {
     <Page title={h.name} back={t('home')}>
       <Pic seed={h.seed} className="house-cover" alt={h.name} />
       <div className="tiles">
-        <button aria-pressed={!h.locked} onClick={() => update(() => (h.locked = !h.locked))}>
+        <button aria-pressed={!h.locked} onClick={() => (inGame ? send('home.lock', { id: h.id, locked: !h.locked }) : update(() => (h.locked = !h.locked)))}>
           {h.locked ? <DoorClosed size={26} /> : <DoorOpen size={26} />}
           <b>{t('life_front_door')}</b>
           <small>{h.locked ? t('life_locked') : t('life_unlocked')}</small>
@@ -111,7 +118,7 @@ function HouseView({ id }: { id: number }) {
             icon={<Avatar name={nameOf(num)} size={32} />}
             title={nameOf(num)}
             right={
-              <button className="danger" onClick={() => update(() => (h.keys = h.keys.filter((k) => k !== num)))}>
+              <button className="danger" onClick={() => (inGame ? send('home.key', { id: h.id, number: num, give: false }) : update(() => (h.keys = h.keys.filter((k) => k !== num))))}>
                 {t('life_revoke')}
               </button>
             }
@@ -121,11 +128,11 @@ function HouseView({ id }: { id: number }) {
           tone="tint"
           icon={<KeyRound size={20} />}
           title={t('life_give_key')}
-          onClick={() => actions({ title: t('life_give_a_key_to'), options: s.contacts.filter((c) => !h.keys.includes(c.number)).slice(0, 6).map((c) => ({ label: c.name, run: () => update(() => h.keys.push(c.number)) })) })}
+          onClick={() => actions({ title: t('life_give_a_key_to'), options: s.contacts.filter((c) => !h.keys.includes(c.number)).slice(0, 6).map((c) => ({ label: c.name, run: () => (inGame ? send('home.key', { id: h.id, number: c.number, give: true }) : update(() => h.keys.push(c.number))) })) })}
         />
       </Group>
       <Group>
-        <Row tone="tint" title={t('set_waypoint')} onClick={() => waypoint(h.name)} />
+        <Row tone="tint" title={t('set_waypoint')} onClick={() => waypoint(h.name, h.x, h.y)} />
         <Row tone="tint" title={t('life_share_address')} onClick={() => share({ kind: t('kind_location'), label: `${h.name} · ${h.addr}` })} />
       </Group>
     </Page>
@@ -211,13 +218,15 @@ function VehicleView({ id }: { id: number }) {
   const v = s.vehicles.find((x) => x.id === id);
   if (!v) return null;
   const impound = v.state === 'impound';
-  const fee = impound ? 250 : 100;
+  const fee = impound ? S.cfg.garage.impoundFee : S.cfg.garage.valetFee;
+  const arrived = () => notify({ app: 'garage', title: v.name, body: impound ? t('life_released_from_impound') : t('life_your_valet_is_on_the_way') });
   const bring = () =>
     confirm(impound ? t('life_pay_impound_fee') : t('life_request_valet'), t('life_amount_will_be_charged_to_your', { amount: money(fee, 0) }), t('life_pay'), () => {
+      if (inGame) return void send('garage.valet', { plate: v.plate }).then((r) => r && arrived());
       if (fee > S.wallet.balance) return alert({ title: t('insufficient_funds'), buttons: [{ label: t('ok'), kind: 'bold' }] });
       pay(-fee, impound ? 'Impound fee' : 'Valet service');
       update(() => (v.state = 'out'));
-      notify({ app: 'garage', title: v.name, body: impound ? t('life_released_from_impound') : t('life_your_valet_is_on_the_way') });
+      arrived();
     });
   return (
     <Page title={v.name} back={t('life_garage')}>
@@ -235,7 +244,7 @@ function VehicleView({ id }: { id: number }) {
         <Meter label={t('life_body')} value={v.body} />
       </div>
       <Group>
-        <Row tone="tint" icon={<MapPin size={20} />} title={t('life_locate_vehicle')} onClick={() => waypoint(v.name)} />
+        <Row tone="tint" icon={<MapPin size={20} />} title={t('life_locate_vehicle')} onClick={() => (inGame ? send('garage.locate', { plate: v.plate }).then((r) => r && waypoint(v.name)) : waypoint(v.name))} />
         {v.state !== 'out' && <Row tone="tint" icon={<Car size={20} />} title={impound ? t('life_pay_impound_fee_amount', { amount: money(fee, 0) }) : t('life_valet_to_me_amount', { amount: money(fee, 0) })} onClick={bring} />}
       </Group>
     </Page>
@@ -284,7 +293,7 @@ function ServiceList() {
     <Page title={t('life_services')} large>
       <div className="svc-list">
         {services.map((v) => {
-          const I = SERVICE_ICONS[v.id as keyof typeof SERVICE_ICONS];
+          const I = SERVICE_ICONS[(v.icon ?? v.id) as keyof typeof SERVICE_ICONS] ?? Building2;
           return (
             <div key={v.id} className="svc">
               <span className="svc-ic" style={{ background: v.color }}>
@@ -295,10 +304,10 @@ function ServiceList() {
                 <small>{v.desc}</small>
                 <small className={v.online ? 'pos' : ''}>{v.online ? t('life_online_available', { online: v.online }) : t('life_nobody_on_duty')}</small>
               </span>
-              <button aria-label={t('life_message_name', { name: v.name })} disabled={!v.online} onClick={() => openApp('messages', null, { chat: chatWith(v.number) })}>
+              <button aria-label={t('life_message_name', { name: v.name })} disabled={!v.online} onClick={() => (inGame ? prompt(v.name, t('message'), (text) => send('company.text', { job: v.id, text }).then((r) => r && openApp('messages'))) : openApp('messages', null, { chat: chatWith(v.number) }))}>
                 <MessageCircle size={20} fill="currentColor" strokeWidth={0} />
               </button>
-              <button aria-label={t('life_call_name', { name: v.name })} disabled={!v.online} onClick={() => startCall(v.number)}>
+              <button aria-label={t('life_call_name', { name: v.name })} disabled={!v.online} onClick={() => (inGame ? startCall(v.name, false, v.id) : startCall(v.number))}>
                 <Phone size={20} fill="currentColor" strokeWidth={0} />
               </button>
             </div>
@@ -312,56 +321,73 @@ function ServiceList() {
 function Job() {
   const s = useS();
   const j = s.job;
-  const co = services.find((x) => x.id === j.company)!;
+  if (!j) return (
+    <Page title={t('life_my_job')} large>
+      <Empty icon={<Briefcase size={44} />} title={t('life_no_job')} text={t('life_no_job_text')} />
+    </Page>
+  );
+  const co = services.find((x) => x.id === j.company);
+  const balance = j.balance;
   const move = (dir: 1 | -1) =>
     prompt(dir > 0 ? t('life_deposit') : t('life_withdraw'), t('amount'), (v) => {
       const amt = Math.floor(Number(v));
-      if (!(amt > 0) || (dir > 0 ? amt > S.wallet.balance : amt > j.balance)) return alert({ title: t('insufficient_funds'), buttons: [{ label: t('ok'), kind: 'bold' }] });
-      pay(-dir * amt, `${co.name} account`);
-      update(() => (j.balance += dir * amt));
+      if (!(amt > 0) || (dir > 0 ? amt > S.wallet.balance : amt > (j.balance ?? 0))) return alert({ title: t('insufficient_funds'), buttons: [{ label: t('ok'), kind: 'bold' }] });
+      pay(-dir * amt, `${co?.name ?? j.company} account`);
+      update(() => (j.balance = (j.balance ?? 0) + dir * amt));
+    });
+  // Hiring: in-game the candidates are the players standing next to you; the demo offers contacts.
+  const hire = async () => {
+    if (!inGame) {
+      return actions({ title: t('life_hire'), options: s.contacts.filter((c) => !j.staff.some((p) => p.name === c.name)).slice(0, 6).map((c) => ({ label: c.name, run: () => update(() => j.staff.push({ name: c.name, grade: 'Trainee', online: false })) })) });
+    }
+    const near = await rpc<{ people: { id: number; name: string }[] }>('share.nearby');
+    const people = near?.ok ? (near.people ?? []) : [];
+    if (!people.length) return alert({ title: t('life_nobody_nearby'), buttons: [{ label: t('ok'), kind: 'bold' }] });
+    actions({ title: t('life_hire'), options: people.map((x) => ({ label: x.name, run: () => void send('job.hire', { id: x.id }) })) });
+  };
+  const manage = (p: D.Job['staff'][number]) =>
+    actions({
+      title: p.name,
+      options: [
+        // Promotions need the framework's own grade list, so in-game they stay in the boss menu.
+        ...(inGame ? [] : ['Trainee', 'Mechanic', 'Manager'].filter((g) => g !== p.grade).map((g) => ({ label: t('life_set_grade_g', { g }), run: () => update(() => (p.grade = g)) }))),
+        { label: t('life_fire'), destructive: true, run: () => (inGame ? void send('job.fire', { id: p.id }) : update(() => (j.staff = j.staff.filter((x) => x !== p)))) },
+      ],
     });
   return (
-    <Page title={co.name} large>
-      <Group footer={t('life_while_on_duty_you_receive_calls')}>
-        <Row title={t('life_on_duty')} sub={j.grade} right={<Toggle label={t('life_on_duty_2')} on={j.duty} onChange={(v) => update(() => (j.duty = v))} />} />
+    <Page title={j.label ?? co?.name ?? j.company} large>
+      <Group footer={j.duty === undefined ? undefined : t('life_while_on_duty_you_receive_calls')}>
+        {j.duty === undefined ? (
+          <Row title={j.grade} />
+        ) : (
+          <Row title={t('life_on_duty')} sub={j.grade} right={<Toggle label={t('life_on_duty_2')} on={j.duty} onChange={(v) => (inGame ? send('job.duty') : update(() => (j.duty = v)))} />} />
+        )}
       </Group>
-      {j.boss && (
+      {j.boss && balance != null && (
         <Group header={t('life_company_account')}>
-          <Row title={t('life_balance')} value={money(j.balance, 0)} />
+          <Row title={t('life_balance')} value={money(balance, 0)} />
           <Row tone="tint" title={t('life_deposit')} onClick={() => move(1)} />
           <Row tone="tint" title={t('life_withdraw')} onClick={() => move(-1)} />
         </Group>
       )}
-      <Group header={t('life_employees')}>
-        {j.staff.map((p) => (
-          <Row
-            key={p.name}
-            icon={<Avatar name={p.name} size={32} />}
-            title={p.name}
-            sub={`${p.grade} · ${p.online ? 'Online' : 'Offline'}`}
-            chevron={j.boss && p.name !== s.me.name}
-            onClick={
-              j.boss && p.name !== s.me.name
-                ? () =>
-                    actions({
-                      title: p.name,
-                      options: [
-                        ...['Trainee', 'Mechanic', 'Manager'].filter((g) => g !== p.grade).map((g) => ({ label: t('life_set_grade_g', { g }), run: () => update(() => (p.grade = g)) })),
-                        { label: t('life_fire'), destructive: true, run: () => update(() => (j.staff = j.staff.filter((x) => x !== p))) },
-                      ],
-                    })
-                : undefined
-            }
-          />
-        ))}
-        {j.boss && (
-          <Row
-            tone="tint"
-            title={t('life_hire_employee')}
-            onClick={() => actions({ title: t('life_hire'), options: s.contacts.filter((c) => !j.staff.some((p) => p.name === c.name)).slice(0, 6).map((c) => ({ label: c.name, run: () => update(() => j.staff.push({ name: c.name, grade: 'Trainee', online: false })) })) })}
-          />
-        )}
-      </Group>
+      {j.boss && (
+        <Group header={t('life_employees')}>
+          {j.staff.map((p) => {
+            const other = p.name !== s.me.name;
+            return (
+              <Row
+                key={p.id ?? p.name}
+                icon={<Avatar name={p.name} size={32} />}
+                title={p.name}
+                sub={`${p.grade} · ${p.online ? t('online') : t('offline')}`}
+                chevron={other}
+                onClick={other ? () => manage(p) : undefined}
+              />
+            );
+          })}
+          <Row tone="tint" title={t('life_hire_employee')} onClick={hire} />
+        </Group>
+      )}
     </Page>
   );
 }
