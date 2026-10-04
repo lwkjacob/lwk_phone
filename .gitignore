@@ -13,6 +13,9 @@ graphify-out/
 # Design reference, not part of the resource
 phone.png
 
+# Developer-only: Lua test runner and the natives reference it checks against
+tests/
+
 # Logs, secrets, OS files
 *.log
 .env
