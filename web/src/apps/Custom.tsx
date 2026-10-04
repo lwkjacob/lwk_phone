@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
+import { inGame, upload } from '../net';
 import { nuiFetch } from '../nui';
 import { S, actions, addPhoto, alert, notify, openApp, share, startCall, update, useS } from '../store';
 import { ColorSheet, EmojiSheet, GifSheet } from '../pickers';
@@ -127,9 +128,16 @@ export function CustomAppView({ id }: { id: string }) {
         setGallery: (o: GalleryOpts) => setGallery(o),
         setFullscreenImage: (src: string | null) => setFull(src),
         setHomeIndicatorVisible: (visible: boolean) => update((x) => (x.hideHomeBar = !visible)),
-        saveToGallery: () => Promise.resolve(addPhoto().id),
-        // These need the game (rendering, hosting) or a picker the phone does not have yet.
-        uploadMedia: unavailable('uploadMedia'),
+        saveToGallery: (url?: string) => Promise.resolve(addPhoto(inGame && typeof url === 'string' ? { seed: url } : {}).id),
+        // Same call as LB Phone: resolves to the hosted URL. Rejects when the server has no media host set up.
+        uploadMedia: async (type: string, blob: Blob) => {
+          if (!inGame) return URL.createObjectURL(blob);
+          const url = await upload(blob, type === 'Video' ? 'video.webm' : type === 'Audio' ? 'audio.webm' : 'image.jpg');
+          if (!url) throw new Error('uploads are not set up on this server');
+          return url;
+        },
+        // Needs a renderer the phone does not hand to apps yet.
+
         createGameRender: unavailable('createGameRender'),
         setColorPicker: (o: { onSelect?: (color: string) => void; onClose?: (color: string) => void }) => setPicker({ kind: 'color', run: (c) => (o.onSelect?.(c), o.onClose?.(c)) }),
         // Both take options to open, or `false` to close, as in LB Phone.
