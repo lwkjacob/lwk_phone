@@ -108,7 +108,7 @@ export function NotificationCenter() {
   const now = useNow(5000);
   const close = () => update((x) => (x.nc = false));
   return (
-    <div className={`nc ${s.nc ? 'show' : ''}`} inert={!s.nc} onClick={(e) => e.target === e.currentTarget && close()}>
+    <div className={`nc ${s.nc ? 'show' : ''}`} data-wall={s.settings.lockWallpaper} inert={!s.nc} onClick={(e) => e.target === e.currentTarget && close()}>
       <div className="lock-top">
         <div className="lock-date">{longDate(now)}</div>
         <div className="lock-time">{fmtTime(now)}</div>

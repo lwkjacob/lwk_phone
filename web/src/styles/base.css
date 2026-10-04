@@ -343,6 +343,10 @@ figure {
   background: #000;
   color: var(--label);
   isolation: isolate;
+  /* FiveM's Chromium does not round the corners of layers it composites separately (an open app,
+     anything with backdrop-filter): their square corners showed outside the frame. A mask follows
+     the border radius and is applied to the screen as one picture, so it catches all of them. */
+  -webkit-mask-image: radial-gradient(#fff, #000);
 }
 
 /* The faint edge where the glass meets the bezel. */

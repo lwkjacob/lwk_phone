@@ -638,6 +638,7 @@
   inset: 0;
   z-index: 5;
   padding: 62px 16px 0;
+  border-radius: 55px;
   background: rgba(20, 20, 24, 0.5);
   backdrop-filter: blur(40px) saturate(1.4);
   color: #fff;
@@ -958,12 +959,20 @@
   position: absolute;
   inset: 0;
   z-index: 44;
-  background: rgba(10, 12, 20, 0.42);
-  backdrop-filter: blur(34px) saturate(1.3);
+  /* The lock wallpaper (data-wall) under a scrim. A backdrop blur on a layer that slides was drawn
+     as a clipped band in FiveM's Chromium, and a plain layer is cheaper to move anyway. */
   color: #fff;
   transform: translateY(-101%);
   visibility: hidden;
   transition: transform 0.5s var(--ease), visibility 0s 0.5s;
+}
+
+.nc::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: rgba(10, 12, 20, 0.5);
 }
 
 .nc.show {
@@ -1060,6 +1069,7 @@
   position: absolute;
   inset: 0;
   z-index: 45;
+  border-radius: 55px;
   background: rgba(8, 8, 12, 0.36);
   backdrop-filter: blur(40px) saturate(1.5);
   opacity: 0;
