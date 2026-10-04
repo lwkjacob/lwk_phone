@@ -518,6 +518,8 @@
 .advert p { line-height: 1.35; }
 .advert .btn-row { margin: 8px 0 0; }
 .advert .btn { height: 40px; border-radius: 11px; font-size: 15px; }
+/* Dark text on the gold button: white on gold is too faint to read. */
+.advert .btn:not(.soft) { color: #1c1c1e; }
 
 .market { padding: 0 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px 12px; }
 .market button { display: flex; flex-direction: column; text-align: left; font-size: 15px; }
