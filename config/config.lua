@@ -67,6 +67,7 @@ Config = {
     garage = { valetFee = 100, impoundFee = 250 },
 
     -- Music: no songs ship with the phone. Add your own (direct links to audio files). -------------
+    -- The Music app is hidden while this list is empty.
     -- { title = 'Night Shift', artist = 'Vespucci Drive', album = 'Coastlines', url = 'https://...', cover = 'https://...', seconds = 214 }
     music = {},
 

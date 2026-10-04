@@ -7,6 +7,7 @@ import { picUrl } from '../ui';
 import { APPS } from './index';
 import { PhotoPicker } from './Media';
 import { t } from '../i18n';
+import type { Photo, Seed } from '../data';
 
 /* Community apps, the same way LB Phone does them: another resource registers an app with a path to
  * its own HTML page, the phone shows that page in an iframe and hands it a set of globals
@@ -151,10 +152,9 @@ export function CustomAppView({ id }: { id: string }) {
     w.postMessage('componentsLoaded', '*');
   };
 
-  const pick = (seed: number) => {
-    const p = S.photos.find((x) => x.seed === seed);
+  const pick = (seed: Seed, p: Photo) => {
     // In-game `src` is the hosted URL. The browser demo has no real photos, so it hands over a generated image.
-    const item = { id: p?.id ?? seed, src: picUrl(seed), isVideo: !!p?.video };
+    const item = { id: p.id, src: p.src ?? picUrl(seed), isVideo: !!p.video };
     gallery?.onSelect(gallery.multiSelect ? [item] : item);
   };
 

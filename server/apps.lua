@@ -256,6 +256,17 @@ RPC['crypto.trade'] = function(src, number, data)
     return Phone.ok({ coins = coinSlice(number), wallet = Wallet.slice(src, number) })
 end
 
+-- App Store: community apps with a price --------------------------------------------------------------
+-- ponytail: the price comes from the phone, because apps are registered on the client. A modified
+-- client can get a paid app for free; it cannot be charged more than it asked to pay.
+RPC['app.buy'] = function(src, number, data)
+    local price = Util.int(data.price, 1, 100000000)
+    if not price or not Bridge.has.money then return Phone.fail(L('err_generic')) end
+    if not Bridge.removeBank(src, price, 'phone-app') then return Phone.fail(L('err_funds')) end
+    record(number, L('tx_app'):format(Util.text(data.name, 1, 40) or '?'), -price)
+    return Phone.ok({ wallet = Wallet.slice(src, number) })
+end
+
 -- Uploads -----------------------------------------------------------------------------------------
 -- The token never leaves the server: the phone asks for a one-time upload link and posts the file to it.
 

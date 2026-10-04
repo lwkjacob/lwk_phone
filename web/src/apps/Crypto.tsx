@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { Coin } from '../data';
-import { S, alert, money, pay, update, useS } from '../store';
+import { inGame } from '../net';
+import { loadApp } from '../nui';
+import { S, alert, money, pay, send, update, useS } from '../store';
 import { Field, Group, Page, Row, Seg, Sheet, Stack, useNav } from '../ui';
 import { intl, t } from '../i18n';
 
@@ -25,15 +27,17 @@ function Trade({ id, mode, onClose }: { id: string; mode: 'buy' | 'sell'; onClos
   const v = Number(usd);
   const qty = v / c.price;
   const run = () => {
+    // In-game the server checks the balance, moves the money and answers with the new holdings.
+    if (inGame) return void send('crypto.trade', { id, usd: v, sell: mode === 'sell' });
     if (mode === 'buy' ? v > S.wallet.balance : qty > c.owned) return alert({ title: mode === 'buy' ? t('insufficient_funds') : t('crypto_not_enough_to_sell'), message: mode === 'buy' ? t('crypto_your_bank_balance_is_too_low') : t('crypto_you_only_hold_n_id', { n: c.owned.toFixed(4), id: c.id }), buttons: [{ label: t('ok'), kind: 'bold' }] });
     pay(mode === 'buy' ? -v : v, `${mode === 'buy' ? 'Bought' : 'Sold'} ${c.id}`);
     update(() => (c.owned += mode === 'buy' ? qty : -qty));
   };
   return (
-    <Sheet title={`${mode === 'buy' ? 'Buy' : 'Sell'} ${c.name}`} onClose={onClose} action={{ label: mode === 'buy' ? t('crypto_buy') : t('crypto_sell'), disabled: !(v > 0), run }}>
+    <Sheet title={`${mode === 'buy' ? t('crypto_buy') : t('crypto_sell')} ${c.name}`} onClose={onClose} action={{ label: mode === 'buy' ? t('crypto_buy') : t('crypto_sell'), disabled: !(v > 0), run }}>
       <Group footer={t('crypto_price_per_id_bank_balance_amount', { price: fmt(c.price), id: c.id, amount: money(s.wallet.balance) })}>
         <Field label={t('amount')} value={usd} onChange={(x) => setUsd(x.replace(/[^\d.]/g, ''))} placeholder="$0.00" />
-        <Row title={t('crypto_you_x', { x: mode === 'buy' ? t('undefined') : t('undefined') })} value={`${v > 0 ? qty.toFixed(6) : '0'} ${c.id}`} />
+        <Row title={mode === 'buy' ? t('crypto_you_get') : t('crypto_you_sell')} value={`${v > 0 ? qty.toFixed(6) : '0'} ${c.id}`} />
       </Group>
       {mode === 'sell' && (
         <div className="btn-row">
@@ -94,8 +98,12 @@ function CoinView({ id }: { id: string }) {
 function Portfolio() {
   const s = useS();
   const nav = useNav();
-  // Mock ticker: prices drift while the app is open. In-game the server pushes these.
+  // Prices move while the app is open: in-game the server's are re-read, the demo drifts its own.
   useEffect(() => {
+    if (inGame) {
+      const poll = window.setInterval(() => loadApp('crypto'), 15000);
+      return () => window.clearInterval(poll);
+    }
     const t = window.setInterval(
       () =>
         update((x) =>

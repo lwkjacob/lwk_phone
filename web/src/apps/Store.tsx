@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { LayoutGrid, Newspaper, Search as SearchIcon, Star } from 'lucide-react';
-import { S, alert, confirm, goHome, money, openApp, pay, update, useS } from '../store';
+import { inGame } from '../net';
+import { S, alert, confirm, goHome, money, openApp, pay, send, update, useS } from '../store';
 import { Empty, Group, Page, Row, Search, Tabs, useNav } from '../ui';
 import { APPS, AppIcon, appEvent } from './index';
 import { intl, t } from '../i18n';
@@ -8,10 +9,14 @@ import { intl, t } from '../i18n';
 const busy = new Set<string>();
 const installed = (id: string) => S.apps.includes(id) || S.dock.includes(id);
 
-function install(id: string) {
-  const price = APPS[id].custom?.price ?? 0;
-  if (price > S.wallet.balance) return alert({ title: t('insufficient_funds'), message: t('store_name_costs_amount', { name: APPS[id].name, amount: money(price, 0) }), buttons: [{ label: t('ok'), kind: 'bold' }] });
-  if (price) pay(-price, `App Store · ${APPS[id].name}`);
+async function install(id: string) {
+  // No money on this server (no Wallet app): priced apps are free.
+  const price = inGame && !APPS.wallet ? 0 : (APPS[id].custom?.price ?? 0);
+  if (inGame) {
+    // The server takes the payment, and says why if it cannot.
+    if (price && !(await send('app.buy', { name: APPS[id].name, price }))) return;
+  } else if (price > S.wallet.balance) return alert({ title: t('insufficient_funds'), message: t('store_name_costs_amount', { name: APPS[id].name, amount: money(price, 0) }), buttons: [{ label: t('ok'), kind: 'bold' }] });
+  else if (price) pay(-price, `App Store · ${APPS[id].name}`);
   appEvent(id, 'install');
   busy.add(id);
   update();
