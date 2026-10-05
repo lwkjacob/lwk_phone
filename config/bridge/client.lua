@@ -46,3 +46,10 @@ function Bridge.giveKeys(vehicle, plate)
     TriggerEvent('cd_garage:AddKeys', plate)
     if GetResourceState('okokGarage') == 'started' then TriggerServerEvent('okokGarage:GiveKeys', plate) end
 end
+
+--- The other end of a call muted (or unmuted) their microphone: stop (or go back to) hearing
+--- player `id` over the call. The voice script resets this by itself when the call ends.
+function Bridge.callMute(id, muted)
+    if GetResourceState('pma-voice') ~= 'started' then return end
+    MumbleSetVolumeOverrideByServerId(id, muted and 0.0 or exports['pma-voice']:getCallVolume())
+end

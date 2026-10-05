@@ -12,3 +12,8 @@ Voice.kind = kind
 function Voice.set(src, channel)
     if kind == 'pma' then exports['pma-voice']:setPlayerCall(src, channel) end
 end
+
+--- The call channel `src` is in right now (0 for none), whoever put them there.
+function Voice.channel(src)
+    return kind == 'pma' and Player(src).state.callChannel or 0
+end

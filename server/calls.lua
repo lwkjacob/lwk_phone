@@ -4,10 +4,12 @@
 
 Calls = {}
 
-local calls  = {}   -- id -> { id, caller, callee, targets = { number... }, video, hidden, company, state, started, answered }
+local calls  = {}   -- id -> { id, caller, callee, targets = { number... }, video, hidden, company, state, started, answered, muted = { number = true }, speaker = { number = true } }
 local inCall = {}   -- number -> call id
 local nextId = 0
 local CHANNEL = 4200   -- voice channel offset, clear of radio frequencies other scripts use
+local SPEAKER_RANGE = 4.0   -- how close someone has to stand to a phone on speaker to hear it
+local listeners = {}   -- src -> id of the call they are overhearing
 
 function Calls.active(number) return calls[inCall[number] or 0] end
 
@@ -27,8 +29,57 @@ function Calls.log(number)
     return out
 end
 
+--- Take `src` back out of a call they were only overhearing. If the voice script has them somewhere
+--- else by now (they took a call of their own), they are left alone.
+local function unlisten(src)
+    local id = listeners[src]
+    listeners[src] = nil
+    if id and Voice.channel(src) == CHANNEL + id then pcall(Voice.set, src, 0) end
+end
+
+--- Speakerphone. Whoever stands near a phone on speaker is put in the call's voice channel: they hear
+--- the other end, and the other end hears them, as around a real phone. Run once a second.
+function Calls.speakerTick()
+    local near = {}   -- src -> call id
+    for id, call in pairs(calls) do
+        if call.state == 'active' and next(call.speaker) then
+            local busy = {}   -- the two on the call
+            for _, n in ipairs({ call.caller, call.targets[1] }) do busy[Phone.source(n) or 0] = true end
+            for number in pairs(call.speaker) do
+                local holder = Phone.source(number)
+                local ped = holder and GetPlayerPed(holder) or 0
+                if ped ~= 0 then
+                    local at, bucket = GetEntityCoords(ped), GetPlayerRoutingBucket(holder)
+                    for _, p in ipairs(GetPlayers()) do
+                        p = tonumber(p)
+                        local other = GetPlayerPed(p)
+                        local channel = Voice.channel(p)
+                        -- Not someone on a call of their own, and not someone in another instance.
+                        if not busy[p] and other ~= 0 and (channel == 0 or channel == CHANNEL + id)
+                            and GetPlayerRoutingBucket(p) == bucket and #(GetEntityCoords(other) - at) <= SPEAKER_RANGE then
+                            near[p] = id
+                        end
+                    end
+                end
+            end
+        end
+    end
+    for src, id in pairs(listeners) do
+        if near[src] ~= id then unlisten(src) end
+    end
+    for src, id in pairs(near) do
+        if not listeners[src] then
+            listeners[src] = id
+            pcall(Voice.set, src, CHANNEL + id)
+        end
+    end
+end
+
 local function finish(call, by)
     calls[call.id] = nil
+    for src, id in pairs(listeners) do
+        if id == call.id then unlisten(src) end
+    end
     local duration = call.answered and os.time() - call.answered or 0
     local parties = { call.caller, table.unpack(call.targets) }
     for _, n in ipairs(parties) do
@@ -71,7 +122,7 @@ function Calls.start(number, opts)
     local call = {
         id = nextId, caller = number, callee = callee, targets = targets, company = company ~= nil,
         video = opts.video == true, hidden = opts.hidden == true or Phone.flags(number).hideCallerId,
-        state = 'ringing', started = os.time(),
+        state = 'ringing', started = os.time(), muted = {}, speaker = {},
     }
     calls[call.id], inCall[number] = call, call.id
     for _, n in ipairs(targets) do
@@ -129,6 +180,22 @@ RPC['call.end'] = function(_, number)
     return Phone.ok()
 end
 
+--- The Mute and Speaker buttons. Muted: the other end stops hearing this phone (people standing next
+--- to its holder still do). Speaker: people standing near it hear the call, see Calls.speakerTick.
+RPC['call.audio'] = function(src, number, data)
+    local call = Calls.active(number)
+    if not call or call.state ~= 'active' then return Phone.ok() end
+    local muted = data.muted == true
+    if muted ~= (call.muted[number] == true) then
+        call.muted[number] = muted or nil
+        local peer = Phone.source(call.caller == number and call.targets[1] or call.caller)
+        if peer then TriggerClientEvent('lwk_phone:callMute', peer, src, muted) end
+    end
+    -- Positions are only known to the server with OneSync; without it the speaker is just a button.
+    call.speaker[number] = data.speaker == true and GetConvar('onesync', 'off') ~= 'off' or nil
+    return Phone.ok()
+end
+
 --- WebRTC handshake relay (video calls, live streams). The media never touches the server.
 --- Peers are named by role, not number: 'call' is the other end of the caller's active call,
 --- 'lumen:<user>' is someone in the same live stream.
@@ -149,6 +216,17 @@ end
 AddEventHandler('lwk_phone:dropped', function(_, number)
     local call = Calls.active(number)
     if call then finish(call, number) end
+end)
+
+AddEventHandler('playerDropped', function()
+    listeners[source] = nil
+end)
+
+CreateThread(function()
+    while true do
+        Wait(1000)
+        Calls.speakerTick()
+    end
 end)
 
 -- Unanswered calls stop ringing and become missed calls.

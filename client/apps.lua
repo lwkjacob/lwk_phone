@@ -129,6 +129,11 @@ end
 
 -- Calls: phone to the ear while talking -----------------------------------------------------------
 
+-- The other end of the call pressed Mute: their voice stops reaching this player.
+RegisterNetEvent('lwk_phone:callMute', function(id, muted)
+    Bridge.callMute(id, muted == true)
+end)
+
 Local['callAnim'] = function(data)
     Prop.call(data.on == true)
     return ok()

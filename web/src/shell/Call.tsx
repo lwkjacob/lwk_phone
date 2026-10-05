@@ -44,6 +44,13 @@ function CallView({ c }: { c: Call }) {
     };
   }, [video, c.out]);
   useEffect(() => void (inGame && video && rpc('camera', { on: true, selfie })), [video, selfie]);
+  // Mute stops the other end hearing you. Speaker lets people standing near you hear the call, and the
+  // phone comes away from the ear (a video call starts that way: it is held out in front, by the camera).
+  useEffect(() => {
+    if (!live) return;
+    rpc('call.audio', { muted: c.muted, speaker: c.speaker });
+    rpc('callAnim', { on: !c.speaker });
+  }, [live, c.muted, c.speaker]);
 
   return (
     // Minimised, the call stays mounted (hidden) so a video connection is not dropped.

@@ -432,8 +432,6 @@ export function answered() {
   update((s) => {
     if (s.call) Object.assign(s.call, { state: 'active', start: Date.now() });
   });
-  // Phone to the ear, unless it is a video call: then it is held out in front, by the camera.
-  rpc('callAnim', { on: !S.call?.video });
 }
 
 /** Pick up an incoming call. */

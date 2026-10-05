@@ -6,7 +6,7 @@ A free phone for FiveM. A small finished core, add-on apps from an App Store, a 
 
 ## Install
 
-Needs [ox_lib](https://github.com/overextended/ox_lib), [oxmysql](https://github.com/overextended/oxmysql) and MariaDB 10.2+ or MySQL 8. Voice calls use [pma-voice](https://github.com/AvarianKnight/pma-voice).
+Needs [ox_lib](https://github.com/overextended/ox_lib), [oxmysql](https://github.com/overextended/oxmysql) and MariaDB 10.2+ or MySQL 8. Voice calls use [pma-voice](https://github.com/AvarianKnight/pma-voice). On a call, **Mute** stops the other end hearing you while people next to you still can, and **Speaker** lets anyone standing within a few metres hear the call and be heard on it (this needs OneSync, which tells the server where players are).
 
 1. Put the folder in `resources` and name it `lwk_phone`.
 2. In `server.cfg`, after ox_lib, oxmysql, your framework, your inventory and pma-voice:
@@ -262,7 +262,6 @@ The phone also sets `data-theme` on the page's `<html>` and three CSS variables,
 - **Ringtones and sound effects.** The sound engine is in `web/src/sound.ts`, switched off.
 - **Voicemail.** The tab only exists in the browser demo.
 - **GIF search.** There is no GIF service behind the picker in-game, so Messages leaves the option out.
-- **Mute and speaker on calls.** The buttons are there; voice is whatever the voice script does.
 - **Switching a call between voice and video** once it has started.
 - **Who liked your post** in Flock's activity tab (replies are listed, likes are only counted).
 - **Distance in Ember.** Everyone on the server is in the deck.
