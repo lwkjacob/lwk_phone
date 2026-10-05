@@ -4,9 +4,9 @@
 /** Set to false to silence the phone entirely; nothing else needs touching. */
 const ENABLED = true;
 
-/** The choices in Settings. Each is the file sounds/ring-<name>.mp3 or sounds/tone-<name>.mp3, lower-cased. */
-export const RINGTONES = ['Signal', 'Marimba', 'Vibes', 'Kalimba', 'Classic'];
-export const TEXTTONES = ['Xylo', 'Duo', 'Chord', 'Ding'];
+/** The choices in Settings, the default first. Each is the file sounds/ring-<name>.mp3 or sounds/tone-<name>.mp3, lower-cased. */
+export const RINGTONES = ['Classic', 'Signal', 'Marimba', 'Vibes', 'Kalimba'];
+export const TEXTTONES = ['Ding', 'Xylo', 'Duo', 'Chord'];
 /** A saved choice that is no longer on the list plays (and shows as) the first one. */
 export const toneOf = (name: string, list: string[]) => (list.includes(name) ? name : list[0]);
 
