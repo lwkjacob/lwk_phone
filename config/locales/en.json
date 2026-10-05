@@ -30,6 +30,8 @@
     "no_caller_id": "No Caller ID",
     "tx_app": "App Store · %s",
     "tx_bought": "Bought %s",
+    "tx_company_in": "Deposit · %s",
+    "tx_company_out": "Withdrawal · %s",
     "tx_impound": "Impound fee",
     "tx_sold": "Sold %s",
     "tx_valet": "Valet service",

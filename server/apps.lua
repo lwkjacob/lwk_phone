@@ -4,7 +4,10 @@
 
 Wallet = {}
 
-local function record(number, label, amount)
+--- A line in the phone's Wallet history. With `src` (the player whose money moved) it is also
+--- added to the bank script's own history, where that bank needs telling.
+local function record(number, label, amount, src)
+    if src then Bank.statement(src, amount, label) end
     local txs = Phone.get(number, 'txs') or {}
     table.insert(txs, 1, { id = Phone.now() + math.random(0, 999), label = label, amount = amount, time = Phone.now() })
     while #txs > 40 do table.remove(txs) end
@@ -36,8 +39,8 @@ function Wallet.transfer(src, number, to, amount)
         Bridge.addBank(src, amount, 'phone-transfer-refund')
         return false, L('err_generic')
     end
-    record(number, phoneName(to), -amount)
-    record(to, phoneName(number), amount)
+    record(number, phoneName(to), -amount, src)
+    record(to, phoneName(number), amount, target)
     Phone.patch(src, { wallet = Wallet.slice(src, number) })
     if target then
         Phone.patch(target, { wallet = Wallet.slice(target, to) })
@@ -94,7 +97,7 @@ RPC['garage.valet'] = function(src, number, data)
         Bridge.addBank(src, fee, 'phone-valet-refund')
         return Phone.fail(L('err_generic'))
     end
-    record(number, found.state == 'impound' and L('tx_impound') or L('tx_valet'), -fee)
+    record(number, found.state == 'impound' and L('tx_impound') or L('tx_valet'), -fee, src)
     return Phone.ok({ spawn = { model = found.model, plate = found.plate, props = found.props }, vehicles = vehicles(src) })
 end
 
@@ -121,7 +124,8 @@ local function jobSlice(src)
             staff[i] = { id = e.id, name = e.name, grade = e.gradeLabel or tostring(e.grade), online = Bridge.sourceOf(e.id) ~= nil }
         end
     end
-    return { company = j.name, label = j.label, grade = j.gradeLabel or tostring(j.grade), duty = j.duty, boss = j.isBoss, staff = staff }
+    return { company = j.name, label = j.label, grade = j.gradeLabel or tostring(j.grade), duty = j.duty, boss = j.isBoss, staff = staff,
+        balance = j.isBoss and Bank.balance(j.name) or nil }
 end
 
 Apps.services = function(src)
@@ -152,6 +156,36 @@ end
 RPC['job.duty'] = function(src)
     Bridge.toggleDuty(src)
     return Phone.ok({ job = jobSlice(src) })
+end
+
+local moving = {}   -- job -> true while its company account is being changed
+
+--- A boss moves money between their own bank account and the company's (config/bridge/banking.lua).
+RPC['job.bank'] = function(src, number, data)
+    local j, amount = Bridge.getJob(src), Util.int(data.amount, 1, 100000000)
+    if not j or not j.isBoss or not amount or moving[j.name] or Bank.balance(j.name) == nil then return Phone.fail(L('err_generic')) end
+    moving[j.name] = true
+    local who, done, err = Bridge.name(src), false, L('err_generic')
+    if data.deposit then
+        if not Bridge.removeBank(src, amount, 'phone-company') then
+            err = L('err_funds')
+        elseif Bank.add(j.name, amount, who) then
+            done = true
+        else
+            Bridge.addBank(src, amount, 'phone-company-refund')
+        end
+    elseif not Bank.remove(j.name, amount, who) then
+        err = L('err_funds')
+    elseif Bridge.addBank(src, amount, 'phone-company') then
+        done = true
+    else
+        Bank.add(j.name, amount, who)
+    end
+    moving[j.name] = nil
+    if not done then return Phone.fail(err) end
+    record(number, L(data.deposit and 'tx_company_in' or 'tx_company_out'):format(j.label or j.name), data.deposit and -amount or amount, src)
+    Phone.log(('**company** %s %s $%d (%s)'):format(j.name, data.deposit and 'deposit' or 'withdrawal', amount, who))
+    return Phone.ok({ job = jobSlice(src), wallet = Wallet.slice(src, number) })
 end
 
 RPC['job.hire'] = function(src, _, data)
@@ -252,7 +286,7 @@ RPC['crypto.trade'] = function(src, number, data)
         owned[coin.id] = have + qty
         Phone.set(number, 'crypto', owned)
     end
-    record(number, (data.sell and L('tx_sold') or L('tx_bought')):format(coin.id), data.sell and usd or -usd)
+    record(number, (data.sell and L('tx_sold') or L('tx_bought')):format(coin.id), data.sell and usd or -usd, src)
     return Phone.ok({ coins = coinSlice(number), wallet = Wallet.slice(src, number) })
 end
 
@@ -263,7 +297,7 @@ RPC['app.buy'] = function(src, number, data)
     local price = Util.int(data.price, 1, 100000000)
     if not price or not Bridge.has.money then return Phone.fail(L('err_generic')) end
     if not Bridge.removeBank(src, price, 'phone-app') then return Phone.fail(L('err_funds')) end
-    record(number, L('tx_app'):format(Util.text(data.name, 1, 40) or '?'), -price)
+    record(number, L('tx_app'):format(Util.text(data.name, 1, 40) or '?'), -price, src)
     return Phone.ok({ wallet = Wallet.slice(src, number) })
 end
 

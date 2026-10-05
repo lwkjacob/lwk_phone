@@ -331,6 +331,8 @@ function Job() {
   const move = (dir: 1 | -1) =>
     prompt(dir > 0 ? t('life_deposit') : t('life_withdraw'), t('amount'), (v) => {
       const amt = Math.floor(Number(v));
+      // In-game the server checks both balances and moves the money through the server's bank script.
+      if (inGame) return amt > 0 && void send('job.bank', { amount: amt, deposit: dir > 0 });
       if (!(amt > 0) || (dir > 0 ? amt > S.wallet.balance : amt > (j.balance ?? 0))) return alert({ title: t('insufficient_funds'), buttons: [{ label: t('ok'), kind: 'bold' }] });
       pay(-dir * amt, `${co?.name ?? j.company} account`);
       update(() => (j.balance = (j.balance ?? 0) + dir * amt));

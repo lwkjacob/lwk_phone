@@ -31,6 +31,7 @@ server_scripts {
   '@oxmysql/lib/MySQL.lua',
   'config/keys.lua',
   'config/bridge/framework.lua',
+  'config/bridge/banking.lua',
   'config/bridge/inventory.lua',
   'config/bridge/voice.lua',
   'config/bridge/housing.lua',
