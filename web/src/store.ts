@@ -3,7 +3,7 @@ import * as D from './data';
 import base from './theme.default.json';
 import type { Chat, Msg, Seed } from './data';
 import { inGame, rpc, type Res } from './net';
-import { ring, setVolume, sfx } from './sound';
+import { RINGTONES, TEXTTONES, ring, setSound, sfx } from './sound';
 import { intl, t } from './i18n';
 
 let n = 5000;
@@ -86,8 +86,8 @@ export const S = {
     passcode: '',
     faceId: true,
     clock24: false,
-    ringtone: 'Reflection',
-    texttone: 'Tri-tone',
+    ringtone: RINGTONES[0],
+    texttone: TEXTTONES[0],
     hideCallerId: false,
     /** Maps shows the satellite view instead of the road map. */
     satellite: true,
@@ -154,7 +154,7 @@ const subscribe = (f: () => void) => (subs.add(f), () => void subs.delete(f));
 export function update(fn?: (s: typeof S) => void) {
   fn?.(S);
   version++;
-  setVolume(S.settings.volume, S.settings.silent);
+  setSound(S.settings);
   subs.forEach((f) => f());
   autosave();
   syncAudio();

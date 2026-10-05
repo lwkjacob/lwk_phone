@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Bell, Bluetooth, Check, Image as ImageIcon, Moon, Phone, Plane, Radio, ScanFace, Settings as Gear, Signal, Sun, Volume2, Wifi } from 'lucide-react';
-import { sfx } from '../sound';
+import { RINGTONES, TEXTTONES, sfx, toneOf } from '../sound';
 import { S, actions, alert, confirm, prompt, update, useS } from '../store';
 import { theme } from '../theme';
 import { Avatar, Group, Page, Row, Stack, Toggle, useNav } from '../ui';
@@ -11,9 +11,6 @@ import { ColorSheet } from '../pickers';
 type Settings = typeof S.settings;
 type Flag = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
 const set = <K extends keyof Settings>(k: K, v: Settings[K]) => update((s) => (s.settings[k] = v));
-
-const RINGTONES = ['Reflection', 'Opening', 'Radar', 'Marimba', 'Night Owl'];
-const TEXTTONES = ['Tri-tone', 'Note', 'Chord', 'Bamboo'];
 
 function Flip({ k, title, icon, bg, sub }: { k: Flag; title: string; icon?: ReactNode; bg?: string; sub?: string }) {
   const s = useS();
@@ -26,7 +23,7 @@ function Picker({ title, k, options }: { title: string; k: 'ringtone' | 'textton
     <Page title={title}>
       <Group>
         {options.map((o) => (
-          <Row key={o} title={o} onClick={() => (set(k, o), sfx(k === 'ringtone' ? 'ring' : 'notify'))} right={s.settings[k] === o ? <Check size={20} className="tint" strokeWidth={3} /> : undefined} />
+          <Row key={o} title={o} onClick={() => (set(k, o), sfx(k === 'ringtone' ? 'ring' : 'notify'))} right={toneOf(s.settings[k], options) === o ? <Check size={20} className="tint" strokeWidth={3} /> : undefined} />
         ))}
       </Group>
     </Page>
@@ -62,8 +59,8 @@ function Sounds() {
         </div>
       </Group>
       <Group>
-        <Row title={t('settings_ringtone')} value={s.settings.ringtone} chevron onClick={() => nav.push(<Picker title={t('settings_ringtone')} k="ringtone" options={RINGTONES} />)} />
-        <Row title={t('settings_text_tone')} value={s.settings.texttone} chevron onClick={() => nav.push(<Picker title={t('settings_text_tone')} k="texttone" options={TEXTTONES} />)} />
+        <Row title={t('settings_ringtone')} value={toneOf(s.settings.ringtone, RINGTONES)} chevron onClick={() => nav.push(<Picker title={t('settings_ringtone')} k="ringtone" options={RINGTONES} />)} />
+        <Row title={t('settings_text_tone')} value={toneOf(s.settings.texttone, TEXTTONES)} chevron onClick={() => nav.push(<Picker title={t('settings_text_tone')} k="texttone" options={TEXTTONES} />)} />
       </Group>
     </Page>
   );

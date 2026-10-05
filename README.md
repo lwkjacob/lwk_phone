@@ -156,6 +156,12 @@ exports.lwk_phone:SendCustomAppMessage(identifier, data)
 
 `themes/slate.json` is a second skin made with nothing but this file. Copy it over `theme.json` to use it.
 
+## Sounds
+
+The phone rings, and plays a tone for notifications, sent and received messages, the camera shutter and alarms. Five ringtones and four text tones can be chosen in Settings, which also has the volume and Silent Mode; Do Not Disturb stops the ringtone. Only the player holding the phone hears them.
+
+The recordings are in `web/dist/sounds/` and are all public domain (CC0); `CREDITS.txt` there lists where each came from. To replace one, put an `.mp3` with the same name in that folder. To switch every sound off, set `ENABLED = false` in `web/src/sound.ts` and rebuild.
+
 ## Languages
 
 The phone ships in English (`en`, the default) and French (`fr`). Set `Config.locale` to the one you want.
@@ -259,7 +265,6 @@ The phone also sets `data-theme` on the page's `<html>` and three CSS variables,
 
 ## Not built
 
-- **Ringtones and sound effects.** The sound engine is in `web/src/sound.ts`, switched off.
 - **Voicemail.** The tab only exists in the browser demo.
 - **GIF search.** There is no GIF service behind the picker in-game, so Messages leaves the option out.
 - **Switching a call between voice and video** once it has started.
