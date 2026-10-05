@@ -53,6 +53,7 @@ Everything is in `config/config.lua`, with a comment on each option. The ones mo
 |---|---|
 | `locale` | Language file from `config/locales/`. |
 | `framework` | `auto` detects Qbox, QBCore or ESX and falls back to standalone. |
+| `bank` | Which bank script holds company money. `auto` finds it. |
 | `keybind`, `command`, `walk`, `cursorKey` | How the phone opens and whether players can move with it out. |
 | `item` | The phone item: which inventory, whether it is required, whether each item is its own phone. |
 | `numbers` | Prefixes and length of phone numbers. |
@@ -69,6 +70,21 @@ Everything is in `config/config.lua`, with a comment on each option. The ones mo
 Framework and inventory differences live in `config/bridge/`, one file each for framework, inventory, voice, housing and the client. `housing.lua` is a stub: fill it in for your housing script and the Home app appears.
 
 Apps that a server cannot back are hidden rather than shown empty: Wallet, Crypto, Garage and Services on standalone, Home without a housing bridge, Music without songs.
+
+### Banks
+
+Wallet works with any bank script, because a player's balance is framework bank money in all of them.
+
+The Company Account under Services > My Job (balance, deposit and withdraw, for bosses) is read from whichever of these is running: lwk_bank, Renewed-Banking, qb-banking, okokBanking, qb-management, or esx_addonaccount (`society_<job>`). With none of them, that section is not shown. Phone payments are also written to the bank's own history on Renewed-Banking and qb-banking; lwk_bank lists them by itself. For another bank, edit `config/bridge/banking.lua`.
+
+### Garages
+
+The Garage app reads the framework's own vehicle table, so it works with garage scripts that keep to it:
+
+- **Qbox / QBCore:** `player_vehicles` with the standard `state` column (0 out, 1 garaged, 2 impound) and `garage`: qbx_garages, qb-garages.
+- **ESX:** `owned_vehicles` with `stored`, `parking` and `pound`: esx_garage.
+
+Garage scripts with their own columns (jg-advancedgarages, cd_garage and similar) need `Bridge.vehicles` and `Bridge.vehicleOut` in `config/bridge/framework.lua` adjusted. The valet hands over keys on QBCore's key event only; other key scripts go in `Bridge.giveKeys` in `config/bridge/client.lua`.
 
 ### Accounts
 
@@ -210,6 +226,7 @@ The phone also sets `data-theme` on the page's `<html>` and three CSS variables,
 - **Switching a call between voice and video** once it has started.
 - **Who liked your post** in Flock's activity tab (replies are listed, likes are only counted).
 - **Distance in Ember.** Everyone on the server is in the deck.
+- **Promoting employees** from Services. Hiring, firing and the company account are there.
 - **Housing.** `config/bridge/housing.lua` is a stub; the Home app stays hidden until it is filled in.
 - **Recorded clips are the whole game view**, not cropped to the viewfinder.
 - `components.createGameRender` and `GameMap` for community apps.
