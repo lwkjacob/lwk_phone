@@ -1,8 +1,9 @@
 import { useRef, useState, type MouseEvent, type PointerEvent as RPointerEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { Minus, Phone, Search as SearchIcon } from 'lucide-react';
 import { APPS, AppIcon, appEvent } from '../apps';
 import { weather } from '../data';
-import { S, badge, confirm, openApp, startCall, update, useS, view } from '../store';
+import { S, badge, confirm, openApp, startCall, update, useS, view, viewportRect } from '../store';
 import { Avatar, ClockFace, Search, WEATHER_ICONS, useDragScroll } from '../ui';
 import { t } from '../i18n';
 
@@ -26,6 +27,18 @@ function moveApp(id: string, target: string) {
   });
 }
 
+/** Change the order of the icons in `box`, and slide each one from where it was to where it ends up. */
+function shift(box: HTMLElement, change: () => void) {
+  const icons = [...box.querySelectorAll<HTMLElement>('[data-icon]')];
+  const before = icons.map((n) => [n.offsetLeft, n.offsetTop]);
+  flushSync(change);
+  icons.forEach((n, i) => {
+    const dx = before[i][0] - n.offsetLeft;
+    const dy = before[i][1] - n.offsetTop;
+    if ((dx || dy) && n.isConnected && !n.classList.contains('lifted')) n.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 240, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+  });
+}
+
 function removeApp(id: string) {
   confirm(t('sys_remove_name', { name: APPS[id].name }), t('sys_the_app_is_removed_from_your'), t('remove'), () =>
     (appEvent(id, 'delete'), update((s) => (s.apps = s.apps.filter((x) => x !== id)))),
@@ -38,38 +51,83 @@ function HomeIcon({ id, dock }: { id: string; dock?: boolean }) {
   const def = APPS[id];
   const count = badge(id);
 
+  /* One press does it all: hold to start editing, keep holding and move to drag. The icon follows the
+   * pointer, the others make room as it passes over them, and it settles into place on release. */
   const onDown = (e: RPointerEvent<HTMLButtonElement>) => {
     if (e.button) return;
     const el = e.currentTarget;
     const sx = e.clientX;
     const sy = e.clientY;
     held.current = false;
-    if (!S.edit) {
-      // Long press enters jiggle mode.
-      const t = window.setTimeout(() => ((held.current = true), update((x) => (x.edit = true))), 550);
-      const stop = () => (window.clearTimeout(t), window.removeEventListener('pointermove', move));
-      const move = (m: PointerEvent) => Math.hypot(m.clientX - sx, m.clientY - sy) > 6 && stop();
-      window.addEventListener('pointermove', move);
-      window.addEventListener('pointerup', stop, { once: true });
-      return;
-    }
-    const k = view.k;
-    const move = (m: PointerEvent) => {
-      if (!held.current && Math.hypot(m.clientX - sx, m.clientY - sy) < 6) return;
-      held.current = true;
-      el.classList.add('lifted');
-      el.style.transform = `translate(${(m.clientX - sx) / k}px, ${(m.clientY - sy) / k}px) scale(1.12)`;
+    // While lifted: where on the icon it was grabbed (viewport px from its centre) and its current offset (layout px).
+    let drag: { gx: number; gy: number; tx: number; ty: number } | null = null;
+    let over: string | null = null;
+    let dwell = 0;
+    let frame = 0;
+    let last: PointerEvent | null = null;
+    const press = S.edit ? 0 : window.setTimeout(() => ((held.current = true), update((x) => (x.edit = true))), 450);
+
+    const centre = () => {
+      const r = viewportRect(el);
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     };
-    const up = (u: PointerEvent) => {
+    const iconAt = (x: number, y: number) => document.elementsFromPoint(x, y).map((n) => n.closest<HTMLElement>('[data-icon]')).find((n) => n && n !== el);
+
+    const step = () => {
+      frame = 0;
+      const m = last;
+      if (!m) return;
+      const far = Math.hypot(m.clientX - sx, m.clientY - sy) > 6;
+      // Moving before the hold has registered is a swipe between pages, not a drag.
+      if (!S.edit) return void (far && stop());
+      if (!drag) {
+        if (!far) return;
+        const c = centre();
+        drag = { gx: m.clientX - c.x, gy: m.clientY - c.y, tx: 0, ty: 0 };
+        held.current = true;
+        el.classList.add('lifted');
+        // If it was still sliding into place from an earlier move, that slide would fight the drag.
+        el.getAnimations().forEach((anim) => anim.cancel());
+      }
+      // Work from where the icon's slot is right now, so it stays under the pointer when the others move around it.
+      const k = view.k;
+      const c = centre();
+      drag.tx = (m.clientX - drag.gx - (c.x - drag.tx * k)) / k;
+      drag.ty = (m.clientY - drag.gy - (c.y - drag.ty * k)) / k;
+      el.style.transform = `translate(${drag.tx}px, ${drag.ty}px) scale(1.12)`;
+
+      // Resting over a neighbour for a moment makes it give way. (Across to the dock or another page happens on release.)
+      const target = iconAt(m.clientX, m.clientY);
+      const id2 = target && target.parentElement === el.parentElement ? (target.dataset.icon ?? null) : null;
+      if (id2 === over) return;
+      over = id2;
+      window.clearTimeout(dwell);
+      if (id2) dwell = window.setTimeout(() => ((over = null), shift(el.parentElement!, () => moveApp(id, id2)), last && step()), 140);
+    };
+    const move = (m: PointerEvent) => {
+      last = m;
+      frame ||= requestAnimationFrame(step);
+    };
+    function stop() {
+      window.clearTimeout(press);
+      window.clearTimeout(dwell);
+      cancelAnimationFrame(frame);
       window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    }
+    function up(u: PointerEvent) {
+      stop();
+      if (!drag) return;
+      const from = el.style.transform;
       el.classList.remove('lifted');
       el.style.transform = '';
-      if (!held.current) return;
-      const target = document.elementsFromPoint(u.clientX, u.clientY).map((x) => x.closest<HTMLElement>('[data-icon]')).find((x) => x && x !== el);
-      if (target?.dataset.icon) moveApp(id, target.dataset.icon);
-    };
+      const target = iconAt(u.clientX, u.clientY);
+      if (target?.dataset.icon) return shift(target.parentElement!, () => moveApp(id, target.dataset.icon!));
+      // Settle into its place rather than snapping there.
+      el.animate([{ transform: from }, { transform: 'none' }], { duration: 220, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+    }
     window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up, { once: true });
+    window.addEventListener('pointerup', up);
   };
 
   const onClick = (e: MouseEvent<HTMLButtonElement>) => {

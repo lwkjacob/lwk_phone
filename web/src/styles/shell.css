@@ -510,6 +510,11 @@
   animation-delay: -0.13s;
 }
 
+/* An animation outranks an inline style: without this the dragged icon wobbles in place instead of following the pointer. */
+.edit .hicon.lifted {
+  animation: none;
+}
+
 @keyframes jiggle {
   from { transform: rotate(-1.6deg); }
   to { transform: rotate(1.6deg); }

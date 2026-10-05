@@ -491,16 +491,20 @@ export function useDragScroll<T extends HTMLElement>(axis: 'x' | 'y' = 'x', page
     let from = 0;
     let down = false;
     let moved = false;
+    let pressed: Element | null = null;
     const at = (e: PointerEvent) => (axis === 'x' ? e.clientX : e.clientY);
     const onDown = (e: PointerEvent) => {
       if (e.button || (e.target as Element).closest('[data-nodrag]')) return;
       down = true;
       moved = false;
+      pressed = e.target as Element;
       start = at(e);
       from = el[prop];
     };
     const onMove = (e: PointerEvent) => {
       if (!down) return;
+      // What was pressed has since become something of its own to drag (a held home-screen icon): let go of the scroll.
+      if (!moved && pressed?.closest('[data-nodrag]')) return void (down = false);
       // The phone is zoomed, so pointer pixels are not layout pixels.
       const d = (at(e) - start) / view.k;
       if (!moved && Math.abs(d) < 6) return;
