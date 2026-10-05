@@ -54,6 +54,9 @@ function Camera.start(front)
     end)
 end
 
+--- Whether the camera is up, and whether it is the selfie camera.
+function Camera.state() return on, on and selfie end
+
 function Camera.stop()
     if not on then return end
     on = false

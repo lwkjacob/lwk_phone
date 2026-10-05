@@ -9,6 +9,16 @@ After = {}   -- rpc name -> function(result, data): touches up a server answer b
 
 local isOpen, uiReady, loaded = false, false, false
 local typing, cursorOff = false, false
+local number, settings, disabled = nil, {}, false   -- the phone in hand, its saved settings, and whether another script has switched it off
+
+local function decode(text)
+    local ok, t = pcall(json.decode, text or '')
+    return ok and type(t) == 'table' and t or {}
+end
+
+function PhoneNumber() return loaded and number or nil end
+function PhoneSettings() return loaded and settings or nil end
+function IsPhoneDisabled() return disabled end
 
 local function nui(msg) SendNUIMessage(msg) end
 
@@ -61,6 +71,7 @@ local function load(slot)
         return false, data and data.error
     end
     loaded = true
+    number, settings = data.number, decode(data.kv and data.kv.settings)
     nui({ action = 'init', data = data })
     CustomApps.resend()
     return true
@@ -76,8 +87,14 @@ function ClosePhone()
     Prop.lower()
 end
 
+--- Another script switches the phone off (and back on): it closes and will not open.
+function DisablePhone(off)
+    disabled = off == true
+    if disabled then ClosePhone() end
+end
+
 function OpenPhone(slot)
-    if isOpen or not uiReady or not Bridge.canOpen() then return end
+    if isOpen or disabled or not uiReady or not Bridge.canOpen() then return end
     if not loaded or slot then
         local ok, why = load(slot)
         if not ok then
@@ -166,6 +183,7 @@ end)
 RegisterNUICallback('rpc', function(req, cb)
     local name, data = req.name, type(req.data) == 'table' and req.data or {}
     if Local[name] then return cb(Local[name](data) or { ok = true }) end
+    if name == 'save' and data.k == 'settings' then settings = decode(data.v) end
     local res = lib.callback.await('lwk_phone:rpc', false, name, data) or { ok = false }
     if After[name] and res.ok then res = After[name](res, data) or res end
     cb(res)

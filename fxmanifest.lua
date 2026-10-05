@@ -8,6 +8,10 @@ version '1.0.0'
 description 'LWK Phone - a phone for QBCore, Qbox, ESX and standalone servers'
 repository 'https://github.com/lwkjacob/lwk_phone'
 
+-- Apps and scripts written for LB Phone look for a resource of that name (see client/compat.lua).
+-- Do not run this next to the real lb-phone: both would answer the same exports.
+provide 'lb-phone'
+
 ui_page 'web/dist/index.html'
 
 files {
@@ -42,6 +46,7 @@ server_scripts {
   'server/social.lua',
   'server/apps.lua',
   'server/exports.lua',
+  'server/compat.lua',
 }
 
 client_scripts {
@@ -51,6 +56,7 @@ client_scripts {
   'client/camera.lua',
   'client/apps.lua',
   'client/exports.lua',
+  'client/compat.lua',
 }
 
 dependencies {

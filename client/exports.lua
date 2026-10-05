@@ -1,5 +1,6 @@
 -- Client exports for other resources, including community apps. The three custom-app exports
--- take the same arguments as LB Phone's, so an app written for that phone registers here unchanged.
+-- take the same arguments as LB Phone's, and Export() also answers them as exports['lb-phone'],
+-- so an app written for that phone registers here unchanged. More of LB's exports: client/compat.lua.
 
 CustomApps = {}
 
@@ -9,7 +10,7 @@ local CALLBACKS = { open = 'onOpen', close = 'onClose', use = 'onUse', install =
 
 --- AddCustomApp({ identifier, name, description?, developer?, ui?, icon?, defaultApp?, price?, size?, images?, landscape?, keepOpen?,
 ---               onOpen?, onClose?, onUse?, onInstall?, onDelete? }) -> success, error
-exports('AddCustomApp', function(app)
+Export('AddCustomApp', function(app)
     if type(app) ~= 'table' or type(app.identifier) ~= 'string' or type(app.name) ~= 'string' then
         return false, 'identifier and name are required'
     end
@@ -34,10 +35,10 @@ local function remove(identifier)
     SendNUIMessage({ action = 'removeCustomApp', identifier = identifier })
     return true
 end
-exports('RemoveCustomApp', remove)
+Export('RemoveCustomApp', remove)
 
 --- Replacement for SendNUIMessage: delivers `data` to the app's own page (only while it is open).
-exports('SendCustomAppMessage', function(identifier, data)
+Export('SendCustomAppMessage', function(identifier, data)
     if not apps[identifier] then return false, 'no such app' end
     SendNUIMessage({ action = 'customAppMessage', identifier = identifier, data = data })
     return true
@@ -65,18 +66,18 @@ end)
 
 -- Phone state ----------------------------------------------------------------------------------------
 
-exports('IsOpen', IsPhoneOpen)
+Export('IsOpen', IsPhoneOpen)
 
-exports('ToggleOpen', function(open)
+Export('ToggleOpen', function(open)
     if open == false or (open == nil and IsPhoneOpen()) then ClosePhone() else OpenPhone() end
 end)
 
 --- data: { app?, title, content }
-exports('SendNotification', function(data)
+Export('SendNotification', function(data)
     SendNUIMessage({ action = 'notify', app = data.app or 'settings', title = data.title or '', body = data.content or '' })
 end)
 
 --- ox_inventory calls this when the phone item is used (client = { export = 'lwk_phone.usePhone' }).
-exports('usePhone', function(_, slot)
+Export('usePhone', function(_, slot)
     if IsPhoneOpen() then ClosePhone() else OpenPhone(slot and slot.slot) end
 end)

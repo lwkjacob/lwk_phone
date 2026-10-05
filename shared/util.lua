@@ -103,3 +103,38 @@ end
 function Util.marks(n)
     return ('?,'):rep(n):sub(1, -2)
 end
+
+-- Exports, and LB Phone compatibility ------------------------------------------------------------
+
+--- Register an export under this resource's name and under 'lb-phone' (which fxmanifest `provide`s),
+--- so scripts and apps written for LB Phone find it where they look.
+function Export(name, fn)
+    exports(name, fn)
+    AddEventHandler(('__cfx_export_lb-phone_%s'):format(name), function(setCB) setCB(fn) end)
+end
+
+--- LB exports with no counterpart here: they answer nil, and say so once each in the console.
+function Util.stubs(names)
+    for _, name in ipairs(names) do
+        local told = false
+        AddEventHandler(('__cfx_export_lb-phone_%s'):format(name), function(setCB)
+            setCB(function()
+                if not told then print(("[lwk_phone] an LB Phone app called exports['lb-phone']:%s, which this phone does not have"):format(name)) end
+                told = true
+            end)
+        end)
+    end
+end
+
+--- This phone's saved settings in the shape LB Phone hands to apps.
+function Util.appSettings(s)
+    return {
+        airplaneMode = s.airplane == true, streamerMode = s.streamer == true, doNotDisturb = s.dnd == true,
+        display = { theme = s.dark == false and 'light' or 'dark', size = s.size or 1, brightness = s.brightness or 1 },
+        sound = { volume = s.volume or 0.5, silent = s.silent == true, ringtone = s.ringtone, texttone = s.texttone },
+        time = { twelveHourClock = s.clock24 ~= true },
+        phone = { showCallerId = s.hideCallerId ~= true },
+        security = { pinCode = (s.passcode or '') ~= '', faceId = s.faceId == true },
+        wallpaper = { background = s.wallpaper },
+    }
+end
