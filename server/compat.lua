@@ -85,3 +85,17 @@ Util.stubs({
     'SaveBattery', 'SaveAllBatteries', 'IsPhoneDead', 'GetCall', 'ForwardCall', 'AddCrypto', 'RemoveCrypto', 'AddCustomCoin', 'GetCoin',
     'GetOwnedCoin',
 })
+
+-- Scripts hold on to the exports they fetched. When this resource restarts, say so under the name
+-- they know, so they fetch them again (see client/compat.lua).
+AddEventHandler('onResourceStop', function(res)
+    if res ~= GetCurrentResourceName() then return end
+    TriggerEvent('onServerResourceStop', 'lb-phone')
+    TriggerEvent('onResourceStop', 'lb-phone')
+end)
+
+CreateThread(function()
+    Wait(500)
+    TriggerEvent('onServerResourceStart', 'lb-phone')
+    TriggerEvent('onResourceStart', 'lb-phone')
+end)

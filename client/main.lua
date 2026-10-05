@@ -178,6 +178,8 @@ end)
 RegisterNUICallback('ready', function(_, cb)
     uiReady = true
     cb({})
+    -- The page said this before, so it has been reloaded and lost everything: hand the phone over again.
+    if loaded then CreateThread(function() load() end) end
 end)
 
 RegisterNUICallback('rpc', function(req, cb)

@@ -106,8 +106,8 @@ end
 
 -- Exports, and LB Phone compatibility ------------------------------------------------------------
 
---- Register an export under this resource's name and under 'lb-phone' (which fxmanifest `provide`s),
---- so scripts and apps written for LB Phone find it where they look.
+--- Register an export under this resource's name and under 'lb-phone', so scripts and apps written
+--- for LB Phone find it where they look (see client/compat.lua).
 function Export(name, fn)
     exports(name, fn)
     AddEventHandler(('__cfx_export_lb-phone_%s'):format(name), function(setCB) setCB(fn) end)

@@ -8,10 +8,6 @@ version '1.0.0'
 description 'LWK Phone - a phone for QBCore, Qbox, ESX and standalone servers'
 repository 'https://github.com/lwkjacob/lwk_phone'
 
--- Apps and scripts written for LB Phone look for a resource of that name (see client/compat.lua).
--- Do not run this next to the real lb-phone: both would answer the same exports.
-provide 'lb-phone'
-
 ui_page 'web/dist/index.html'
 
 files {

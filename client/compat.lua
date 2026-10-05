@@ -1,10 +1,15 @@
 -- LB Phone compatibility (client).
 --
 -- Apps written for LB Phone call exports['lb-phone']:... and wait for a resource of that name.
--- fxmanifest `provide`s the name, and Export() (shared/util.lua) answers every export under it as
--- well as under this resource's own. The custom-app exports themselves are in client/exports.lua;
--- this file adds the rest of LB's client exports that apps tend to use. What a page inside an app
--- can call is in web/src/apps/Custom.tsx.
+-- Export() (shared/util.lua) answers every export under that name as well as under this resource's
+-- own; that needs nothing else. The resource of that name is a four-line one the server owner adds
+-- (README, "Apps written for LB Phone"). It is deliberately not done with `provide` in fxmanifest:
+-- after this resource restarts, the game client starts a second, broken copy of a providing
+-- resource whenever something that depends on the provided name starts.
+--
+-- The custom-app exports themselves are in client/exports.lua; this file adds the rest of LB's
+-- client exports that apps tend to use. What a page inside an app can call is in
+-- web/src/apps/Custom.tsx.
 
 Export('FormatNumber', function(number) return Util.number(number) or tostring(number or '') end)
 Export('GetEquippedPhoneNumber', PhoneNumber)
@@ -105,9 +110,17 @@ Util.stubs({
     'RemoveCustomNumber', 'CreateDynamicCustomNumber', 'RemoveDynamicCustomNumber', 'EndCustomCall',
 })
 
--- Apps register again when they see the phone start, and the name they watch for is the one above.
--- After this resource (re)starts, say so under that name, so a phone restart does not lose them.
+-- When this resource restarts, apps have to notice: they hold on to the exports they fetched, and
+-- they register again when they see the phone start. The name they watch is the one above, so say
+-- it stopped and started under that name too.
+AddEventHandler('onClientResourceStop', function(res)
+    if res ~= GetCurrentResourceName() then return end
+    TriggerEvent('onClientResourceStop', 'lb-phone')
+    TriggerEvent('onResourceStop', 'lb-phone')
+end)
+
 CreateThread(function()
     Wait(500)
+    TriggerEvent('onClientResourceStart', 'lb-phone')
     TriggerEvent('onResourceStart', 'lb-phone')
 end)
