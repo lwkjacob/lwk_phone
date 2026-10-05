@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent as RPointerEvent, type W
 import { Layers, LocateFixed, MapPin, Minus, Navigation, Plus, Share, X } from 'lucide-react';
 import { places } from '../data';
 import { inGame, rpc } from '../net';
-import { notify, share, update, useS, view, viewportRect } from '../store';
+import { S, notify, share, update, useS, view, viewportRect } from '../store';
 import { Search } from '../ui';
 import { t } from '../i18n';
 
@@ -16,6 +16,7 @@ const MAX_ZOOM = 6;
 // The screen in layout px, and the point on it that counts as the middle (the card covers the bottom).
 const VIEW = { w: 393, h: 852 };
 const FOCUS = { x: 196, y: 300 };
+const START_ZOOM = 4;
 // Where the browser demo stands: Legion Square.
 const DEMO = { x: 195, y: -934 };
 
@@ -23,11 +24,54 @@ const DEMO = { x: 195, y: -934 };
 const project = (x: number, y: number) => ({ x: 117.36 + x * 0.020625, y: 172.64 - y * 0.020625 });
 const inMap = (n: number) => Math.min(TILE, Math.max(0, n));
 
+/** The satellite view is showing (a dark picture, where the road map is a light one). */
+export const satellite = () => S.settings.satellite && !S.cfg.map.image;
+const tileUrl = (level: number, x: number, y: number) => `../../tiles/${satellite() ? 'satellite' : 'atlas'}/${level}/${x}-${y}.webp`;
+
+/** The tiles under the screen when the map unit (x, y) is at FOCUS, each with its box on the canvas in px. */
+function tilesAt(v: { x: number; y: number; z: number }) {
+  const scale = 2 ** v.z;
+  const ox = FOCUS.x - v.x * scale;
+  const oy = FOCUS.y - v.y * scale;
+  // From the level at least as detailed as the zoom, so tiles are only ever stretched past MAX_LEVEL.
+  const level = Math.min(MAX_LEVEL, Math.ceil(v.z));
+  const size = (TILE * scale) / 2 ** level;
+  const last = 2 ** level - 1;
+  const tiles: { src: string; left: number; top: number; width: number; height: number }[] = [];
+  for (let x = Math.max(0, Math.floor(-ox / size)); x <= Math.min(last, Math.floor((VIEW.w - ox) / size)); x++)
+    for (let y = Math.max(0, Math.floor(-oy / size)); y <= Math.min(last, Math.floor((VIEW.h - oy) / size)); y++) {
+      // Whole pixels, or hairlines show between tiles.
+      const left = Math.round(x * size);
+      const top = Math.round(y * size);
+      tiles.push({ src: tileUrl(level, x, y), left, top, width: Math.round((x + 1) * size) - left, height: Math.round((y + 1) * size) - top });
+    }
+  return tiles;
+}
+
+async function locate() {
+  const r = await rpc<{ x: number; y: number; street: string }>('position');
+  if (r?.ok) update((st) => (st.position = { x: r.x, y: r.y, street: r.street }));
+}
+
+// Held on to, so the browser keeps what it fetched.
+let warm: HTMLImageElement[] = [];
+
+/**
+ * Get Maps ready before it is opened: find the player and fetch the tiles it will start on. Without this the
+ * first open draws the wrong place, learns the position, then loads a second screenful while the app animates in.
+ */
+export async function warmMap() {
+  await locate();
+  if (S.cfg.map.image) return;
+  const me = S.position ?? DEMO;
+  warm = [tileUrl(0, 0, 0), ...tilesAt({ ...project(me.x, me.y), z: START_ZOOM }).map((x) => x.src)].map((src) => Object.assign(new Image(), { src }));
+}
+
 export function MapsApp() {
   const s = useS();
   const me = s.position ?? DEMO;
   // The map unit under FOCUS, and the zoom: the map is 256 * 2^z px across.
-  const [v, setV] = useState(() => ({ ...project(me.x, me.y), z: 4 }));
+  const [v, setV] = useState(() => ({ ...project(me.x, me.y), z: START_ZOOM }));
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<number | null>(null);
   const [route, setRoute] = useState<number | null>(null);
@@ -46,21 +90,7 @@ export function MapsApp() {
   };
   const center = (p: { x: number; y: number }) => setV((o) => ({ ...o, ...project(p.x, p.y) }));
 
-  // The tiles under the screen, taken from the level at least as detailed as the zoom, so they are only ever stretched past MAX_LEVEL.
-  const style = s.settings.satellite ? 'satellite' : 'atlas';
   const custom = s.cfg.map.image;
-  const level = Math.min(MAX_LEVEL, Math.ceil(v.z));
-  const size = (TILE * scale) / 2 ** level;
-  const last = 2 ** level - 1;
-  const tiles: { src: string; left: number; top: number; width: number; height: number }[] = [];
-  if (!custom)
-    for (let x = Math.max(0, Math.floor(-ox / size)); x <= Math.min(last, Math.floor((VIEW.w - ox) / size)); x++)
-      for (let y = Math.max(0, Math.floor(-oy / size)); y <= Math.min(last, Math.floor((VIEW.h - oy) / size)); y++) {
-        // Whole pixels, or hairlines show between tiles.
-        const left = Math.round(x * size);
-        const top = Math.round(y * size);
-        tiles.push({ src: `../../tiles/${style}/${level}/${x}-${y}.webp`, left, top, width: Math.round((x + 1) * size) - left, height: Math.round((y + 1) * size) - top });
-      }
   // A server's own map: one picture, placed by the game coordinates of its edges.
   const b = s.cfg.map.bounds;
   const nw = at(b.minX, b.maxY);
@@ -69,12 +99,8 @@ export function MapsApp() {
   // In-game: where the player really is, re-read while the app is open.
   useEffect(() => {
     if (!inGame) return;
-    const read = async () => {
-      const r = await rpc<{ x: number; y: number; street: string }>('position');
-      if (r?.ok) update((st) => (st.position = { x: r.x, y: r.y, street: r.street }));
-    };
-    read();
-    const timer = window.setInterval(read, 2000);
+    locate();
+    const timer = window.setInterval(locate, 2000);
     return () => window.clearInterval(timer);
   }, []);
   // Start on the player once the first position is known.
@@ -122,7 +148,7 @@ export function MapsApp() {
   };
 
   return (
-    <div className={`maps ${s.settings.satellite && !custom ? 'sat' : ''}`}>
+    <div className={`maps ${satellite() ? 'sat' : ''}`}>
       <div className="maps-view" onPointerDown={onDown} onWheel={onWheel}>
         <div className="maps-canvas" style={{ transform: `translate(${ox}px, ${oy}px)` }}>
           {custom ? (
@@ -130,8 +156,8 @@ export function MapsApp() {
           ) : (
             <>
               {/* The whole map as one blurry tile underneath, so there is never a hole while sharper tiles load. */}
-              <img src={`../../tiles/${style}/0/0-0.webp`} alt="" draggable={false} style={{ left: 0, top: 0, width: TILE * scale, height: TILE * scale }} />
-              {tiles.map(({ src, ...box }) => (
+              <img src={tileUrl(0, 0, 0)} alt="" draggable={false} style={{ left: 0, top: 0, width: TILE * scale, height: TILE * scale }} />
+              {tilesAt(v).map(({ src, ...box }) => (
                 <img key={src} src={src} alt="" draggable={false} style={box} />
               ))}
             </>

@@ -766,6 +766,9 @@ video.viewer-pic { object-fit: contain; background: #000; }
 }
 
 .maps.sat { background: #143c6a; }
+/* The home bar lies on the card, not on the map, so it goes with the appearance while the status bar goes with the map. */
+.app[data-app='maps'] ~ .homebar { color: #000; }
+.screen[data-theme='dark'] .app[data-app='maps'] ~ .homebar { color: #fff; }
 .maps-view { position: absolute; inset: 0; cursor: grab; touch-action: none; }
 .maps-view:active { cursor: grabbing; }
 .maps-canvas { position: absolute; left: 0; top: 0; }

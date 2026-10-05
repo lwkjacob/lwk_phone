@@ -1,4 +1,5 @@
 import { APPS, addCustomApp, applySkin, removeCustomApp, type CustomApp } from './apps';
+import { warmMap } from './apps/Maps';
 import { closeFromFrame, openByName, sendCustomAppMessage, showContextMenu, showPopUp } from './apps/Custom';
 import type { CallLog, Chat, Msg } from './data';
 import { setLocale, t, type Strings } from './i18n';
@@ -105,6 +106,7 @@ function init(d: Init) {
   applySkin();
   setRtcConfig(c.rtc);
   markSaved();
+  warmMap();
 }
 
 type ShareItem = { kind: string; label: string; seed?: string; name?: string; number?: string; title?: string; body?: string; x?: number; y?: number };
@@ -190,6 +192,8 @@ export function listen() {
       case 'open':
         // The home screen's weather widget shows the game's weather, so it is re-read whenever the phone comes out.
         if (inGame && APPS.weather) loadApp('weather');
+        // And Maps is made ready for wherever the player is standing now.
+        warmMap();
         return update((s) => (s.open = true));
       case 'close':
         return update((s) => (s.open = false));

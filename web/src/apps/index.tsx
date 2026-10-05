@@ -15,7 +15,7 @@ import { AdvertsApp, MarketApp } from './Listings';
 import { LoopApp } from './Loop';
 import { LumenApp } from './Lumen';
 import { MailApp } from './Mail';
-import { MapsApp } from './Maps';
+import { MapsApp, satellite } from './Maps';
 import { CameraApp, PhotosApp } from './Media';
 import { MessagesApp } from './Messages';
 import { MusicApp } from './Music';
@@ -64,7 +64,7 @@ const list: AppDef[] = [
   { id: 'mail', name: 'Mail', bg: grad('#3aa9ff', '#1763ee'), glyph: <Mail fill="currentColor" stroke="#2a86f6" />, view: gated('mail', MailApp), data: 'list', cat: 'Productivity', desc: 'Send and receive email around the city.' },
   { id: 'clock', name: 'Clock', bg: '#0b0b0c', glyph: <ClockFace size={52} numbers />, view: ClockApp, dark: true, system: true, cat: 'Utilities', desc: 'World clock, alarms, stopwatch and timers.' },
   { id: 'weather', name: 'Weather', bg: grad('#2271e3', '#62c8fc'), glyph: <CloudSun fill="currentColor" />, view: WeatherApp, bar: 'light', data: 'feed', cat: 'Weather', desc: 'Current conditions and the week ahead.' },
-  { id: 'maps', name: 'Maps', bg: 'linear-gradient(135deg, #6fd97a 0 51%, #46a6f7 53%)', glyph: <Navigation {...fill} />, view: MapsApp, bar: 'dark', core: true, cat: 'Navigation', desc: 'Find places, set waypoints and share where you are.' },
+  { id: 'maps', name: 'Maps', bg: 'linear-gradient(135deg, #6fd97a 0 51%, #46a6f7 53%)', glyph: <Navigation {...fill} />, view: MapsApp, /* light text over the satellite picture, dark over the road map */ get bar() { return satellite() ? ('light' as const) : ('dark' as const); }, core: true, cat: 'Navigation', desc: 'Find places, set waypoints and share where you are.' },
   { id: 'notes', name: 'Notes', bg: 'linear-gradient(180deg, #ffd43a 0 30%, #fdfdfb 30%)', glyph: <i className="g-notes" />, view: NotesApp, data: 'list', cat: 'Productivity', desc: 'Quick notes you can share nearby.' },
   { id: 'calc', name: 'Calculator', bg: '#1c1c1e', fg: '#ff9f0a', glyph: <Calculator strokeWidth={2.2} />, view: CalculatorApp, dark: true, cat: 'Utilities', desc: 'A four-function calculator.' },
   { id: 'memos', name: 'Voice Memos', bg: '#0b0b0c', fg: '#ff453a', glyph: <AudioLines strokeWidth={2.6} />, view: MemosApp, dark: true, data: 'list', cat: 'Utilities', desc: 'Record, replay and share audio.' },

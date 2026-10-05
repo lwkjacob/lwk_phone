@@ -90,7 +90,7 @@ export const S = {
     texttone: 'Tri-tone',
     hideCallerId: false,
     /** Maps shows the satellite view instead of the road map. */
-    satellite: false,
+    satellite: true,
     muted: {} as Record<string, boolean>,
   },
   apps: [...base.defaults.apps],
