@@ -158,7 +158,18 @@ exports.lwk_phone:SendCustomAppMessage(identifier, data)
 
 ## Languages
 
-All text lives in `config/locales/en.json`: `"ui"` for the interface, `"server"` for messages that come from Lua. Copy it to `<code>.json`, translate the values, keep the `{placeholders}` and `%s`, and set `Config.locale`. `"meta.intl"` sets the locale for dates and numbers. Anything missing falls back to English.
+The phone ships in English (`en`, the default) and French (`fr`). Set `Config.locale` to the one you want.
+
+### Translating
+
+All text lives in `config/locales/en.json`: `"ui"` for the interface, `"server"` for messages that come from Lua.
+
+1. Copy `en.json` to `<code>.json` (`de.json`, `es.json`, ...).
+2. Translate the values only. Leave the keys alone, and keep every `{placeholder}` and `%s` exactly as written; where a line has several `%s`, they must stay in the same order.
+3. Set `"meta.name"` to the language's own name and `"meta.intl"` to its locale code (`de-DE`), which decides how dates and numbers are written.
+4. Set `Config.locale = '<code>'` and restart the phone.
+
+Anything left out falls back to English, so a half-finished file still works. Translations are welcome as pull requests.
 
 ## Community apps
 

@@ -2,7 +2,7 @@
 
 Config = {
     -- General -------------------------------------------------------------------
-    locale    = 'en',          -- a file in config/locales/
+    locale    = 'en',          -- a file in config/locales/: 'en' or 'fr' (README, "Languages", for adding one)
     framework = 'auto',        -- auto | qbox | qb | esx | standalone
     bank      = 'auto',        -- company accounts: auto | lwk_bank | Renewed-Banking | qb-banking | okokBanking | qb-management | esx_addonaccount | none
     debug     = false,         -- prints every RPC to the server console
