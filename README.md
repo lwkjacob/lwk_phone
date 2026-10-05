@@ -53,6 +53,7 @@ Everything is in `config/config.lua`, with a comment on each option. The ones mo
 |---|---|
 | `locale` | Language file from `config/locales/`. |
 | `framework` | `auto` detects Qbox, QBCore or ESX and falls back to standalone. |
+| `autoInstallApps` | Whether community apps may install themselves on every phone, or always go to the App Store first (the default). |
 | `bank` | Which bank script holds company money. `auto` finds it. |
 | `keybind`, `command`, `walk`, `cursorKey` | How the phone opens and whether players can move with it out. |
 | `item` | The phone item: which inventory, whether it is required, whether each item is its own phone. |
@@ -173,7 +174,7 @@ exports.lwk_phone:AddCustomApp({
     developer = 'Example',                -- optional
     ui = GetCurrentResourceName() .. '/ui/index.html', -- leave out for an app that only runs a function
     icon = 'https://cfx-nui-' .. GetCurrentResourceName() .. '/ui/icon.png',
-    defaultApp = false,                   -- true installs it for everyone
+    defaultApp = false,                   -- true installs it for everyone, if the server allows it (see below)
     landscape = false,                    -- open sideways, for games and video
     price = 0,                            -- bank money charged on install (free on servers without money)
     size = 412,                           -- kB, shown in the App Store
@@ -186,6 +187,8 @@ exports.lwk_phone:SendCustomAppMessage('pizza', { action = 'orderReady', data = 
 ```
 
 An app is removed automatically when the resource that registered it stops.
+
+Community apps appear in the App Store and players install the ones they want. `defaultApp = true` only puts an app straight on every home screen when the server sets `autoInstallApps = true` in `config/config.lua`.
 
 ### Apps written for LB Phone
 

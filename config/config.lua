@@ -7,6 +7,10 @@ Config = {
     bank      = 'auto',        -- company accounts: auto | lwk_bank | Renewed-Banking | qb-banking | okokBanking | qb-management | esx_addonaccount | none
     debug     = false,         -- prints every RPC to the server console
 
+    -- Apps other resources add (community apps) go to the App Store, where players install the ones they want.
+    -- true: an app that asks to be installed for everyone (defaultApp) is put straight on the home screen.
+    autoInstallApps = false,
+
     -- Opening the phone -----------------------------------------------------------
     keybind = 'F1',            -- default only; players rebind it in the game's key settings
     command = 'phone',

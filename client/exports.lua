@@ -21,7 +21,7 @@ Export('AddCustomApp', function(app)
         callbacks = callbacks,
         def = {
             identifier = app.identifier, name = app.name, description = app.description, developer = app.developer,
-            ui = app.ui, icon = app.icon, defaultApp = app.defaultApp == true, price = tonumber(app.price), size = tonumber(app.size),
+            ui = app.ui, icon = app.icon, defaultApp = Config.autoInstallApps and app.defaultApp == true, price = tonumber(app.price), size = tonumber(app.size),
             images = app.images, landscape = app.landscape == true, keepOpen = app.keepOpen == true,
         },
     }
