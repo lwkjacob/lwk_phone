@@ -27,6 +27,9 @@ export type GameView = {
   record: () => { stop: () => Promise<Blob> };
   /** The view as a video stream, for sending to another phone. */
   stream: () => MediaStream;
+  /** Stop drawing, and start again. */
+  pause: () => void;
+  resume: () => void;
   destroy: () => void;
 };
 
@@ -108,6 +111,8 @@ export function gameView(canvas: HTMLCanvasElement): GameView | null {
       };
     },
     stream,
+    pause: () => cancelAnimationFrame(frame),
+    resume: () => (cancelAnimationFrame(frame), draw()),
     destroy: () => cancelAnimationFrame(frame),
   };
 }

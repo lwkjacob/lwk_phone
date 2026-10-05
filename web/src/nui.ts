@@ -1,10 +1,10 @@
 import { APPS, addCustomApp, applySkin, removeCustomApp, type CustomApp } from './apps';
-import { sendCustomAppMessage } from './apps/Custom';
+import { closeFromFrame, openByName, sendCustomAppMessage, showContextMenu, showPopUp } from './apps/Custom';
 import type { CallLog, Chat, Msg } from './data';
 import { setLocale, t, type Strings } from './i18n';
 import { inGame, nuiFetch, rpc } from './net';
 import { setRtcConfig, signal, type Signal } from './rtc';
-import { S, addPhoto, alert, answered, blank, ended, hydrate, incomingCall, markSaved, notify, openApp, serverMsg, uid, update } from './store';
+import { S, addPhoto, alert, answered, blank, ended, goHome, hydrate, incomingCall, markSaved, notify, openApp, serverMsg, startCall, uid, update } from './store';
 import { theme } from './theme';
 
 /* Messages from Lua. Lua talks to the phone with SendNUIMessage({ action = ..., ... }); the phone talks
@@ -139,6 +139,9 @@ function socialMsg(app: string, title: string, list: Msg[] | undefined, msg: Msg
   if (!(S.open && S.app === app)) notify({ app, title, body: msg.text ?? '' });
 }
 
+/** A pop-up or menu opened from Lua. Its buttons' functions stayed there: the UI reports which was pressed. */
+type Dialog = { title: string; description?: string; attachment?: { src: string }; input?: { placeholder?: string; value?: string }; buttons: { title: string; color?: string; bold?: boolean }[] };
+
 type Incoming =
   | { action: 'init'; data: Init }
   | { action: 'open' | 'close' | 'unload' }
@@ -155,6 +158,13 @@ type Incoming =
   | { action: 'addCustomApp'; app: CustomApp }
   | { action: 'removeCustomApp'; identifier: string }
   | { action: 'customAppMessage'; identifier: string; data: unknown }
+  /* Sent by exports other scripts call (client/compat.lua). */
+  | { action: 'openApp'; app: string }
+  | { action: 'closeApp' }
+  | { action: 'startCall'; number?: string; company?: string; video?: boolean }
+  | { action: 'savePhoto'; url: string }
+  | { action: 'addContact'; name: string; number: string }
+  | { action: 'popUp' | 'contextMenu'; id: number; data: Dialog }
   /** The active language: the "ui" section of config/locales/<code>.json and its "meta.intl". */
   | { action: 'setLocale'; ui: Strings; intl?: string }
   /** WebRTC: a handshake message relayed from another player, and the server's ICE/TURN servers. */
@@ -165,6 +175,8 @@ export function listen() {
   window.addEventListener('message', (e: MessageEvent<Incoming>) => {
     const m = e.data;
     if (!m || typeof m !== 'object') return;
+    // An app's page may ask for one thing only: to be closed. Everything else must come from the game.
+    if (e.source && e.source !== window) return m.action === 'closeApp' ? closeFromFrame(e.source) : undefined;
     switch (m.action) {
       case 'init':
         return init(m.data);
@@ -217,6 +229,22 @@ export function listen() {
         return void removeCustomApp(m.identifier);
       case 'customAppMessage':
         return void sendCustomAppMessage(m.identifier, m.data);
+      case 'openApp':
+        return openByName(m.app);
+      case 'closeApp':
+        return goHome();
+      case 'startCall':
+        return void ((m.number || m.company) && startCall(m.number ?? m.company!, m.video, m.company));
+      case 'savePhoto':
+        return void (typeof m.url === 'string' && addPhoto({ seed: m.url }));
+      case 'addContact':
+        return update((s) => s.contacts.push({ id: uid(), name: m.name, number: m.number }));
+      case 'popUp':
+      case 'contextMenu': {
+        const press = (button: number) => (value?: string) => void nuiFetch(null, 'dialog', { id: m.id, button, value });
+        const buttons = m.data.buttons.map((b, i) => ({ ...b, cb: press(i) }));
+        return m.action === 'popUp' ? showPopUp({ ...m.data, buttons }) : showContextMenu({ title: m.data.title, buttons });
+      }
       case 'setLocale':
         setLocale(m.ui, m.intl);
         return applySkin();
