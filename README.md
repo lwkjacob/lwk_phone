@@ -189,13 +189,22 @@ An app is removed automatically when the resource that registered it stops.
 
 ### Apps written for LB Phone
 
-These run unchanged. The resource `provide`s the name `lb-phone` and answers its exports, so an app that depends on `lb-phone` and calls `exports['lb-phone']:AddCustomApp(...)` starts and registers as it would there. Inside the app's page the same globals exist (`fetchNui`, `useNuiEvent`, `getSettings`, `components.*` and the older top-level `setPopUp`, `selectGallery` and friends), the page is sized the same way (the screen is 27.6rem wide), and the `'componentsLoaded'` message is sent once they are ready.
+These run unchanged, once the server has a resource called `lb-phone` for them to find. Every export of this phone already answers under that name; what is missing is only the name itself, which those apps list as a dependency and wait for. Create a folder named `lb-phone` next to `lwk_phone` containing one file, `fxmanifest.lua`:
+
+```lua
+fx_version 'cerulean'
+game 'gta5'
+description 'Lets apps written for LB Phone find lwk_phone'
+dependency 'lwk_phone'
+```
+
+Start it after the phone and before the apps (`ensure lb-phone`, or put it in the same `[folder]`). Do not do this on a server that runs the real lb-phone. Some apps support several phones and have a setting for which one to use: set it to LB Phone.
+
+Inside the app's page the same globals exist (`fetchNui`, `useNuiEvent`, `getSettings`, `components.*` and the older top-level `setPopUp`, `selectGallery` and friends), the page is sized the same way (the screen is 27.6rem wide), and the `'componentsLoaded'` message is sent once they are ready.
 
 Beyond the custom-app exports, these also answer under that name. Client: `SendNotification`, `IsOpen`, `ToggleOpen`, `GetEquippedPhoneNumber`, `HasPhoneItem`, `IsDisabled`, `ToggleDisabled`, `OpenApp`, `CloseApp`, `CreateCall`, `IsInCall`, `AddContact`, `SaveToGallery`, `SetPopUp`, `SetContextMenu`, `ToggleHomeIndicator`, `ToggleLandscape`, `ToggleFlashlight`, `EnableWalkableCam`, `DisableWalkableCam`, `GetSettings`, `GetAirplaneMode`, `GetStreamerMode`, `FormatNumber`, and the callback trio. Server: `GetEquippedPhoneNumber`, `GetSourceFromNumber`, `HasPhoneItem`, `SendNotification`, `NotifyEveryone`, `SendMessage`, `SendCoords`, `SendMail`, `AddTransaction`, `AddContact`, `CreateCall`, `EndCall`, `IsInCall`, `GetSettings`, `HasAirplaneMode`, `GetSocialMediaUsername`, `FormatNumber`, `RegisterCallback`, `BaseCallback`.
 
 Exports with no counterpart here (battery, custom numbers, music and live trays, posting to its social apps, and so on) answer `nil` and print one line in the console naming the export, so an app that calls one keeps running. In a page, `useCamera`, `components.fetchPhone`, `components.setMusicSelector` and `GameMap` are not available.
-
-Do not run this resource next to the real lb-phone: both would answer the same exports. To switch the compatibility off, delete the `provide 'lb-phone'` line in `fxmanifest.lua`.
 
 ### Inside the app's page
 
