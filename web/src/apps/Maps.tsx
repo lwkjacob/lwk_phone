@@ -53,9 +53,6 @@ async function locate() {
   if (r?.ok) update((st) => (st.position = { x: r.x, y: r.y, street: r.street }));
 }
 
-// The place the waypoint is set to. Kept here so it outlives the app being closed: the waypoint stays set in the game.
-let routeTo: number | null = null;
-
 // Held on to, so the browser keeps what it fetched.
 let warm: HTMLImageElement[] = [];
 
@@ -77,10 +74,7 @@ export function MapsApp() {
   const [v, setV] = useState(() => ({ ...project(me.x, me.y), z: START_ZOOM }));
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<number | null>(null);
-  const [route, setRouteId] = useState(routeTo);
-  const setRoute = (id: number | null) => setRouteId((routeTo = id));
-  // The game's route to the waypoint, as game coordinates along it.
-  const [path, setPath] = useState<[number, number][]>([]);
+  const [route, setRoute] = useState<number | null>(null);
   const moved = useRef(false);
   const place = places.find((p) => p.id === sel);
   const dest = places.find((p) => p.id === route);
@@ -109,22 +103,6 @@ export function MapsApp() {
     const timer = window.setInterval(locate, 2000);
     return () => window.clearInterval(timer);
   }, []);
-  // The game's own route to the waypoint, re-read as the player moves along it.
-  useEffect(() => {
-    setPath([]);
-    if (!inGame || route == null) return;
-    const read = async () => {
-      const r = await rpc<{ active: boolean; points: [number, number][] }>('route');
-      if (!r?.ok) return;
-      // Reached, or taken off on the pause map.
-      if (!r.active) return setRoute(null);
-      setPath(r.points);
-    };
-    // The game needs a moment to work a new route out.
-    const first = window.setTimeout(read, 500);
-    const timer = window.setInterval(read, 2000);
-    return () => (window.clearTimeout(first), window.clearInterval(timer));
-  }, [route]);
   // Start on the player once the first position is known.
   const found = !!s.position;
   useEffect(() => {
@@ -162,14 +140,12 @@ export function MapsApp() {
     setQ('');
     center(places.find((x) => x.id === id)!);
   };
-  // Shown when the game has no route to give: in the browser, on foot far from a road, or before it has worked one out.
+  // ponytail: a curve, not the roads. The real route needs the road network as data and path-finding here.
   const curve = (to: { x: number; y: number }) => {
     const a = at(me.x, me.y);
     const z = at(to.x, to.y);
     return `M${a.left + ox} ${a.top + oy} Q${(a.left + z.left) / 2 + ox + 24} ${(a.top + z.top) / 2 + oy - 16} ${z.left + ox} ${z.top + oy}`;
   };
-  const road = path.length > 1;
-  const line = () => 'M' + path.map(([x, y]) => ((p) => `${(p.left + ox).toFixed(1)} ${(p.top + oy).toFixed(1)}`)(at(x, y))).join('L');
 
   return (
     <div className={`maps ${satellite() ? 'sat' : ''}`}>
@@ -187,9 +163,8 @@ export function MapsApp() {
             </>
           )}
           {dest && (
-            <svg className={`m-route ${road ? 'road' : ''}`} width={VIEW.w} height={VIEW.h} style={{ left: -ox, top: -oy }} aria-hidden="true">
-              {road && <path className="m-route-edge" d={line()} />}
-              <path d={road ? line() : curve(dest)} />
+            <svg className="m-route" width={VIEW.w} height={VIEW.h} style={{ left: -ox, top: -oy }} aria-hidden="true">
+              <path d={curve(dest)} />
             </svg>
           )}
           {places.map((p) => (
