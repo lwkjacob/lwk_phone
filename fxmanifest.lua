@@ -17,6 +17,7 @@ files {
   'web/dist/themes/*',
   'web/dist/wallpapers/*',
   'web/dist/example-app/*',
+  'tiles/**/*.webp',
   'config/locales/*.json',
 }
 
