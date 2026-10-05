@@ -65,7 +65,8 @@ Config = {
     },
 
     -- Garage -------------------------------------------------------------------------------------
-    garage = { valetFee = 100, impoundFee = 250 },
+    -- fromImpound = false: impounded vehicles cannot be released from the phone and have to be collected.
+    garage = { valetFee = 100, impoundFee = 250, fromImpound = true },
 
     -- Music: no songs ship with the phone. Add your own (direct links to audio files). -------------
     -- The Music app is hidden while this list is empty.

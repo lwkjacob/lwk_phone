@@ -79,12 +79,18 @@ The Company Account under Services > My Job (balance, deposit and withdraw, for 
 
 ### Garages
 
-The Garage app reads the framework's own vehicle table, so it works with garage scripts that keep to it:
+Every garage script keeps vehicles in the framework's table (`player_vehicles` or `owned_vehicles`); they differ in which columns say where a vehicle is. The Garage app reads whichever of these the table has, so there is nothing to configure:
 
-- **Qbox / QBCore:** `player_vehicles` with the standard `state` column (0 out, 1 garaged, 2 impound) and `garage`: qbx_garages, qb-garages.
-- **ESX:** `owned_vehicles` with `stored`, `parking` and `pound`: esx_garage.
+| Columns | Garage scripts |
+|---|---|
+| `in_garage`, `garage_id`, `impound` | jg-advancedgarages, cd_garage |
+| `state`, `garage` | qb-garages, qbx_garages |
+| `stored`, `parking`, `pound` | esx_garage and most ESX garages |
+| `parking` beside the framework's own | okokGarage |
 
-Garage scripts with their own columns (jg-advancedgarages, cd_garage and similar) need `Bridge.vehicles` and `Bridge.vehicleOut` in `config/bridge/framework.lua` adjusted. The valet hands over keys on QBCore's key event only; other key scripts go in `Bridge.giveKeys` in `config/bridge/client.lua`.
+A vehicle held in a police impound (jg-advancedgarages' `impound_retrievable`) cannot be released from the phone. Set `garage.fromImpound = false` to stop the phone releasing impounded vehicles at all. A garage script with other columns needs `where` and `Bridge.vehicleOut` in `config/bridge/framework.lua` adjusted.
+
+After the valet spawns a vehicle, keys are handed over through qb-vehiclekeys' event (which qbx_vehiclekeys and most key scripts also answer), cd_garage's and okokGarage's. Another key script goes in `Bridge.giveKeys` in `config/bridge/client.lua`.
 
 ### Accounts
 

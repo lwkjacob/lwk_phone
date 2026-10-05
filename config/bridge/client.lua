@@ -39,6 +39,10 @@ function Bridge.canOpen()
 end
 
 --- Called after the valet spawns a vehicle, to hand the player its keys.
+--- An event nothing listens for does nothing, so each key script's own event is simply fired.
+--- For a key script that needs something else, add its call here.
 function Bridge.giveKeys(vehicle, plate)
-    if fw == 'qb' then TriggerEvent('vehiclekeys:client:SetOwner', plate) end
+    TriggerEvent('vehiclekeys:client:SetOwner', plate)   -- qb-vehiclekeys, qbx_vehiclekeys, and key scripts that copy them
+    TriggerEvent('cd_garage:AddKeys', plate)
+    if GetResourceState('okokGarage') == 'started' then TriggerServerEvent('okokGarage:GiveKeys', plate) end
 end

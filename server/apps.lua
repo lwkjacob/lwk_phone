@@ -91,6 +91,7 @@ RPC['garage.valet'] = function(src, number, data)
         if plateOf(v.plate) == plate then found = v end
     end
     if not found or found.state == 'out' then return Phone.fail(L('err_generic')) end
+    if found.state == 'impound' and (found.held or not Config.garage.fromImpound) then return Phone.fail(L('err_impound')) end
     local fee = found.state == 'impound' and Config.garage.impoundFee or Config.garage.valetFee
     if not Bridge.removeBank(src, fee, 'phone-valet') then return Phone.fail(L('err_funds')) end
     if not Bridge.vehicleOut(src, found.plate) then

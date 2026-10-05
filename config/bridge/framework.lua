@@ -210,47 +210,92 @@ function Bridge.sourceOf(identifier)
 end
 
 -- Vehicles ---------------------------------------------------------------------------------------
--- Rows come back as { plate, model, garage, state = 'out' | 'garaged' | 'impound', fuel, engine, body, props }.
+-- Rows come back as { plate, model, garage, state = 'out' | 'garaged' | 'impound', held, fuel, engine, body, props }.
 -- `model` is a spawn name or hash; the client turns it into a display name. `props` is the saved
 -- tuning, handed back to the client when the valet spawns the vehicle.
+--
+-- Garage scripts all keep vehicles in the framework's table (player_vehicles / owned_vehicles) and
+-- differ in which columns say where a vehicle is. Rather than naming scripts, this reads whichever
+-- of those columns the table has:
+--   in_garage, garage_id, impound     jg-advancedgarages, cd_garage
+--   state, garage                     qb-garages, qbx_garages (0 out, 1 garaged, 2 impound)
+--   stored, parking, pound            esx_garage and most ESX garages
+--   parking                           okokGarage (next to state / stored)
+-- A garage script with other columns: edit `where` and Bridge.vehicleOut below.
+
+local TABLE = fw == 'esx' and 'owned_vehicles' or 'player_vehicles'
+local OWNER = fw == 'esx' and 'owner' or 'citizenid'
+local cols
+
+--- The vehicle table's columns, as a set. Read once.
+local function columns()
+    if cols then return cols end
+    local found = {}
+    local ok, rows = pcall(MySQL.query.await, ('SHOW COLUMNS FROM %s'):format(TABLE))
+    for _, r in ipairs(ok and rows or {}) do found[r.Field] = true end
+    if next(found) then cols = found end
+    return found
+end
+
+local function yes(v) return v == true or v == 1 end
+
+--- Where a vehicle is: state, garage name, and whether it is held in an impound it may not leave.
+local function where(r, c)
+    local garage = r.garage_id or r.parking or r.garage or ''
+    if c.garage_id and GetResourceState('cd_garage') == 'started' then
+        local ok, label = pcall(function() return exports.cd_garage:GetGarageLabelFromGarageId(r.garage_id) end)
+        if ok and type(label) == 'string' then garage = label end
+    end
+    if c.impound and (tonumber(r.impound) or 0) > 0 then
+        return 'impound', garage, c.impound_retrievable and not yes(tonumber(r.impound_retrievable))
+    end
+    if c.in_garage then return yes(tonumber(r.in_garage) or r.in_garage) and 'garaged' or 'out', garage end
+    if c.state then return r.state == 0 and 'out' or r.state == 2 and 'impound' or 'garaged', garage end
+    if c.pound and r.pound and r.pound ~= '' then return 'impound', r.pound end
+    if c.stored then
+        local stored = tonumber(r.stored) or (r.stored and 1 or 0)
+        return stored == 0 and 'out' or stored == 2 and 'impound' or 'garaged', garage
+    end
+    return 'garaged', garage
+end
+
+local function decode(text)
+    local ok, t = pcall(json.decode, text or '')
+    return ok and type(t) == 'table' and t or {}
+end
 
 function Bridge.vehicles(src)
-    local id = Bridge.identifier(src)
     local out = {}
-    if fw == 'qb' or fw == 'qbox' then
-        local ok, rows = pcall(MySQL.query.await, 'SELECT vehicle, hash, plate, garage, fuel, engine, body, state, mods FROM player_vehicles WHERE citizenid = ?', { id })
-        for _, r in ipairs(ok and rows or {}) do
-            out[#out + 1] = {
-                plate = r.plate, model = r.vehicle or tonumber(r.hash), garage = r.garage or '',
-                state = r.state == 0 and 'out' or r.state == 2 and 'impound' or 'garaged',
-                fuel = math.floor(r.fuel or 100), engine = math.floor((r.engine or 1000) / 10), body = math.floor((r.body or 1000) / 10),
-                props = r.mods and json.decode(r.mods) or nil,
-            }
-        end
-    elseif fw == 'esx' then
-        local ok, rows = pcall(MySQL.query.await, 'SELECT plate, vehicle, stored, parking, pound FROM owned_vehicles WHERE owner = ?', { id })
-        for _, r in ipairs(ok and rows or {}) do
-            local props = r.vehicle and json.decode(r.vehicle) or {}
-            out[#out + 1] = {
-                plate = r.plate, model = props.model, garage = r.parking or r.pound or '',
-                state = (r.pound and r.pound ~= '') and 'impound' or (r.stored == 1 or r.stored == true) and 'garaged' or 'out',
-                fuel = math.floor(props.fuelLevel or 100), engine = math.floor((props.engineHealth or 1000) / 10), body = math.floor((props.bodyHealth or 1000) / 10),
-                props = props,
-            }
-        end
+    if fw == 'standalone' then return out end
+    local c = columns()
+    local ok, rows = pcall(MySQL.query.await, ('SELECT * FROM %s WHERE %s = ?'):format(TABLE, OWNER), { Bridge.identifier(src) })
+    for _, r in ipairs(ok and rows or {}) do
+        -- QBCore keeps the spawn name in `vehicle` and the tuning in `mods`; ESX keeps the tuning, model included, in `vehicle`.
+        local props = decode(fw == 'esx' and r.vehicle or r.mods)
+        local state, garage, held = where(r, c)
+        out[#out + 1] = {
+            plate = r.plate, model = fw == 'esx' and props.model or r.vehicle or tonumber(r.hash), garage = garage, state = state, held = held or nil,
+            fuel = math.floor(tonumber(r.fuel) or props.fuelLevel or 100),
+            engine = math.floor((tonumber(r.engine) or props.engineHealth or 1000) / 10),
+            body = math.floor((tonumber(r.body) or props.bodyHealth or 1000) / 10),
+            props = props,
+        }
     end
     return out
 end
 
 --- Mark a vehicle as out of its garage / released from impound. Returns success.
 function Bridge.vehicleOut(src, plate)
-    local id = Bridge.identifier(src)
-    if fw == 'qb' or fw == 'qbox' then
-        return MySQL.update.await('UPDATE player_vehicles SET state = 0 WHERE plate = ? AND citizenid = ?', { plate, id }) > 0
-    elseif fw == 'esx' then
-        return MySQL.update.await('UPDATE owned_vehicles SET stored = 0, pound = NULL WHERE plate = ? AND owner = ?', { plate, id }) > 0
-    end
-    return false
+    if fw == 'standalone' then return false end
+    local c, sets = columns(), {}
+    if c.in_garage then sets[#sets + 1] = 'in_garage = 0' end
+    if c.impound then sets[#sets + 1] = 'impound = 0' end
+    if c.state then sets[#sets + 1] = 'state = 0' end
+    if c.stored then sets[#sets + 1] = 'stored = 0' end
+    if c.pound then sets[#sets + 1] = 'pound = NULL' end
+    if #sets == 0 then return false end
+    return MySQL.update.await(('UPDATE %s SET %s WHERE plate = ? AND %s = ?'):format(TABLE, table.concat(sets, ', '), OWNER),
+        { plate, Bridge.identifier(src) }) > 0
 end
 
 function Bridge.isAdmin(src)

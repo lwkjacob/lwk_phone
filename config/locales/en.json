@@ -9,6 +9,7 @@
     "err_busy": "You're already on a call.",
     "err_funds": "Insufficient funds.",
     "err_generic": "Something went wrong. Try again.",
+    "err_impound": "This vehicle has to be collected from the impound.",
     "err_login": "Sign in first.",
     "err_login_wrong": "Wrong username or password.",
     "err_no_address": "No mailbox with that address.",
