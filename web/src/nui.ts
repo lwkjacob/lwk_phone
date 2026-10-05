@@ -171,12 +171,25 @@ type Incoming =
   | { action: 'rtc'; from: string; signal: Signal }
   | { action: 'rtcConfig'; config: RTCConfiguration };
 
+/**
+ * Did a message come from a frame inside this page (an app's own page)? In FiveM the game's messages
+ * arrive from the frame ABOVE this one, so "not this window" is not the test: only frames below count.
+ */
+function fromInside(source: MessageEventSource | null) {
+  try {
+    for (let w = source as Window | null; w && w !== w.parent; w = w.parent) if (w.parent === window) return true;
+  } catch {
+    // not a window we can walk: not one of ours
+  }
+  return false;
+}
+
 export function listen() {
   window.addEventListener('message', (e: MessageEvent<Incoming>) => {
     const m = e.data;
     if (!m || typeof m !== 'object') return;
     // An app's page may ask for one thing only: to be closed. Everything else must come from the game.
-    if (e.source && e.source !== window) return m.action === 'closeApp' ? closeFromFrame(e.source) : undefined;
+    if (fromInside(e.source)) return m.action === 'closeApp' ? closeFromFrame(e.source) : undefined;
     switch (m.action) {
       case 'init':
         return init(m.data);
