@@ -1,49 +1,33 @@
-import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { LocateFixed, MapPin, Minus, Navigation, Plus, Share, X } from 'lucide-react';
+import { useEffect, useRef, useState, type PointerEvent as RPointerEvent, type WheelEvent } from 'react';
+import { Layers, LocateFixed, MapPin, Minus, Navigation, Plus, Share, X } from 'lucide-react';
 import { places } from '../data';
 import { inGame, rpc } from '../net';
-import { mapPercent } from '../nui';
-import { notify, share, update, useS, view } from '../store';
+import { notify, share, update, useS, view, viewportRect } from '../store';
 import { Search } from '../ui';
 import { t } from '../i18n';
 
-const DEMO = { x: 50, y: 66 };
-const SIZE = 900;
+/* The map is a pyramid of 256px tiles (tiles/ at the resource root): one tile for the whole map at
+ * level 0, 32 x 32 at level 5. A "map unit" is a pixel of that level-0 tile, so the map is 256 units across. */
+const TILE = 256;
+const MAX_LEVEL = 5;
+const MIN_ZOOM = 1;
+// One step past the deepest tiles: they are stretched 2x there, which is soft but still readable.
+const MAX_ZOOM = 6;
+// The screen in layout px, and the point on it that counts as the middle (the card covers the bottom).
+const VIEW = { w: 393, h: 852 };
+const FOCUS = { x: 196, y: 300 };
+// Where the browser demo stands: Legion Square.
+const DEMO = { x: 195, y: -934 };
 
-/* An invented map, so the phone ships no game assets. Servers point Config.map.image at a real one. */
-function MapArt() {
-  return (
-    <svg viewBox="0 0 100 100" width={SIZE} height={SIZE} aria-hidden="true">
-      <rect width="100" height="100" className="m-sea" />
-      <path className="m-land" d="M38 6c9-4 22-2 30 6 7 7 6 18 10 27 4 10 12 17 10 29-2 11-13 14-22 20-8 5-17 9-27 6-11-3-17-13-22-23-5-9-9-19-6-30 3-12 9-20 15-27 4-4 8-6 14-8Z" />
-      <path className="m-park" d="M52 12c7-1 14 2 17 8 2 5-2 10-8 11-7 1-15-1-17-7-2-6 2-11 8-12ZM22 44c4-2 9 0 10 4s-2 8-6 9-8-2-8-6 1-5 4-7ZM70 74c4-1 8 1 8 5s-4 6-8 6-6-3-5-6 2-4 5-5Z" />
-      <path className="m-water" d="M44 36c4-1 8 1 8 4s-4 5-8 4-5-3-4-5 2-2 4-3Z" />
-      <g className="m-block">
-        {Array.from({ length: 30 }, (_, i) => (
-          <rect key={i} x={42 + (i % 6) * 4.2} y={54 + Math.floor(i / 6) * 4.2} width="3.2" height="3.2" rx=".5" />
-        ))}
-      </g>
-      <g className="m-road">
-        <path d="M14 58C30 54 44 52 58 54s22 8 30 12" />
-        <path d="M50 8c-2 16 2 30 0 46s-8 26-14 38" />
-        <path d="M24 30c12 4 26 6 40 4s18-2 24 2" />
-        <path d="M34 88c10-6 22-8 32-6s14 2 20-4" />
-        <path d="M62 22c4 10 6 22 4 34s-2 20 2 28" />
-      </g>
-      <g className="m-hwy">
-        <path d="M18 60C30 70 46 76 62 74s20-8 26-14" />
-      </g>
-    </svg>
-  );
-}
+/** Game coordinates to map units. Measured from the tile set's own coordinate grid: 0.66px per game unit at level 5, origin at (3755.5, 5524.5). */
+const project = (x: number, y: number) => ({ x: 117.36 + x * 0.020625, y: 172.64 - y * 0.020625 });
+const inMap = (n: number) => Math.min(TILE, Math.max(0, n));
 
 export function MapsApp() {
   const s = useS();
-  // The map picture's height over its width: the canvas takes the picture's shape, so pins stay true.
-  const [ratio, setRatio] = useState(1);
-  const ME = s.position ? mapPercent(s.position.x, s.position.y) : DEMO;
-  const [pos, setPos] = useState({ x: -ME.x * 9 + 196, y: -ME.y * 9 + 340 });
-  const [zoom, setZoom] = useState(1);
+  const me = s.position ?? DEMO;
+  // The map unit under FOCUS, and the zoom: the map is 256 * 2^z px across.
+  const [v, setV] = useState(() => ({ ...project(me.x, me.y), z: 4 }));
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<number | null>(null);
   const [route, setRoute] = useState<number | null>(null);
@@ -52,7 +36,35 @@ export function MapsApp() {
   const dest = places.find((p) => p.id === route);
   const list = places.filter((p) => `${p.name} ${p.kind}`.toLowerCase().includes(q.toLowerCase()));
 
-  const center = (x: number, y: number) => setPos({ x: -x * 9 * zoom + 196, y: -y * 9 * ratio * zoom + 300 });
+  const scale = 2 ** v.z;
+  const ox = FOCUS.x - v.x * scale;
+  const oy = FOCUS.y - v.y * scale;
+  /** A point in game coordinates, in px on the canvas. */
+  const at = (x: number, y: number) => {
+    const p = project(x, y);
+    return { left: p.x * scale, top: p.y * scale };
+  };
+  const center = (p: { x: number; y: number }) => setV((o) => ({ ...o, ...project(p.x, p.y) }));
+
+  // The tiles under the screen, taken from the level at least as detailed as the zoom, so they are only ever stretched past MAX_LEVEL.
+  const style = s.settings.satellite ? 'satellite' : 'atlas';
+  const custom = s.cfg.map.image;
+  const level = Math.min(MAX_LEVEL, Math.ceil(v.z));
+  const size = (TILE * scale) / 2 ** level;
+  const last = 2 ** level - 1;
+  const tiles: { src: string; left: number; top: number; width: number; height: number }[] = [];
+  if (!custom)
+    for (let x = Math.max(0, Math.floor(-ox / size)); x <= Math.min(last, Math.floor((VIEW.w - ox) / size)); x++)
+      for (let y = Math.max(0, Math.floor(-oy / size)); y <= Math.min(last, Math.floor((VIEW.h - oy) / size)); y++) {
+        // Whole pixels, or hairlines show between tiles.
+        const left = Math.round(x * size);
+        const top = Math.round(y * size);
+        tiles.push({ src: `../../tiles/${style}/${level}/${x}-${y}.webp`, left, top, width: Math.round((x + 1) * size) - left, height: Math.round((y + 1) * size) - top });
+      }
+  // A server's own map: one picture, placed by the game coordinates of its edges.
+  const b = s.cfg.map.bounds;
+  const nw = at(b.minX, b.maxY);
+  const se = at(b.maxX, b.minY);
 
   // In-game: where the player really is, re-read while the app is open.
   useEffect(() => {
@@ -65,63 +77,93 @@ export function MapsApp() {
     const timer = window.setInterval(read, 2000);
     return () => window.clearInterval(timer);
   }, []);
-  // Start on the player once the first position (and the map's shape) is known.
+  // Start on the player once the first position is known.
   const found = !!s.position;
   useEffect(() => {
-    if (found) center(ME.x, ME.y);
+    if (found) center(me);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, not on every step the player takes
-  }, [found, ratio]);
+  }, [found]);
 
-  /** Distance to a place in km: real in-game, a rough guess on the demo map. */
-  const km = (p: { x: number; y: number; wx?: number; wy?: number }) =>
-    (s.position && p.wx != null && p.wy != null ? Math.hypot(p.wx - s.position.x, p.wy - s.position.y) / 1000 : Math.hypot(p.x - ME.x, p.y - ME.y) * 0.21).toFixed(1);
+  const km = (p: { x: number; y: number }) => (Math.hypot(p.x - me.x, p.y - me.y) / 1000).toFixed(1);
   const here = s.position?.street || t('maps_legion_square');
   const onDown = (e: RPointerEvent<HTMLDivElement>) => {
-    const k = view.k;
-    const start = { x: e.clientX, y: e.clientY, px: pos.x, py: pos.y };
+    const start = { x: e.clientX, y: e.clientY, vx: v.x, vy: v.y };
     moved.current = false;
     const move = (m: PointerEvent) => {
       moved.current = true;
-      setPos({ x: start.px + (m.clientX - start.x) / k, y: start.py + (m.clientY - start.y) / k });
+      // The phone is zoomed, so pointer pixels are not layout pixels.
+      setV((o) => ({ ...o, x: inMap(start.vx - (m.clientX - start.x) / view.k / 2 ** o.z), y: inMap(start.vy - (m.clientY - start.y) / view.k / 2 ** o.z) }));
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', () => window.removeEventListener('pointermove', move), { once: true });
   };
+  /** Zoom by `d` levels, keeping the map under the screen point (px, py) where it is. */
+  const zoomBy = (d: number, px = FOCUS.x, py = FOCUS.y) =>
+    setV((o) => {
+      const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, o.z + d));
+      const dx = px - FOCUS.x;
+      const dy = py - FOCUS.y;
+      return { x: inMap(o.x + dx / 2 ** o.z - dx / 2 ** z), y: inMap(o.y + dy / 2 ** o.z - dy / 2 ** z), z };
+    });
+  const onWheel = (e: WheelEvent<HTMLDivElement>) => {
+    const r = viewportRect(e.currentTarget);
+    zoomBy(-Math.sign(e.deltaY) * 0.5, (e.clientX - r.left) / view.k, (e.clientY - r.top) / view.k);
+  };
   const pick = (id: number) => {
-    const p = places.find((x) => x.id === id)!;
     setSel(id);
     setQ('');
-    center(p.x, p.y);
+    center(places.find((x) => x.id === id)!);
+  };
+  // ponytail: a curve, not the roads. The real route needs the road network as data and path-finding here.
+  const curve = (to: { x: number; y: number }) => {
+    const a = at(me.x, me.y);
+    const z = at(to.x, to.y);
+    return `M${a.left + ox} ${a.top + oy} Q${(a.left + z.left) / 2 + ox + 24} ${(a.top + z.top) / 2 + oy - 16} ${z.left + ox} ${z.top + oy}`;
   };
 
   return (
-    <div className="maps">
-      <div className="maps-view" onPointerDown={onDown} onWheel={(e) => setZoom((z) => Math.min(2.4, Math.max(0.6, z - Math.sign(e.deltaY) * 0.2)))}>
-        <div className="maps-canvas" style={{ height: SIZE * ratio, transform: `translate(${pos.x}px, ${pos.y}px) scale(${zoom})` }}>
-          {s.cfg.map.image ? <img src={s.cfg.map.image} alt="" draggable={false} onLoad={(e) => setRatio(e.currentTarget.naturalHeight / e.currentTarget.naturalWidth || 1)} /> : <MapArt />}
+    <div className={`maps ${s.settings.satellite && !custom ? 'sat' : ''}`}>
+      <div className="maps-view" onPointerDown={onDown} onWheel={onWheel}>
+        <div className="maps-canvas" style={{ transform: `translate(${ox}px, ${oy}px)` }}>
+          {custom ? (
+            <img src={custom} alt="" draggable={false} style={{ ...nw, width: se.left - nw.left, height: se.top - nw.top }} />
+          ) : (
+            <>
+              {/* The whole map as one blurry tile underneath, so there is never a hole while sharper tiles load. */}
+              <img src={`../../tiles/${style}/0/0-0.webp`} alt="" draggable={false} style={{ left: 0, top: 0, width: TILE * scale, height: TILE * scale }} />
+              {tiles.map(({ src, ...box }) => (
+                <img key={src} src={src} alt="" draggable={false} style={box} />
+              ))}
+            </>
+          )}
           {dest && (
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" width={SIZE} height={SIZE * ratio} className="m-route" aria-hidden="true">
-              <path d={`M${ME.x} ${ME.y} Q${(ME.x + dest.x) / 2 + 6} ${(ME.y + dest.y) / 2 - 4} ${dest.x} ${dest.y}`} />
+            <svg className="m-route" width={VIEW.w} height={VIEW.h} style={{ left: -ox, top: -oy }} aria-hidden="true">
+              <path d={curve(dest)} />
             </svg>
           )}
           {places.map((p) => (
-            <button key={p.id} className={`m-pin ${p.id === sel ? 'on' : ''}`} style={{ left: `${p.x}%`, top: `${p.y}%` }} aria-label={p.name} onClick={() => !moved.current && pick(p.id)}>
+            <button key={p.id} className={`m-pin ${p.id === sel ? 'on' : ''}`} style={at(p.x, p.y)} aria-label={p.name} onClick={() => !moved.current && pick(p.id)}>
               <MapPin size={30} fill="currentColor" stroke="#fff" strokeWidth={1.5} />
               <span>{p.name}</span>
             </button>
           ))}
-          <i className="m-me" style={{ left: `${ME.x}%`, top: `${ME.y}%` }} aria-label={t('maps_your_location')} />
+          <i className="m-me" style={at(me.x, me.y)} aria-label={t('maps_your_location')} />
         </div>
       </div>
 
       <div className="maps-ctl">
-        <button aria-label={t('maps_my_location')} onClick={() => center(ME.x, ME.y)}>
+        <button aria-label={t('maps_my_location')} onClick={() => center(me)}>
           <LocateFixed size={20} />
         </button>
-        <button aria-label={t('maps_zoom_in')} onClick={() => setZoom((z) => Math.min(2.4, z + 0.3))}>
+        {!custom && (
+          <button aria-label={t(s.settings.satellite ? 'maps_road_map' : 'maps_satellite')} onClick={() => update((x) => (x.settings.satellite = !x.settings.satellite))}>
+            <Layers size={20} />
+          </button>
+        )}
+        <button aria-label={t('maps_zoom_in')} onClick={() => zoomBy(1)}>
           <Plus size={20} />
         </button>
-        <button aria-label={t('maps_zoom_out')} onClick={() => setZoom((z) => Math.max(0.6, z - 0.3))}>
+        <button aria-label={t('maps_zoom_out')} onClick={() => zoomBy(-1)}>
           <Minus size={20} />
         </button>
       </div>
@@ -145,14 +187,14 @@ export function MapsApp() {
                 className="primary"
                 onClick={() => {
                   setRoute(route === place.id ? null : place.id);
-                  rpc('waypoint', route === place.id ? { clear: true } : { x: place.wx, y: place.wy });
+                  rpc('waypoint', route === place.id ? { clear: true } : { x: place.x, y: place.y });
                   if (route !== place.id) notify({ app: 'maps', title: t('waypoint_set'), body: t('route_to_name_is_on_your', { name: place.name }) });
                 }}
               >
                 <Navigation size={18} fill="currentColor" />
                 {route === place.id ? t('maps_remove_waypoint') : t('set_waypoint')}
               </button>
-              <button onClick={() => share({ kind: t('kind_location'), label: place.name, item: { kind: 'location', label: place.name, x: place.wx, y: place.wy } })}>
+              <button onClick={() => share({ kind: t('kind_location'), label: place.name, item: { kind: 'location', label: place.name, x: place.x, y: place.y } })}>
                 <Share size={18} />
                 {t('share')}
               </button>

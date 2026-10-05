@@ -152,15 +152,15 @@ export const weather = {
   wind: 11, humidity: 48, uv: 6, feels: 25, visibility: 16, sunset: '7:42 PM',
 };
 
-export type Place = { id: number; name: string; kind: string; /** Position on the map, in percent. */ x: number; y: number; /** Game coordinates, in-game. */ wx?: number; wy?: number };
+export type Place = { id: number; name: string; kind: string; /** Game coordinates. */ x: number; y: number };
 export const places: Place[] = [
-  { id: 1, name: 'Legion Square', kind: 'Landmark', x: 52, y: 62 },
-  { id: 2, name: 'Del Perro Pier', kind: 'Attraction', x: 18, y: 58 },
-  { id: 3, name: 'Benny’s Motorworks', kind: 'Mechanic', x: 46, y: 74 },
-  { id: 4, name: 'Pillbox Medical', kind: 'Hospital', x: 56, y: 55 },
-  { id: 5, name: 'Mission Row PD', kind: 'Police', x: 60, y: 66 },
-  { id: 6, name: 'Vinewood Sign', kind: 'Landmark', x: 62, y: 22 },
-  { id: 7, name: 'LS International', kind: 'Airport', x: 34, y: 88 },
+  { id: 1, name: 'Legion Square', kind: 'Landmark', x: 195, y: -934 },
+  { id: 2, name: 'Del Perro Pier', kind: 'Attraction', x: -1850, y: -1230 },
+  { id: 3, name: 'Benny’s Motorworks', kind: 'Mechanic', x: -205, y: -1310 },
+  { id: 4, name: 'Pillbox Medical', kind: 'Hospital', x: 300, y: -585 },
+  { id: 5, name: 'Mission Row PD', kind: 'Police', x: 428.9, y: -984.5 },
+  { id: 6, name: 'Vinewood Sign', kind: 'Landmark', x: 711, y: 1198 },
+  { id: 7, name: 'LS International', kind: 'Airport', x: -1037, y: -2737 },
 ];
 
 export type Tx = { id: number; label: string; amount: number; time: number };

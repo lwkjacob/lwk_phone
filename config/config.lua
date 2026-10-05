@@ -44,8 +44,9 @@ Config = {
     upload = { provider = 'fivemanage' },   -- token goes in config/keys.lua; '' there disables capture
 
     -- Maps ----------------------------------------------------------------------------------
-    -- `image` is a URL to one picture of the whole map covering `bounds` (game coordinates).
-    -- Left empty, Maps draws a plain placeholder but still shows real positions and waypoints.
+    -- The map of San Andreas ships with the phone (the tiles/ folder), as a road map and a satellite view.
+    -- Only for a server with its own map: `image` is a URL to one picture that replaces it, and `bounds`
+    -- are the game coordinates of that picture's edges.
     map = {
         image  = '',
         bounds = { minX = -4000.0, maxX = 4500.0, minY = -4000.0, maxY = 8000.0 },

@@ -61,12 +61,6 @@ type Init = {
 
 const DEFAULT_SETTINGS = JSON.stringify(S.settings);
 
-/** Game coordinates to a position on the map, in percent. */
-export function mapPercent(x: number, y: number) {
-  const b = S.cfg.map.bounds;
-  return { x: ((x - b.minX) / (b.maxX - b.minX)) * 100, y: ((b.maxY - y) / (b.maxY - b.minY)) * 100 };
-}
-
 /** A phone came up (first load, or a different phone on unique-phone servers): replace everything with its data. */
 function init(d: Init) {
   markSaved(false);
@@ -97,7 +91,7 @@ function init(d: Init) {
     calls: d.calls,
     // An empty Lua table arrives as [], whatever it was meant to be.
     accounts: Array.isArray(d.accounts) ? {} : d.accounts,
-    places: (c.places ?? []).map((p, i) => ({ id: i + 1, name: p.name, kind: p.kind, wx: p.x, wy: p.y, ...mapPercent(p.x, p.y) })),
+    places: (c.places ?? []).map((p, i) => ({ id: i + 1, name: p.name, kind: p.kind, x: p.x, y: p.y })),
     songs: (c.songs ?? []).map((s, i) => ({ id: i + 1, title: s.title, artist: s.artist, album: s.album ?? '', dur: s.seconds ?? 180, seed: s.cover ?? i * 13 + 5, url: s.url })),
   });
   // Apps this server cannot back (no money, no jobs, no housing script...) are removed outright.

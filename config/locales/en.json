@@ -430,6 +430,8 @@
     "maps_my_location_legion_square": "My Location · Legion Square",
     "maps_n_km_away": "· {n} km away",
     "maps_remove_waypoint": "Remove Waypoint",
+    "maps_road_map": "Show road map",
+    "maps_satellite": "Show satellite view",
     "maps_search_maps": "Search Maps",
     "maps_your_location": "Your location",
     "maps_zoom_in": "Zoom in",

@@ -60,7 +60,7 @@ Everything is in `config/config.lua`, with a comment on each option. The ones mo
 | `numbers` | Prefixes and length of phone numbers. |
 | `calls` | Ring time and voice script. |
 | `rtc` | STUN/TURN servers for video calls and live streams. Add a TURN server if video fails for players behind strict routers. |
-| `map` | `image` is a URL to a map picture for the Maps app; `bounds` are the game coordinates of its edges. A drawn map is used while it is empty. |
+| `map` | Leave it alone: the map of San Andreas ships with the phone, as a road map and a satellite view. On a server with its own map, `image` is a URL to one picture that replaces it and `bounds` are the game coordinates of that picture's edges. |
 | `places` | Places listed in Maps. |
 | `companies` | Jobs that players can call or message from Services. |
 | `garage` | Valet and impound fees. |
@@ -300,3 +300,5 @@ web/src/
 ## Licence
 
 GPL-3.0. See [LICENSE](LICENSE).
+
+The map pictures in `tiles/` are not covered by that licence. They are the Grand Theft Auto V map, which belongs to Rockstar Games, cut into tiles by [VIRUXE/gtav-map-tiles](https://github.com/VIRUXE/gtav-map-tiles). This project is not affiliated with or endorsed by Rockstar Games.
