@@ -187,6 +187,16 @@ exports.lwk_phone:SendCustomAppMessage('pizza', { action = 'orderReady', data = 
 
 An app is removed automatically when the resource that registered it stops.
 
+### Apps written for LB Phone
+
+These run unchanged. The resource `provide`s the name `lb-phone` and answers its exports, so an app that depends on `lb-phone` and calls `exports['lb-phone']:AddCustomApp(...)` starts and registers as it would there. Inside the app's page the same globals exist (`fetchNui`, `useNuiEvent`, `getSettings`, `components.*` and the older top-level `setPopUp`, `selectGallery` and friends), the page is sized the same way (the screen is 27.6rem wide), and the `'componentsLoaded'` message is sent once they are ready.
+
+Beyond the custom-app exports, these also answer under that name. Client: `SendNotification`, `IsOpen`, `ToggleOpen`, `GetEquippedPhoneNumber`, `HasPhoneItem`, `IsDisabled`, `ToggleDisabled`, `OpenApp`, `CloseApp`, `CreateCall`, `IsInCall`, `AddContact`, `SaveToGallery`, `SetPopUp`, `SetContextMenu`, `ToggleHomeIndicator`, `ToggleLandscape`, `ToggleFlashlight`, `EnableWalkableCam`, `DisableWalkableCam`, `GetSettings`, `GetAirplaneMode`, `GetStreamerMode`, `FormatNumber`, and the callback trio. Server: `GetEquippedPhoneNumber`, `GetSourceFromNumber`, `HasPhoneItem`, `SendNotification`, `NotifyEveryone`, `SendMessage`, `SendCoords`, `SendMail`, `AddTransaction`, `AddContact`, `CreateCall`, `EndCall`, `IsInCall`, `GetSettings`, `HasAirplaneMode`, `GetSocialMediaUsername`, `FormatNumber`, `RegisterCallback`, `BaseCallback`.
+
+Exports with no counterpart here (battery, custom numbers, music and live trays, posting to its social apps, and so on) answer `nil` and print one line in the console naming the export, so an app that calls one keeps running. In a page, `useCamera`, `components.fetchPhone`, `components.setMusicSelector` and `GameMap` are not available.
+
+Do not run this resource next to the real lb-phone: both would answer the same exports. To switch the compatibility off, delete the `provide 'lb-phone'` line in `fxmanifest.lua`.
+
 ### Inside the app's page
 
 The globals exist once the page receives the message `'componentsLoaded'`.
@@ -215,6 +225,7 @@ window.addEventListener('message', (e) => e.data === 'componentsLoaded' && start
 | `components.setHomeIndicatorVisible(bool)` | Hide the home indicator, for full-screen apps. |
 | `components.saveToGallery(url)` | Save to the photo library; resolves with the new id. |
 | `components.uploadMedia(type, blob)` | Upload `"Image"`, `"Video"` or `"Audio"`; resolves with its URL. |
+| `components.createGameRender(canvas)` | Draws the game's picture into your canvas; `takePhoto()`, `startRecording(cb)`, `pause()`, `resume()`, `destroy()`. |
 | `components.setEmojiPickerVisible({ onSelect })` | Emoji picker; `onSelect({ emoji })`. Pass `false` to close. |
 | `components.setGifPickerVisible({ onSelect })` | GIF picker; `onSelect(url)`. Pass `false` to close. |
 | `components.setColorPicker({ onSelect, onClose })` | Colour picker; both receive a hex colour. |
@@ -235,7 +246,7 @@ The phone also sets `data-theme` on the page's `<html>` and three CSS variables,
 - **Promoting employees** from Services. Hiring, firing and the company account are there.
 - **Housing.** `config/bridge/housing.lua` is a stub; the Home app stays hidden until it is filled in.
 - **Recorded clips are the whole game view**, not cropped to the viewfinder.
-- `components.createGameRender` and `GameMap` for community apps.
+- `GameMap`, `useCamera` and the music selector for community apps.
 
 ## Develop
 
