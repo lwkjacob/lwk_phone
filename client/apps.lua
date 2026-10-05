@@ -16,6 +16,26 @@ Local['waypoint'] = function(data)
     return ok()
 end
 
+-- The game's own route to the waypoint, the one drawn on the radar. Nothing hands over the whole line,
+-- but one native gives the spot a set distance along it, so the route is walked in steps.
+local ROUTE_STEP, ROUTE_POINTS = 40.0, 400   -- a point every 40 units, for up to 16 km
+
+Local['route'] = function()
+    local points = {}
+    if not IsWaypointActive() then return ok({ active = false, points = points }) end
+    local lx, ly
+    for i = 0, ROUTE_POINTS do
+        local found, pos = GetPosAlongGpsTypeRoute(true, i * ROUTE_STEP, 0)   -- 0: the waypoint's route
+        -- Past the end it either fails or keeps answering with the last spot; before the game has
+        -- worked the route out it answers with the map's origin.
+        if not found or (pos.x == 0.0 and pos.y == 0.0) then break end
+        if lx and (pos.x - lx) ^ 2 + (pos.y - ly) ^ 2 < 1.0 then break end
+        lx, ly = pos.x, pos.y
+        points[#points + 1] = { math.floor(lx + 0.5), math.floor(ly + 0.5) }
+    end
+    return ok({ active = true, points = points })
+end
+
 Local['position'] = function()
     local pos = GetEntityCoords(PlayerPedId())
     local street = GetStreetNameAtCoord(pos.x, pos.y, pos.z)

@@ -774,7 +774,10 @@ video.viewer-pic { object-fit: contain; background: #000; }
 .maps-canvas { position: absolute; left: 0; top: 0; }
 .maps-canvas > img { position: absolute; max-width: none; user-select: none; pointer-events: none; }
 .m-route { position: absolute; left: 0; top: 0; pointer-events: none; }
-.m-route path { fill: none; stroke: #007aff; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 0.1 10; vector-effect: non-scaling-stroke; }
+.m-route path { fill: none; stroke: #007aff; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 0.1 10; }
+/* The game's own route along the roads: a solid line with a white edge, readable over either map. */
+.m-route.road path { stroke-dasharray: none; }
+.m-route.road .m-route-edge { stroke: #fff; stroke-width: 8; }
 
 .m-pin {
   position: absolute;
