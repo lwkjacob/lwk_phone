@@ -23,6 +23,7 @@
     "err_taken": "Ce nom d’utilisateur est déjà pris.",
     "err_too_big": "C’est trop volumineux pour être enregistré.",
     "err_username": "Les noms d’utilisateur font de 3 à 20 lettres, chiffres ou tirets bas.",
+    "err_valet_failed": "Ce véhicule n’a pas pu être livré. Vous n’avez pas été débité.",
     "err_vehicle_not_found": "Ce véhicule est introuvable.",
     "key_cursor": "Téléphone : afficher ou masquer le curseur",
     "key_flip": "Appareil photo du téléphone : retourner",

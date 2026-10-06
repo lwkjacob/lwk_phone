@@ -23,6 +23,7 @@
     "err_taken": "That username is taken.",
     "err_too_big": "That is too much to save.",
     "err_username": "Usernames are 3-20 letters, numbers or underscores.",
+    "err_valet_failed": "That vehicle could not be delivered. You have not been charged.",
     "err_vehicle_not_found": "That vehicle can't be found.",
     "key_cursor": "Phone: toggle cursor",
     "key_flip": "Phone camera: flip",

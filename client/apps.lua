@@ -88,13 +88,21 @@ After['garage.valet'] = function(res)
     local spawn = res.spawn
     res.spawn = nil
     local model = type(spawn.model) == 'string' and joaat(spawn.model) or spawn.model
-    if not model or not pcall(lib.requestModel, model, 5000) then return res end
 
     -- Park it on the nearest road rather than on top of the player.
     local pos = GetEntityCoords(PlayerPedId())
     local found, node, heading = GetClosestVehicleNodeWithHeading(pos.x + 12.0, pos.y + 12.0, pos.z, 1, 3.0, 0)
     local at = found and node or pos
-    local vehicle = CreateVehicle(model, at.x, at.y, at.z, heading or 0.0, true, false)
+    local vehicle = 0
+    if model and pcall(lib.requestModel, model, 5000) then
+        vehicle = CreateVehicle(model, at.x, at.y, at.z, heading or 0.0, true, false)
+    end
+    if vehicle == 0 or not DoesEntityExist(vehicle) then
+        -- Nothing arrived (a model this game does not have, usually). The server has already charged for it
+        -- and marked it as out: have that undone, and tell the player.
+        lib.callback.await('lwk_phone:rpc', false, 'garage.failed', { plate = spawn.plate })
+        return { ok = false, error = L('err_valet_failed') }
+    end
     if spawn.props then pcall(lib.setVehicleProperties, vehicle, spawn.props) end
     SetVehicleNumberPlateText(vehicle, spawn.plate)
     SetModelAsNoLongerNeeded(model)

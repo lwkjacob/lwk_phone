@@ -102,6 +102,7 @@ Flock, Lumen, Loop, Shade and Mail use accounts with a username and password, so
 ```
 phoneverify <app> <username> <1|0>          give or take a verified badge
 phonepassword <app> <username> <password>   reset a password
+phoneprune <days>                           delete texts, calls, mail and posts older than that many days
 ```
 
 A Discord webhook in `config/keys.lua` (or `set lwk_phone_webhook`) logs posts and transfers.

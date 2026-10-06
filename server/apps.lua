@@ -107,6 +107,8 @@ Apps.garage = function(src)
     return { vehicles = vehicles(src) }
 end
 
+local valets = {}   -- number -> that phone's last valet: { plate, raw, fee, before, label, at }
+
 --- Bring a garaged or impounded vehicle to the player, for a fee. The client spawns it.
 RPC['garage.valet'] = function(src, number, data)
     local plate, found = plateOf(data.plate), nil
@@ -117,12 +119,31 @@ RPC['garage.valet'] = function(src, number, data)
     if found.state == 'impound' and (found.held or not Config.garage.fromImpound) then return Phone.fail(L('err_impound')) end
     local fee = found.state == 'impound' and Config.garage.impoundFee or Config.garage.valetFee
     if not Bridge.removeBank(src, fee, 'phone-valet') then return Phone.fail(L('err_funds')) end
-    if not Bridge.vehicleOut(src, found.plate) then
+    local before = Bridge.vehicleOut(src, found.plate)
+    if not before then
         Bridge.addBank(src, fee, 'phone-valet-refund')
         return Phone.fail(L('err_generic'))
     end
-    record(number, found.state == 'impound' and L('tx_impound') or L('tx_valet'), -fee, src)
+    local label = found.state == 'impound' and L('tx_impound') or L('tx_valet')
+    record(number, label, -fee, src)
+    valets[number] = { plate = plate, raw = found.plate, fee = fee, before = before, label = label, at = os.time() }
     return Phone.ok({ spawn = { model = found.model, plate = found.plate, props = found.props }, vehicles = vehicles(src) })
+end
+
+--- The player's game could not produce the vehicle the valet was bringing (a model this server does not
+--- have, say): give the fee back and put the vehicle where it was. Only for the valet just made, and only
+--- if no vehicle with that plate is out in the world, so it cannot be used to keep the car and the money.
+RPC['garage.failed'] = function(src, number, data)
+    local v = valets[number]
+    valets[number] = nil
+    if not v or v.plate ~= plateOf(data.plate) or os.time() - v.at > 60 then return Phone.fail(L('err_generic')) end
+    for _, veh in ipairs(GetAllVehicles()) do
+        if plateOf(GetVehicleNumberPlateText(veh)) == v.plate then return Phone.fail(L('err_generic')) end
+    end
+    Bridge.vehicleBack(src, v.raw, v.before)
+    Bridge.addBank(src, v.fee, 'phone-valet-refund')
+    record(number, v.label, v.fee, src)
+    return Phone.ok({ vehicles = vehicles(src), wallet = Wallet.slice(src, number) })
 end
 
 --- Where one of the player's own vehicles is right now, for a waypoint.
@@ -373,6 +394,34 @@ end
 -- Admin commands -----------------------------------------------------------------------------------
 
 local function admin(src) return src == 0 or Bridge.isAdmin(src) end
+
+--- Answer an admin: in the console, or on their phone when the command was typed in the game.
+local function tell(src, text)
+    if src == 0 then return print('[lwk_phone] ' .. text) end
+    Phone.notify(src, 'settings', 'Phone', text)
+end
+
+--- /phoneprune <days>: delete texts, calls, mail and posts older than that many days.
+--- Nothing is ever deleted by itself; a server that wants a smaller database runs this now and then.
+RegisterCommand('phoneprune', function(src, args)
+    if not admin(src) then return end
+    local days = Util.int(args[1], 1, 3650)
+    if not days then return tell(src, 'usage: phoneprune <days>. Deletes texts, calls, mail and posts older than that.') end
+    local before = Phone.now() - days * 86400000
+    local texts = MySQL.update.await('DELETE FROM lwk_phone_msgs WHERE created < ?', { before })
+    local calls = MySQL.update.await('DELETE FROM lwk_phone_calls WHERE created < ?', { before })
+    local mail = MySQL.update.await('DELETE FROM lwk_phone_mail WHERE created < ?', { before })
+    local posts = MySQL.update.await('DELETE FROM lwk_phone_posts WHERE created < ?', { before })
+    -- What that leaves hanging: replies and reactions to posts that are gone, and conversations with
+    -- nothing left in them (not Shade's channels: those are rooms people join by name).
+    MySQL.update.await('DELETE r FROM lwk_phone_posts r LEFT JOIN lwk_phone_posts p ON p.id = r.parent WHERE r.parent IS NOT NULL AND p.id IS NULL')
+    MySQL.update.await('DELETE x FROM lwk_phone_reactions x LEFT JOIN lwk_phone_posts p ON p.id = x.post WHERE p.id IS NULL')
+    local empty = "c.kind <> 'shade' AND NOT EXISTS (SELECT 1 FROM lwk_phone_msgs x WHERE x.channel = c.id)"
+    MySQL.update.await('DELETE m FROM lwk_phone_members m JOIN lwk_phone_channels c ON c.id = m.channel WHERE ' .. empty)
+    MySQL.update.await('DELETE c FROM lwk_phone_channels c WHERE ' .. empty)
+    tell(src, ('pruned everything older than %d days: %d texts, %d calls, %d emails, %d posts'):format(days, texts, calls, mail, posts))
+    Phone.log(('**prune** older than %d days: %d texts, %d calls, %d emails, %d posts'):format(days, texts, calls, mail, posts))
+end, false)
 
 --- /phoneverify <app> <username> <1|0>
 RegisterCommand('phoneverify', function(src, args)

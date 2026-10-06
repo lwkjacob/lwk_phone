@@ -284,18 +284,42 @@ function Bridge.vehicles(src)
     return out
 end
 
---- Mark a vehicle as out of its garage / released from impound. Returns success.
+-- The columns that say where a vehicle is, and what each holds while the vehicle is out.
+local OUT = { { 'in_garage', '0' }, { 'impound', '0' }, { 'state', '0' }, { 'stored', '0' }, { 'pound', 'NULL' } }
+
+--- Mark a vehicle as out of its garage / released from impound. Returns what those columns held
+--- before (for Bridge.vehicleBack), or false when nothing was changed.
 function Bridge.vehicleOut(src, plate)
     if fw == 'standalone' then return false end
-    local c, sets = columns(), {}
-    if c.in_garage then sets[#sets + 1] = 'in_garage = 0' end
-    if c.impound then sets[#sets + 1] = 'impound = 0' end
-    if c.state then sets[#sets + 1] = 'state = 0' end
-    if c.stored then sets[#sets + 1] = 'stored = 0' end
-    if c.pound then sets[#sets + 1] = 'pound = NULL' end
+    local c, names, sets = columns(), {}, {}
+    for _, o in ipairs(OUT) do
+        if c[o[1]] then
+            names[#names + 1] = o[1]
+            sets[#sets + 1] = o[1] .. ' = ' .. o[2]
+        end
+    end
     if #sets == 0 then return false end
-    return MySQL.update.await(('UPDATE %s SET %s WHERE plate = ? AND %s = ?'):format(TABLE, table.concat(sets, ', '), OWNER),
-        { plate, Bridge.identifier(src) }) > 0
+    local owner = Bridge.identifier(src)
+    local before = MySQL.single.await(('SELECT %s FROM %s WHERE plate = ? AND %s = ?'):format(table.concat(names, ', '), TABLE, OWNER), { plate, owner })
+    if not before then return false end
+    local changed = MySQL.update.await(('UPDATE %s SET %s WHERE plate = ? AND %s = ?'):format(TABLE, table.concat(sets, ', '), OWNER), { plate, owner })
+    return changed > 0 and before
+end
+
+--- Undo Bridge.vehicleOut: put the vehicle back where it was. `before` is what vehicleOut returned.
+function Bridge.vehicleBack(src, plate, before)
+    local c, sets, params = columns(), {}, {}
+    for _, o in ipairs(OUT) do
+        local name, v = o[1], before[o[1]]
+        if c[name] and v == nil then
+            sets[#sets + 1] = name .. ' = NULL'
+        elseif c[name] then
+            sets[#sets + 1] = name .. ' = ?'
+            params[#params + 1] = v == true and 1 or v == false and 0 or v
+        end
+    end
+    params[#params + 1], params[#params + 2] = plate, Bridge.identifier(src)
+    return MySQL.update.await(('UPDATE %s SET %s WHERE plate = ? AND %s = ?'):format(TABLE, table.concat(sets, ', '), OWNER), params) > 0
 end
 
 function Bridge.isAdmin(src)
