@@ -52,7 +52,7 @@ end
 
 --- Every channel of `kind` that `member` is in, most recent first, with members and the last messages.
 function Messages.list(kind, member, perChannel)
-    local chans = MySQL.query.await([[SELECT c.id, c.name, c.size, m.unread FROM lwk_phone_members m
+    local chans = MySQL.query.await([[SELECT c.id, c.name, c.size, m.unread, m.cleared FROM lwk_phone_members m
         JOIN lwk_phone_channels c ON c.id = m.channel
         WHERE m.member = ? AND c.kind = ? ORDER BY c.updated DESC LIMIT 40]], { member, kind })
     if #chans == 0 then return chans end
@@ -70,12 +70,20 @@ function Messages.list(kind, member, perChannel)
             SELECT m.*, ROW_NUMBER() OVER (PARTITION BY channel ORDER BY id DESC) AS rn
             FROM lwk_phone_msgs m WHERE channel IN (%s)
         ) x WHERE rn <= %d ORDER BY id]]):format(marks, perChannel or 60), ids)) do
-        local msg = json.decode(r.body) or {}
-        msg.id, msg.time = r.id, r.created
-        if r.sender == member then msg.me = true else msg.from = r.sender end
-        table.insert(byId[r.channel].msgs, msg)
+        -- Not the ones this member deleted (see msg.leave).
+        if r.id > (byId[r.channel].cleared or 0) then
+            local msg = json.decode(r.body) or {}
+            msg.id, msg.time = r.id, r.created
+            if r.sender == member then msg.me = true else msg.from = r.sender end
+            table.insert(byId[r.channel].msgs, msg)
+        end
     end
-    return chans
+    -- A deleted conversation stays away until something new arrives in it.
+    local out = {}
+    for _, c in ipairs(chans) do
+        if (c.cleared or 0) == 0 or #c.msgs > 0 then out[#out + 1] = c end
+    end
+    return out
 end
 
 -- Texts -----------------------------------------------------------------------------------
@@ -156,10 +164,17 @@ RPC['msg.read'] = function(_, number, data)
     return Phone.ok()
 end
 
---- Delete a conversation from this phone (leave it; the other side keeps their copy).
+--- Delete a conversation from this phone; the other side keeps their copy.
 RPC['msg.leave'] = function(_, number, data)
     local row = own(data.ch, number, 'sms')
     if not row then return Phone.fail(L('err_generic')) end
+    if row.size == 2 then
+        -- Between two people it is only hidden, with what was said so far. Leaving for real would mean the
+        -- other person's next text reaches nobody: they still see the conversation and write into it.
+        local last = MySQL.scalar.await('SELECT MAX(id) FROM lwk_phone_msgs WHERE channel = ?', { row.id }) or 0
+        MySQL.update.await('UPDATE lwk_phone_members SET cleared = ?, unread = 0 WHERE channel = ? AND member = ?', { last, row.id, number })
+        return Phone.ok()
+    end
     MySQL.update.await('DELETE FROM lwk_phone_members WHERE channel = ? AND member = ?', { row.id, number })
     MySQL.update.await('UPDATE lwk_phone_channels SET size = size - 1 WHERE id = ?', { row.id })
     return Phone.ok()

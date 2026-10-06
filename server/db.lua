@@ -48,6 +48,7 @@ local TABLES = {
         channel INT NOT NULL,
         member VARCHAR(64) NOT NULL,
         unread INT NOT NULL DEFAULT 0,
+        cleared INT NOT NULL DEFAULT 0,   -- id of the last message this member deleted; older ones are not shown to them
         PRIMARY KEY (channel, member),
         KEY member (member)
     )]],
@@ -111,10 +112,21 @@ local TABLES = {
     )]],
 }
 
+-- Columns added since the first release: { table, column, definition }. CREATE TABLE IF NOT EXISTS
+-- leaves a table that is already there as it is, so they are added to it here.
+local COLUMNS = {
+    { 'lwk_phone_members', 'cleared', 'INT NOT NULL DEFAULT 0' },
+}
+
 local ready = false
 
 MySQL.ready(function()
     for _, sql in ipairs(TABLES) do MySQL.query.await(sql) end
+    for _, c in ipairs(COLUMNS) do
+        if #MySQL.query.await(("SHOW COLUMNS FROM %s LIKE '%s'"):format(c[1], c[2])) == 0 then
+            MySQL.query.await(('ALTER TABLE %s ADD COLUMN %s %s'):format(c[1], c[2], c[3]))
+        end
+    end
     ready = true
 end)
 
