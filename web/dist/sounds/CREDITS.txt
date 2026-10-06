@@ -49,4 +49,4 @@ alarm.mp3         "Alarm clock beep" by Squidems (Freesound #709944)
 Replacing a sound: put an .mp3 with the same name in this folder (web/dist/sounds/ on a server that
 is already built). Adding a ringtone or text tone: drop in ring-<name>.mp3 or tone-<name>.mp3, then
 add the name to RINGTONES or TEXTTONES and a line to CLIPS in web/src/sound.ts, and rebuild.
-The dial pad tones, the ringback and the lock click are generated in code, not recorded.
+The dial pad tones and the ringback are generated in code, not recorded.
