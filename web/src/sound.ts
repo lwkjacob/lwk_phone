@@ -151,7 +151,6 @@ const FX = {
   sent: (ac: AudioContext, t: number) => [520, 780].forEach((f, i) => tone(ac, t + i * 0.06, f, 0.14, 0.05)),
   received: (ac: AudioContext, t: number) => [880, 660].forEach((f, i) => tone(ac, t + i * 0.09, f, 0.2, 0.06)),
   shutter: (ac: AudioContext, t: number) => (hiss(ac, t, 0.05), hiss(ac, t + 0.08, 0.06)),
-  lock: (ac: AudioContext, t: number) => (hiss(ac, t, 0.03, 0.06), tone(ac, t, 180, 0.05, 0.05, 'triangle')),
   ring: (ac: AudioContext, t: number) => [0, 0.18, 0.36, 0.54, 0.9, 1.08].forEach((d, i) => tone(ac, t + d, [1047, 1319, 1568][i % 3], 0.3, 0.06, 'triangle')),
   // 440 + 480 Hz is the real ringback tone, so this one is not a stand-in.
   ringback: (ac: AudioContext, t: number) => (tone(ac, t, 440, 1.6, 0.03), tone(ac, t, 480, 1.6, 0.03)),

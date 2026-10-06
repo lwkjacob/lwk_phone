@@ -334,7 +334,6 @@ export function goHome() {
 }
 
 export function lock() {
-  sfx('lock');
   update((s) => {
     s.locked = true;
     s.cc = s.nc = s.search = s.edit = s.passPad = s.landscape = false;
@@ -356,7 +355,6 @@ export function unlock(force = false) {
   // Face unlock: the padlock opens, then the lock screen lifts away.
   update((s) => (s.unlocking = true));
   window.setTimeout(() => {
-    sfx('lock');
     update((s) => (s.locked = s.unlocking = s.passPad = false));
   }, force ? 0 : 420);
 }

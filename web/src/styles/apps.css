@@ -771,9 +771,10 @@ video.viewer-pic { object-fit: contain; background: #000; }
 .screen[data-theme='dark'] .app[data-app='maps'] ~ .homebar { color: #fff; }
 .maps-view { position: absolute; inset: 0; cursor: grab; touch-action: none; }
 .maps-view:active { cursor: grabbing; }
-.maps-canvas { position: absolute; left: 0; top: 0; }
+/* Its own layer: a drag then only moves a picture that is already drawn. */
+.maps-canvas { position: absolute; left: 0; top: 0; will-change: transform; }
 .maps-canvas > img { position: absolute; max-width: none; user-select: none; pointer-events: none; }
-.m-route { position: absolute; left: 0; top: 0; pointer-events: none; }
+.m-route { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
 .m-route path { fill: none; stroke: #007aff; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 0.1 10; vector-effect: non-scaling-stroke; }
 
 .m-pin {
@@ -814,8 +815,8 @@ video.viewer-pic { object-fit: contain; background: #000; }
   top: 66px;
   right: 12px;
   border-radius: 10px;
-  background: var(--glass);
-  backdrop-filter: blur(20px);
+  /* Solid, here and on the card: blurring a map that moves underneath costs a redraw of the blur every frame. */
+  background: var(--bg2);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.14);
   display: flex;
   flex-direction: column;
@@ -840,8 +841,7 @@ video.viewer-pic { object-fit: contain; background: #000; }
   height: 250px;
   padding: 16px 0 34px;
   border-radius: 16px 16px 0 0;
-  background: var(--glass);
-  backdrop-filter: blur(30px) saturate(1.6);
+  background: var(--bg2);
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.14);
   display: flex;
   flex-direction: column;
