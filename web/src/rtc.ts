@@ -1,4 +1,6 @@
 import { inGame, rpc, upload } from './net';
+import { alert } from './store';
+import { t } from './i18n';
 
 /* Video between players travels over WebRTC, the way LB Phone does it: video calls and live streams.
  * The game only relays the handshake ("signals", RPC['rtc'] in server/calls.lua); the media itself goes
@@ -96,7 +98,12 @@ export function loopbackTest(timeout = 6000): Promise<boolean> {
 
 export type Recording = { stop: () => Promise<string> };
 
-/** Start recording the microphone. Null when there is no microphone or permission was refused. */
+const sorry = (title: string, message: string) => alert({ title, message, buttons: [{ label: t('ok'), kind: 'bold' }] });
+
+/**
+ * Start recording the microphone. Null when there is no microphone or permission was refused: in the game the
+ * player is told why, in the browser demo the caller carries on with a silent take.
+ */
 export async function record(): Promise<Recording | null> {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -110,13 +117,18 @@ export async function record(): Promise<Recording | null> {
           rec.onstop = async () => {
             stream.getTracks().forEach((track) => track.stop());
             const blob = new Blob(chunks, { type: rec.mimeType });
-            // In-game the recording is uploaded so other phones can play it; '' if hosting is not set up.
-            resolve(inGame ? ((await upload(blob, 'voice.webm')) ?? '') : URL.createObjectURL(blob));
+            if (!inGame) return resolve(URL.createObjectURL(blob));
+            // In-game the recording is uploaded so other phones can play it. '' when that fails: there is then nothing to play.
+            const url = await upload(blob, 'voice.webm');
+            if (!url) sorry(t('upload_failed'), t('upload_failed_text'));
+            resolve(url ?? '');
           };
           rec.stop();
         }),
     };
-  } catch {
+  } catch (e) {
+    // The reason in brackets is the browser's own name for it (NotAllowedError: the game refused the microphone).
+    if (inGame) sorry(t('mic_unavailable'), `${t('mic_unavailable_text')} (${e instanceof Error ? e.name : e})`);
     return null;
   }
 }

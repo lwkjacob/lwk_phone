@@ -986,6 +986,10 @@
   transition: transform 0.5s var(--ease);
 }
 
+/* No blur behind the cards in here either: while the panel slides in, FiveM's Chromium draws a
+   blurred card as a dark, clipped box. */
+.nc .ncard { backdrop-filter: none; }
+
 .nc-head {
   display: flex;
   align-items: center;

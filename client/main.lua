@@ -77,6 +77,17 @@ local function load(slot)
     return true
 end
 
+-- The phone's clock shows the game's time of day: the UI is told whenever the minute changes.
+local minute
+
+local function tellTime()
+    if not Config.gameTime then return end
+    local h, m = GetClockHours(), GetClockMinutes()
+    if h * 60 + m == minute then return end
+    minute = h * 60 + m
+    nui({ action = 'time', h = h, m = m })
+end
+
 function ClosePhone()
     if not isOpen then return end
     isOpen, typing, cursorOff = false, false, false
@@ -103,6 +114,8 @@ function OpenPhone(slot)
         end
     end
     isOpen = true
+    minute = nil
+    tellTime()
     nui({ action = 'open' })
     focus()
     Prop.raise()
@@ -165,11 +178,12 @@ CreateThread(function()
     end
 end)
 
--- Put the phone away when the player can no longer hold it (death, cuffs).
+-- Put the phone away when the player can no longer hold it (death, cuffs), and keep its clock right.
 CreateThread(function()
     while true do
         Wait(500)
         if isOpen and not Bridge.canOpen() then ClosePhone() end
+        if isOpen then tellTime() end
     end
 end)
 

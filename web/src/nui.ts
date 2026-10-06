@@ -5,7 +5,7 @@ import type { CallLog, Chat, Msg } from './data';
 import { setLocale, t, type Strings } from './i18n';
 import { inGame, nuiFetch, rpc } from './net';
 import { setRtcConfig, signal, type Signal } from './rtc';
-import { S, addPhoto, alert, answered, blank, ended, goHome, hydrate, incomingCall, markSaved, notify, openApp, serverMsg, startCall, uid, update } from './store';
+import { S, addPhoto, alert, answered, blank, ended, goHome, hydrate, incomingCall, markSaved, notify, openApp, serverMsg, setClock, startCall, uid, update } from './store';
 import { theme } from './theme';
 
 /* Messages from Lua. Lua talks to the phone with SendNUIMessage({ action = ..., ... }); the phone talks
@@ -146,6 +146,7 @@ type Incoming =
   | { action: 'call'; event: 'incoming' | 'answered' | 'ended'; number?: string; video?: boolean }
   | { action: 'notify'; app: string; title: string; body: string }
   | { action: 'refresh'; app: string }
+  | { action: 'time'; h: number; m: number }
   | { action: 'dm'; app: 'flock' | 'lumen'; user: string; msg: Msg }
   | { action: 'shade'; ch: number; msg: Msg }
   | { action: 'ember'; key: string; msg: Msg }
@@ -209,6 +210,8 @@ export function listen() {
         return m.event === 'answered' ? answered() : ended();
       case 'notify':
         return notify({ app: m.app, title: m.title, body: m.body });
+      case 'time':
+        return setClock(m.h, m.m);
       case 'refresh':
         if (S.app === m.app && S.loaded[m.app] === 'ready') loadApp(m.app);
         return;

@@ -138,12 +138,17 @@ function VoiceSheet({ onSend, onClose }: { onSend: (seconds: number, audio?: str
   const kept = useRef(false);
   useEffect(() => {
     rec.current = record();
+    // In the game a recording that could not start has been explained to the player: nothing to record into.
+    rec.current.then((r) => inGame && !r && ((kept.current = true), onClose()));
     // Closing without sending: stop the microphone and drop the take.
     return () => void (kept.current || rec.current?.then((r) => r?.stop()));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the sheet opens
   }, []);
   const send = async () => {
     kept.current = true;
     const audio = await (await rec.current)?.stop();
+    // A voice message nobody can play is not sent (the upload failed, and said so).
+    if (inGame && !audio) return onClose();
     onSend(Math.max(1, Math.round((Date.now() - start) / 1000)), audio);
   };
   return (

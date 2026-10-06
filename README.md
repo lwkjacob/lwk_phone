@@ -17,7 +17,7 @@ Needs [ox_lib](https://github.com/overextended/ox_lib), [oxmysql](https://github
 
 The built UI ships in `web/dist`, so Node is not needed to run the phone.
 
-`F1` opens the phone (players rebind it under Settings > Key Bindings > FiveM), as does `/phone`. `Left Alt` hands the mouse back to the game while the phone stays up, and again to take it back.
+The key under Escape (`` ` ``) opens the phone (players rebind it under Settings > Key Bindings > FiveM), as does `/phone`. `Left Alt` hands the mouse back to the game while the phone stays up, and again to take it back.
 
 In the camera, `Left Alt` lets the mouse aim (in selfie mode it moves the phone around your face), `Enter` is the shutter and `Up` flips the camera. The viewfinder lists these keys.
 

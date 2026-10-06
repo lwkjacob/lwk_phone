@@ -12,7 +12,8 @@ Config = {
     autoInstallApps = false,
 
     -- Opening the phone -----------------------------------------------------------
-    keybind = 'F1',            -- default only; players rebind it in the game's key settings
+    keybind = 'GRAVE',         -- the key under Escape. Default only; players rebind it in the game's key settings
+    gameTime  = true,          -- the phone's clock shows the game's time of day; false for the player's own clock
     command = 'phone',
     walk    = true,            -- keep moving while the phone is up (false = full cursor focus)
     cursorKey = 'LMENU',       -- hold the phone up but hand the mouse back to the game (aim the camera)

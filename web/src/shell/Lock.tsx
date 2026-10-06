@@ -2,7 +2,7 @@ import { useEffect, useState, type PointerEvent as RPointerEvent } from 'react';
 import { Camera, Flashlight, Lock as LockIcon, LockOpen, X } from 'lucide-react';
 import { AppIcon } from '../apps';
 import { sfx } from '../sound';
-import { S, fmtAgo, fmtTime, openApp, tapNotif, unlock, update, useNow, useS } from '../store';
+import { S, fmtAgo, fmtTime, openApp, tapNotif, unlock, update, useClock, useS } from '../store';
 import { DialPad } from '../ui';
 import { intl, t } from '../i18n';
 
@@ -71,7 +71,7 @@ function Passcode() {
 
 export function Lock() {
   const s = useS();
-  const now = useNow(5000);
+  const now = useClock(5000);
   // Swipe up anywhere to unlock; a plain click does nothing, like the real thing.
   const onDown = (e: RPointerEvent) => {
     const y = e.clientY;
@@ -105,7 +105,7 @@ export function Lock() {
 
 export function NotificationCenter() {
   const s = useS();
-  const now = useNow(5000);
+  const now = useClock(5000);
   const close = () => update((x) => (x.nc = false));
   return (
     <div className={`nc ${s.nc ? 'show' : ''}`} data-wall={s.settings.lockWallpaper} inert={!s.nc} onClick={(e) => e.target === e.currentTarget && close()}>

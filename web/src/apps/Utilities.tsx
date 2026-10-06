@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { CloudSun, Droplets, Eye, Mic, Pause, Play, Share, SquarePen, Sun, Sunset, Thermometer, Trash2, Wind } from 'lucide-react';
 import { CALC0, OPS, calcKey } from '../calc';
 import { weather, type Memo } from '../data';
+import { inGame } from '../net';
 import { record, type Recording } from '../rtc';
 import { S, confirm, fmtAgo, fmtDur, prompt, share, uid, update, useNow, useS } from '../store';
 import { Empty, Group, Page, Row, Search, Stack, WEATHER_ICONS, Wave, useDragScroll, useNav } from '../ui';
@@ -208,15 +209,17 @@ export function MemosApp() {
   const toggleRec = async () => {
     if (S.rec == null) {
       update((x) => (x.rec = Date.now()));
-      // No microphone, or permission refused: the memo is still saved, just silent.
       recording = await record();
+      // In the game a memo without a recording is not a memo (the player was told why it could not start).
+      // The browser demo keeps a silent one, so the app can be shown without a microphone.
+      if (inGame && !recording) update((x) => (x.rec = null));
       return;
     }
     const dur = Math.max(1, Math.round((Date.now() - S.rec) / 1000));
     const url = await recording?.stop();
     recording = null;
     update((x) => {
-      x.memos.unshift({ id: uid(), name: t('util_new_recording', { n: x.memos.length + 1 }), time: Date.now(), dur, url });
+      if (!inGame || url) x.memos.unshift({ id: uid(), name: t('util_new_recording', { n: x.memos.length + 1 }), time: Date.now(), dur, url });
       x.rec = null;
     });
   };

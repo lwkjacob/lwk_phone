@@ -816,7 +816,15 @@ button.row:active,
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
+
+.bub-map svg { position: relative; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5)); }
+
+/* A fixed window onto the map tiles (MapSnippet in tiles.tsx). */
+.map-snip { position: absolute; inset: 0; overflow: hidden; }
+.map-snip > span { position: absolute; left: 0; top: 0; }
+.map-snip img { position: absolute; max-width: none; }
 
 .bub-money { padding: 12px 14px; }
 .bub-money b { font-size: 30px; font-weight: 600; letter-spacing: -0.03em; }

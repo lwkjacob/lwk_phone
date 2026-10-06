@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AlarmClock, Globe, Plus, Timer as TimerIcon, Watch } from 'lucide-react';
 import { worldClocks } from '../data';
 import { sfx } from '../sound';
-import { actions, fmtTime, notify, pad, uid, update, useNow, useS } from '../store';
+import { actions, fmtTime, notify, pad, uid, update, useClock, useNow, useS } from '../store';
 import { Empty, Field, Group, Page, Row, Seg, Sheet, Tabs, Toggle } from '../ui';
 import { t } from '../i18n';
 
@@ -23,7 +23,7 @@ const fmtMs = (ms: number) => `${pad(Math.floor(ms / 60_000))}:${pad(Math.floor(
 
 function World() {
   useS();
-  const now = useNow(5000);
+  const now = useClock(5000);
   const local = -new Date().getTimezoneOffset() / 60;
   return (
     <Page

@@ -3,7 +3,7 @@ import { Check, Phone as PhoneIcon, Plane, X } from 'lucide-react';
 import { APPS, AppIcon, type AppDef } from '../apps';
 import { nearby, songs } from '../data';
 import { sfx } from '../sound';
-import { S, finishClose, fmtDur, fmtTime, goHome, lock, nameOf, openApp, sendMsg, tapNotif, unlock, update, useNow, useS, view, type AlertDef, type Notif, type ShareDef } from '../store';
+import { S, finishClose, fmtDur, fmtTime, goHome, lock, nameOf, openApp, sendMsg, tapNotif, unlock, update, useClock, useNow, useS, view, type AlertDef, type Notif, type ShareDef } from '../store';
 import { rpc } from '../net';
 import { inGame, loadApp } from '../nui';
 import { theme } from '../theme';
@@ -142,7 +142,7 @@ function AppHost({ def, dark }: { def: AppDef; dark: boolean }) {
 
 function StatusBar() {
   const s = useS();
-  const now = useNow(5000);
+  const now = useClock(5000);
   const { airplane, wifi, cellular } = s.settings;
   return (
     <div className="status" aria-hidden="true">

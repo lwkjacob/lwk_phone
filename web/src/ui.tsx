@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { ArrowUp, CircleAlert, Smile, WifiOff, ChevronLeft, ChevronRight, Cloud, CloudRain, CloudSun, MapPin, Moon, Play, Search as SearchIcon, Sun, User } from 'lucide-react';
 import type { Msg, Seed } from './data';
 import { sfx } from './sound';
-import { fmtAgo, fmtDur, fmtTime, money, uid, useNow, view } from './store';
+import { S, fmtAgo, fmtDur, fmtTime, money, uid, useClock, view } from './store';
+import { MapSnippet } from './tiles';
 import { t } from './i18n';
 import { EmojiGrid } from './pickers';
 import { rpc } from './net';
@@ -184,7 +185,7 @@ export function Search({ value, onChange, placeholder = t('search'), autoFocus }
 
 /** Live analogue clock. `offset` is a UTC offset in hours; omit for local time. */
 export function ClockFace({ offset, size = 60, numbers }: { offset?: number; size?: number; numbers?: boolean }) {
-  const now = useNow();
+  const now = useClock();
   const d = new Date(now + (offset == null ? 0 : (offset * 60 + new Date().getTimezoneOffset()) * 60_000));
   const sec = d.getSeconds();
   const min = d.getMinutes() + sec / 60;
@@ -421,6 +422,8 @@ export function Bubbles({ msgs, who, typing, empty }: { msgs: Msg[]; who?: (from
               {x.loc && (
                 <span className="bub-loc" role={x.x != null ? 'button' : undefined} onClick={() => x.x != null && x.y != null && rpc('waypoint', { x: x.x, y: x.y })}>
                   <span className="bub-map">
+                    {/* The satellite map around the spot. (A server with its own map picture keeps the drawing.) */}
+                    {x.x != null && x.y != null && !S.cfg.map.image && <MapSnippet x={x.x} y={x.y} w={210} h={110} />}
                     <MapPin size={26} fill="currentColor" stroke="#fff" />
                   </span>
                   <b>{x.loc}</b>

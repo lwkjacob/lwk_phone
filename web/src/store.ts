@@ -252,6 +252,30 @@ export function useNow(ms = 1000) {
   return now;
 }
 
+/* In-game the phone's clock shows the game's time of day: Lua sends it whenever the minute changes
+ * (client/main.lua). It is kept as a whole timestamp, today's date with the game's hour and minute, so
+ * anything that formats a time can take it. This is only for "what time is it now": the times on messages
+ * and calls, and every timer, stay on the real clock. */
+let gameClock: number | null = null;
+const clockSubs = new Set<() => void>();
+
+export function setClock(h: number, m: number) {
+  gameClock = new Date().setHours(h, m, 0, 0);
+  clockSubs.forEach((f) => f());
+}
+
+/** The time the phone's clock shows. Re-read every `ms`, and at once when the game's minute changes. */
+export function useClock(ms = 1000) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const again = () => tick((n) => n + 1);
+    clockSubs.add(again);
+    const timer = window.setInterval(again, ms);
+    return () => (clockSubs.delete(again), window.clearInterval(timer));
+  }, [ms]);
+  return gameClock ?? Date.now();
+}
+
 /* ---------- formatting ---------- */
 
 export const pad = (v: number) => String(v).padStart(2, '0');

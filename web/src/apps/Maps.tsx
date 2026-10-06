@@ -3,57 +3,22 @@ import { Layers, LocateFixed, MapPin, Minus, Navigation, Plus, Share, X } from '
 import { places } from '../data';
 import { inGame, rpc } from '../net';
 import { S, notify, share, update, useS, view, viewportRect } from '../store';
+import { inMap, levelFor, project, satellite, tilesAt } from '../tiles';
 import { Search } from '../ui';
 import { t } from '../i18n';
 
-/* The map is a pyramid of 1024px tiles (tiles/ at the resource root): one for the whole map at level 0, 8 x 8 at
- * level 3. Few and big on purpose: the server goes through every file each time the resource starts, and 2,700
- * small tiles froze it for ten seconds. Positions are in "map units": the map is 256 of them across, and
- * 256 * 2^zoom px on screen, so level `zoom - 2` is drawn 1:1. */
-const WORLD = 256;
-const MAX_LEVEL = 3;
 const MIN_ZOOM = 1;
 // One step past the deepest tiles: they are stretched 2x there, which is soft but still readable.
 const MAX_ZOOM = 6;
-// Tiles are also drawn this far (px) outside the screen, so a drag has somewhere to go before React draws again,
-// and React is only told about a drag once it has moved this far.
-const MARGIN = 160;
-const COMMIT = 120;
 // The screen in layout px, and the point on it that counts as the middle (the card covers the bottom).
-const VIEW = { w: 393, h: 852 };
-const FOCUS = { x: 196, y: 300 };
+// Tiles are also drawn `margin` px outside it, so a drag has somewhere to go before React draws again,
+// and React is only told about a drag once it has moved COMMIT px.
+const VIEW = { w: 393, h: 852, fx: 196, fy: 300, margin: 160 };
+const FOCUS = { x: VIEW.fx, y: VIEW.fy };
+const COMMIT = 120;
 const START_ZOOM = 4;
 // Where the browser demo stands: Legion Square.
 const DEMO = { x: 195, y: -934 };
-
-/** Game coordinates to map units. Measured from the tile set's own coordinate grid: 0.66px per game unit at level 5, origin at (3755.5, 5524.5). */
-const project = (x: number, y: number) => ({ x: 117.36 + x * 0.020625, y: 172.64 - y * 0.020625 });
-const inMap = (n: number) => Math.min(WORLD, Math.max(0, n));
-
-/** The satellite view is showing (a dark picture, where the road map is a light one). */
-export const satellite = () => S.settings.satellite && !S.cfg.map.image;
-const tileUrl = (level: number, x: number, y: number) => `../../tiles/${satellite() ? 'satellite' : 'atlas'}/${level}/${x}-${y}.webp`;
-
-/** The level at least as detailed as the zoom, so tiles are only ever stretched past MAX_LEVEL. */
-const levelFor = (z: number) => Math.min(MAX_LEVEL, Math.max(0, Math.ceil(z - 2)));
-
-/** The tiles of `level` under the screen (and MARGIN around it) when the map unit (x, y) is at FOCUS, each with its box on the canvas in px. */
-function tilesAt(v: { x: number; y: number; z: number }, level = levelFor(v.z)) {
-  const scale = 2 ** v.z;
-  const ox = FOCUS.x - v.x * scale;
-  const oy = FOCUS.y - v.y * scale;
-  const size = (WORLD * scale) / 2 ** level;
-  const last = 2 ** level - 1;
-  const tiles: { src: string; left: number; top: number; width: number; height: number }[] = [];
-  for (let x = Math.max(0, Math.floor((-ox - MARGIN) / size)); x <= Math.min(last, Math.floor((VIEW.w - ox + MARGIN) / size)); x++)
-    for (let y = Math.max(0, Math.floor((-oy - MARGIN) / size)); y <= Math.min(last, Math.floor((VIEW.h - oy + MARGIN) / size)); y++) {
-      // Whole pixels, or hairlines show between tiles.
-      const left = Math.round(x * size);
-      const top = Math.round(y * size);
-      tiles.push({ src: tileUrl(level, x, y), left, top, width: Math.round((x + 1) * size) - left, height: Math.round((y + 1) * size) - top });
-    }
-  return tiles;
-}
 
 async function locate() {
   const r = await rpc<{ x: number; y: number; street: string }>('position');
@@ -73,7 +38,7 @@ export async function warmMap() {
   await locate();
   if (S.cfg.map.image) return;
   const me = S.position ?? DEMO;
-  warm = tilesAt({ ...project(me.x, me.y), z: START_ZOOM }).map((x) => Object.assign(new Image(), { src: x.src }));
+  warm = tilesAt({ ...project(me.x, me.y), z: START_ZOOM }, VIEW).map((x) => Object.assign(new Image(), { src: x.src }));
 }
 
 export function MapsApp() {
@@ -106,7 +71,7 @@ export function MapsApp() {
   const [ready, setReady] = useState(level);
   const arrived = () => [...canvas.current!.querySelectorAll<HTMLImageElement>('img.top')].every((i) => i.complete) && setReady(level);
   // (Two or more levels deeper than the current one would be dozens of tiles: not worth it.)
-  const under = ready !== level && ready <= level + 1 ? tilesAt(v, ready) : [];
+  const under = ready !== level && ready <= level + 1 ? tilesAt(v, VIEW, ready) : [];
   // A server's own map: one picture, placed by the game coordinates of its edges.
   const b = s.cfg.map.bounds;
   const nw = at(b.minX, b.maxY);
@@ -201,7 +166,7 @@ export function MapsApp() {
               {under.map(({ src, ...box }) => (
                 <img key={src} src={src} alt="" draggable={false} style={box} />
               ))}
-              {tilesAt(v).map(({ src, ...box }) => (
+              {tilesAt(v, VIEW).map(({ src, ...box }) => (
                 <img key={src} className="top" src={src} alt="" draggable={false} style={box} onLoad={arrived} onError={arrived} />
               ))}
             </>
