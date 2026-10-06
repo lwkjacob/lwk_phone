@@ -264,8 +264,11 @@ end
 RPC['post.delete'] = function(src, number, data)
     local row = MySQL.single.await('SELECT id, app, username FROM lwk_phone_posts WHERE id = ?', { Util.int(data.id, 1, 2147483647) or 0 })
     if not row then return Phone.ok() end
-    local mine = row.username == number or row.username == Social.user(number, row.app)
-    if not mine and not Bridge.isAdmin(src) then return Phone.fail(L('err_generic')) end
+    -- Signed by an account in the feed apps and by a phone number in Adverts and Market. Checked by
+    -- which kind it is: a long phone number can read exactly like somebody's username.
+    local author
+    if FEEDS[row.app] then author = Social.user(number, row.app) else author = number end
+    if row.username ~= author and not Bridge.isAdmin(src) then return Phone.fail(L('err_generic')) end
     MySQL.update.await('DELETE FROM lwk_phone_posts WHERE id = ? OR parent = ?', { row.id, row.id })
     MySQL.update.await('DELETE FROM lwk_phone_reactions WHERE post = ?', { row.id })
     Social.refresh(row.app)
@@ -275,13 +278,14 @@ end
 local REACTIONS = { like = true, repost = true, save = true }
 
 RPC['post.react'] = function(_, number, data)
-    local app = MySQL.scalar.await('SELECT app FROM lwk_phone_posts WHERE id = ?', { Util.int(data.id, 1, 2147483647) or 0 })
+    local id = Util.int(data.id, 1, 2147483647) or 0
+    local app = MySQL.scalar.await('SELECT app FROM lwk_phone_posts WHERE id = ?', { id })
     local me = app and Social.user(number, app)
     if not me or not REACTIONS[data.kind] then return Phone.fail(L('err_login')) end
     if data.on then
-        MySQL.prepare.await('INSERT IGNORE INTO lwk_phone_reactions (post, username, kind) VALUES (?, ?, ?)', { data.id, me, data.kind })
+        MySQL.prepare.await('INSERT IGNORE INTO lwk_phone_reactions (post, username, kind) VALUES (?, ?, ?)', { id, me, data.kind })
     else
-        MySQL.update.await('DELETE FROM lwk_phone_reactions WHERE post = ? AND username = ? AND kind = ?', { data.id, me, data.kind })
+        MySQL.update.await('DELETE FROM lwk_phone_reactions WHERE post = ? AND username = ? AND kind = ?', { id, me, data.kind })
     end
     return Phone.ok()
 end

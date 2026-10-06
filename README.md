@@ -45,6 +45,8 @@ set lwk_phone_fivemanage "your-token"
 
 Without a token the camera says storage is not set up, and everything else still works.
 
+Pictures, video and voice messages in texts and posts are only accepted from the hosts in `Config.upload.hosts` (your upload host by default). Without that limit, a player could send a link to a server of their own and collect the IP address of everyone whose phone displays it. Add a host there if you move your uploads elsewhere.
+
 ## Configure
 
 Everything is in `config/config.lua`, with a comment on each option. The ones most servers touch:

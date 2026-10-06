@@ -41,7 +41,10 @@ Config = {
     rtc = { iceServers = { { urls = 'stun:stun.l.google.com:19302' } } },
 
     -- Photo, video and audio hosting ------------------------------------------------------
-    upload = { provider = 'fivemanage' },   -- token goes in config/keys.lua; '' there disables capture
+    -- `hosts`: the only places a picture, video or voice message in a text or a post may be loaded from.
+    -- Without it, anyone could send a link to their own server and collect the IP address of every
+    -- player whose phone shows it. Leave it as your upload host. {} allows any host.
+    upload = { provider = 'fivemanage', hosts = { 'fivemanage.com' } },   -- token goes in config/keys.lua; '' there disables capture
 
     -- Maps ----------------------------------------------------------------------------------
     -- The map of San Andreas ships with the phone (the tiles/ folder), as a road map and a satellite view.

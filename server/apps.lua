@@ -1,5 +1,23 @@
 -- The apps that lean on the framework (Wallet, Garage, Services, Home, Crypto), plus uploads and AirShare.
 
+--- Players with a phone standing within Config.airShareRange of `src`: { { id, name } }.
+local function near(src)
+    local out, here = {}, GetEntityCoords(GetPlayerPed(src))
+    for other in pairs(Phone.online()) do
+        if other ~= src and #(GetEntityCoords(GetPlayerPed(other)) - here) <= Config.airShareRange then
+            out[#out + 1] = { id = other, name = Bridge.name(other) }
+        end
+    end
+    return out
+end
+
+local function isNear(src, target)
+    for _, p in ipairs(near(src)) do
+        if p.id == target then return true end
+    end
+    return false
+end
+
 -- Wallet -----------------------------------------------------------------------------------------
 
 Wallet = {}
@@ -29,18 +47,23 @@ function Wallet.transfer(src, number, to, amount)
     amount = Util.int(amount, 1, 100000000)
     to = Util.number(to)
     if not Bridge.has.money or not amount or not to or to == number then return false, L('err_generic') end
-    local target = Phone.source(to)
+    local target = Phone.source(to)   -- whoever has that phone up right now
     local owner = not target and MySQL.scalar.await('SELECT owner FROM lwk_phone_last WHERE number = ? LIMIT 1', { to })
     if not target and not owner then return false, L('err_number') end
+    -- The phone's last user can be online without it up (another phone in hand, or still loading).
+    -- They are paid directly: money written into their saved row would be overwritten, and lost, the
+    -- next time the framework saves them.
+    local payee = target or Bridge.sourceOf(owner)
     if not Bridge.removeBank(src, amount, 'phone-transfer') then return false, L('err_funds') end
 
-    local paid = target and Bridge.addBank(target, amount, 'phone-transfer') or (owner and Bridge.addBankOffline(owner, amount))
+    local paid
+    if payee then paid = Bridge.addBank(payee, amount, 'phone-transfer') else paid = Bridge.addBankOffline(owner, amount) end
     if not paid then
         Bridge.addBank(src, amount, 'phone-transfer-refund')
         return false, L('err_generic')
     end
     record(number, phoneName(to), -amount, src)
-    record(to, phoneName(number), amount, target)
+    record(to, phoneName(number), amount, payee)
     Phone.patch(src, { wallet = Wallet.slice(src, number) })
     if target then
         Phone.patch(target, { wallet = Wallet.slice(target, to) })
@@ -102,9 +125,14 @@ RPC['garage.valet'] = function(src, number, data)
     return Phone.ok({ spawn = { model = found.model, plate = found.plate, props = found.props }, vehicles = vehicles(src) })
 end
 
---- Where a vehicle that is out in the world is right now, for a waypoint.
-RPC['garage.locate'] = function(_, _, data)
-    local plate = plateOf(data.plate)
+--- Where one of the player's own vehicles is right now, for a waypoint.
+RPC['garage.locate'] = function(src, _, data)
+    local plate, mine = plateOf(data.plate), false
+    for _, v in ipairs(Bridge.vehicles(src)) do
+        if plateOf(v.plate) == plate then mine = true end
+    end
+    -- Anyone else's plate would turn the phone into a tracker for every car on the server.
+    if not mine then return Phone.fail(L('err_vehicle_not_found')) end
     for _, veh in ipairs(GetAllVehicles()) do
         if plateOf(GetVehicleNumberPlateText(veh)) == plate then
             local pos = GetEntityCoords(veh)
@@ -166,24 +194,23 @@ RPC['job.bank'] = function(src, number, data)
     local j, amount = Bridge.getJob(src), Util.int(data.amount, 1, 100000000)
     if not j or not j.isBoss or not amount or moving[j.name] or Bank.balance(j.name) == nil then return Phone.fail(L('err_generic')) end
     moving[j.name] = true
-    local who, done, err = Bridge.name(src), false, L('err_generic')
-    if data.deposit then
-        if not Bridge.removeBank(src, amount, 'phone-company') then
-            err = L('err_funds')
-        elseif Bank.add(j.name, amount, who) then
-            done = true
-        else
+    local who = Bridge.name(src)
+    -- In a pcall so that an error in a bank script cannot leave the account locked until a restart.
+    local ran, done, err = pcall(function()
+        if data.deposit then
+            if not Bridge.removeBank(src, amount, 'phone-company') then return false, L('err_funds') end
+            if Bank.add(j.name, amount, who) then return true end
             Bridge.addBank(src, amount, 'phone-company-refund')
+            return false
         end
-    elseif not Bank.remove(j.name, amount, who) then
-        err = L('err_funds')
-    elseif Bridge.addBank(src, amount, 'phone-company') then
-        done = true
-    else
+        if not Bank.remove(j.name, amount, who) then return false, L('err_funds') end
+        if Bridge.addBank(src, amount, 'phone-company') then return true end
         Bank.add(j.name, amount, who)
-    end
+        return false
+    end)
     moving[j.name] = nil
-    if not done then return Phone.fail(err) end
+    if not ran then error(done) end
+    if not done then return Phone.fail(err or L('err_generic')) end
     record(number, L(data.deposit and 'tx_company_in' or 'tx_company_out'):format(j.label or j.name), data.deposit and -amount or amount, src)
     Phone.log(('**company** %s %s $%d (%s)'):format(j.name, data.deposit and 'deposit' or 'withdrawal', amount, who))
     return Phone.ok({ job = jobSlice(src), wallet = Wallet.slice(src, number) })
@@ -191,7 +218,9 @@ end
 
 RPC['job.hire'] = function(src, _, data)
     local j, target = Bridge.getJob(src), Util.int(data.id, 1, 65535)
-    if not j or not j.isBoss or not target or target == src or not Phone.number(target) then return Phone.fail(L('err_generic')) end
+    -- Only someone standing next to the boss: a job is not something to hand to a stranger across the map
+    -- (hiring replaces the job they had).
+    if not j or not j.isBoss or not target or not isNear(src, target) then return Phone.fail(L('err_generic')) end
     if not Bridge.setJob(target, j.name, 0) then return Phone.fail(L('err_generic')) end
     return Phone.ok({ job = jobSlice(src) })
 end
@@ -201,6 +230,8 @@ RPC['job.fire'] = function(src, _, data)
     if not j or not j.isBoss or type(data.id) ~= 'string' or data.id == Bridge.identifier(src) then return Phone.fail(L('err_generic')) end
     for _, e in ipairs(Bridge.employees(j.name)) do
         if e.id == data.id then
+            -- A boss answers for the grades below their own, not for other bosses.
+            if (tonumber(e.grade) or 0) >= (tonumber(j.grade) or 0) then return Phone.fail(L('err_generic')) end
             local target = Bridge.sourceOf(e.id)
             if not target then return Phone.fail(L('err_offline')) end
             Bridge.setJob(target, Bridge.unemployed, 0)
@@ -278,7 +309,8 @@ RPC['crypto.trade'] = function(src, number, data)
     local owned = Phone.get(number, 'crypto') or {}
     local have, qty = tonumber(owned[coin.id]) or 0, usd / coin.price
     if data.sell then
-        if qty > have * 1.0001 then return Phone.fail(L('err_generic')) end
+        -- Exactly what is held and no more: any slack here is money for nothing on every round trip.
+        if qty > have then return Phone.fail(L('err_generic')) end
         owned[coin.id] = math.max(0, have - qty)
         Phone.set(number, 'crypto', owned)
         Bridge.addBank(src, usd, 'phone-crypto')
@@ -320,16 +352,6 @@ end
 
 -- AirShare: hand a photo, contact or note to someone standing next to you --------------------------
 
-local function near(src)
-    local out, here = {}, GetEntityCoords(GetPlayerPed(src))
-    for other in pairs(Phone.online()) do
-        if other ~= src and #(GetEntityCoords(GetPlayerPed(other)) - here) <= Config.airShareRange then
-            out[#out + 1] = { id = other, name = Bridge.name(other) }
-        end
-    end
-    return out
-end
-
 RPC['share.nearby'] = function(src)
     return Phone.ok({ people = near(src) })
 end
@@ -338,11 +360,7 @@ local SHARE = { photo = true, contact = true, note = true, location = true, text
 
 RPC['share.send'] = function(src, _, data)
     local target, item = Util.int(data.to, 1, 65535), type(data.item) == 'table' and data.item or {}
-    local allowed = false
-    for _, p in ipairs(near(src)) do
-        if p.id == target then allowed = true end
-    end
-    if not allowed or not SHARE[item.kind] then return Phone.fail(L('err_generic')) end
+    if not target or not isNear(src, target) or not SHARE[item.kind] then return Phone.fail(L('err_generic')) end
     Phone.push(target, { action = 'share', from = Bridge.name(src), item = {
         kind = item.kind, label = Util.text(item.label, 1, 120) or '', seed = Util.url(item.seed),
         name = Util.text(item.name, 1, 64), number = Util.number(item.number),

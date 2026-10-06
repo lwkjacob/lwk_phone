@@ -45,11 +45,21 @@ function Util.username(v)
     return v
 end
 
+--- The hosts pictures, video and audio may come from (the server sets this from Config.upload.hosts).
+--- Empty means any host. A name also covers its subdomains: 'fivemanage.com' allows r2.fivemanage.com.
+Util.hosts = {}
+
 --- An https link we are willing to store and show, or nil.
 function Util.url(v)
     if type(v) ~= 'string' or #v > 400 then return nil end
-    if not v:match('^https://[%w%.%-]+/[%w%-%._~:/%?#%[%]@!%$&\'%(%)%*%+,;=%%]*$') then return nil end
-    return v
+    local host = v:match('^https://([%w%.%-]+)/[%w%-%._~:/%?#%[%]@!%$&\'%(%)%*%+,;=%%]*$')
+    if not host then return nil end
+    if #Util.hosts == 0 then return v end
+    host = host:lower()
+    for _, allowed in ipairs(Util.hosts) do
+        if host == allowed or host:sub(-#allowed - 1) == '.' .. allowed then return v end
+    end
+    return nil
 end
 
 --- The parts of a chat message the server keeps. Unknown fields are dropped, known ones

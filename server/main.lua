@@ -11,8 +11,38 @@ Apps = {}   -- app id -> function(src, number) returning the slices that app sho
 
 local equipped = {}   -- src -> number
 local byNumber = {}   -- number -> src
-local buckets  = {}   -- src -> rate limiter
+local buckets  = {}   -- src -> rate limiter for requests in general
+local slow     = {}   -- src -> { request name -> its own, stricter limiter }
+local busy     = {}   -- number -> true while one of that phone's requests is running
 local flags    = {}   -- number -> { airplane, dnd, hideCallerId } (from the saved settings)
+
+Util.hosts = Config.upload.hosts or {}
+
+-- Requests that cost the server real work, or that land on someone else's screen, have a limit of
+-- their own on top of the general one: { how many at once, how many more per second }.
+local LIMITS = {
+    load               = { 10, 1 },
+    ['account.login']  = { 8, 0.1 },    -- checking a password is slow on purpose; this is also the guessing rate
+    ['account.signup'] = { 6, 0.05 },   -- room to set up every social app on a new phone in one go
+    ['post.create']    = { 5, 0.2 },    -- every phone showing that app reloads it
+    ['upload']         = { 6, 0.5 },    -- each one is a file on the server owner's storage
+    ['call.start']     = { 4, 0.25 },
+    ['mail.send']      = { 5, 0.2 },
+    ['company.text']   = { 3, 0.2 },
+    ['wallet.request'] = { 3, 0.1 },
+    ['share.send']     = { 5, 0.5 },
+}
+
+local function allowed(src, name)
+    local now = GetGameTimer() / 1000
+    buckets[src] = buckets[src] or Util.bucket(30, 6)
+    if not buckets[src](now) then return false end
+    local limit = LIMITS[name]
+    if not limit then return true end
+    slow[src] = slow[src] or {}
+    slow[src][name] = slow[src][name] or Util.bucket(limit[1], limit[2])
+    return slow[src][name](now)
+end
 
 function Phone.now() return os.time() * 1000 end
 function Phone.number(src) return equipped[src] end
@@ -50,7 +80,9 @@ end
 function Phone.log(text)
     local url = Keys.webhook ~= '' and Keys.webhook or GetConvar('lwk_phone_webhook', '')
     if url == '' then return end
-    PerformHttpRequest(url, function() end, 'POST', json.encode({ username = 'Phone', content = text:sub(1, 1900) }),
+    -- allowed_mentions: the text holds what players typed, and must not be able to ping @everyone.
+    PerformHttpRequest(url, function() end, 'POST',
+        json.encode({ username = 'Phone', content = text:sub(1, 1900), allowed_mentions = { parse = {} } }),
         { ['Content-Type'] = 'application/json' })
 end
 
@@ -171,7 +203,7 @@ end
 
 lib.callback.register('lwk_phone:load', function(src, slot)
     DB.wait()
-    if not Bridge.ready(src) then return { error = 'not_ready' } end
+    if not allowed(src, 'load') or not Bridge.ready(src) then return { error = 'not_ready' } end
     local number, reason = resolve(src, tonumber(slot))
     if not number then return { error = reason } end
 
@@ -203,16 +235,26 @@ lib.callback.register('lwk_phone:rpc', function(src, name, data)
     local fn = type(name) == 'string' and RPC[name]
     if not number or not fn then return Phone.fail(L('err_generic')) end
 
-    buckets[src] = buckets[src] or Util.bucket(30, 6)
-    if not buckets[src](GetGameTimer() / 1000) then return Phone.fail(L('err_slow_down')) end
+    if not allowed(src, name) then return Phone.fail(L('err_slow_down')) end
     if not stillHeld(src, number) then
         Phone.push(src, { action = 'unload' })
         Phone.drop(src)
         return Phone.fail(L('err_no_phone'))
     end
 
-    if Config.debug then print(('[lwk_phone] %s %s %s'):format(number, name, json.encode(data))) end
+    -- Never the account requests: they carry passwords.
+    if Config.debug then print(('[lwk_phone] %s %s %s'):format(number, name, name:find('^account%.') and '...' or json.encode(data))) end
+
+    -- One request per phone at a time. A handler reads, waits for the database, then writes; two of
+    -- them interleaved could sell the same coins twice or call the same vehicle out twice.
+    -- (An upload waits on another server and touches nothing of the phone's, so it does not queue.)
+    local queued = name ~= 'upload'
+    if queued then
+        while busy[number] do Wait(0) end
+        busy[number] = true
+    end
     local ok, result = pcall(fn, src, number, type(data) == 'table' and data or {})
+    if queued then busy[number] = nil end
     if not ok then
         print(('^1[lwk_phone] %s failed: %s^0'):format(name, result))
         return Phone.fail(L('err_generic'))
@@ -230,7 +272,7 @@ RegisterNetEvent('lwk_phone:unload', function() Phone.drop(source) end)
 
 AddEventHandler('playerDropped', function()
     Phone.drop(source)
-    buckets[source] = nil
+    buckets[source], slow[source] = nil, nil
 end)
 
 Inv.onUse(function(src, slot)
