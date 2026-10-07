@@ -1,5 +1,5 @@
 import { inGame, rpc, upload } from './net';
-import { alert } from './store';
+import { S, alert } from './store';
 import { t } from './i18n';
 
 /* Video between players travels over WebRTC, the way LB Phone does it: video calls and live streams.
@@ -105,6 +105,12 @@ const sorry = (title: string, message: string) => alert({ title, message, button
  * player is told why, in the browser demo the caller carries on with a silent take.
  */
 export async function record(): Promise<Recording | null> {
+  // A recording has to be stored somewhere for anyone to play it. On a server with no upload token there is
+  // nowhere, so say that now rather than after the player has finished talking.
+  if (inGame && !S.cfg.upload) {
+    sorry(t('voice_no_upload'), t('camera_no_upload_text'));
+    return null;
+  }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const rec = new MediaRecorder(stream);
