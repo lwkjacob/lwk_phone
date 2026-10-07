@@ -176,9 +176,14 @@ export const wallet = {
   ] as Tx[],
 };
 
-export type House = { id: number; name: string; addr: string; locked: boolean; lights: boolean; keys: string[]; seed: Seed; x?: number; y?: number };
+/**
+ * In-game what a house can do depends on the housing script: `locked` is missing when it has no door control,
+ * `keys` when it has no key list, and `way` is set when only the script itself knows where the house is.
+ * A key holder is a character (`id` is what the script calls them); in the demo it is a phone number.
+ */
+export type House = { id: number | string; name: string; addr?: string; locked?: boolean; lights?: boolean; keys?: { id: string; name: string }[]; seed?: Seed; x?: number; y?: number; way?: boolean };
 export const houses: House[] = [
-  { id: 1, name: 'Vinewood Apartment', addr: '12 Eclipse Blvd', locked: true, lights: false, keys: ['555-0142'], seed: 33 },
+  { id: 1, name: 'Vinewood Apartment', addr: '12 Eclipse Blvd', locked: true, lights: false, keys: [{ id: '555-0142', name: '' }], seed: 33 },
   { id: 2, name: 'Paleto Cabin', addr: '4 Procopio Dr', locked: false, lights: true, keys: [], seed: 58 },
 ];
 

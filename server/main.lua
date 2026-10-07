@@ -181,7 +181,7 @@ local function init(src, number)
     if not Bridge.has.money then hidden[#hidden + 1] = 'wallet' hidden[#hidden + 1] = 'crypto' end
     if not Bridge.has.vehicles then hidden[#hidden + 1] = 'garage' end
     if not Bridge.has.jobs then hidden[#hidden + 1] = 'services' end
-    if not Housing.enabled then hidden[#hidden + 1] = 'home' end
+    if Housing.kind() == 'none' then hidden[#hidden + 1] = 'home' end
     if #Config.music == 0 then hidden[#hidden + 1] = 'music' end
     if Bridge.has.money and not Config.crypto.enabled then hidden[#hidden + 1] = 'crypto' end
 

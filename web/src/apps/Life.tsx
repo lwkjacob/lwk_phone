@@ -92,48 +92,65 @@ function waypoint(name: string, x?: number, y?: number) {
   notify({ app: 'maps', title: t('waypoint_set'), body: t('route_to_name_is_on_your', { name }) });
 }
 
-function HouseView({ id }: { id: number }) {
+function HouseView({ id }: { id: number | string }) {
   const s = useS();
   const h = s.houses.find((x) => x.id === id);
   if (!h) return null;
+  const keys = h.keys;
   return (
     <Page title={h.name} back={t('home')}>
-      <Pic seed={h.seed} className="house-cover" alt={h.name} />
+      <Pic seed={h.seed ?? h.name.length * 11 + 5} className="house-cover" alt={h.name} />
+      {/* In-game a house only shows what its housing script can do: no door tile without door control, and the lights are the demo's. */}
       <div className="tiles">
-        <button aria-pressed={!h.locked} onClick={() => (inGame ? send('home.lock', { id: h.id, locked: !h.locked }) : update(() => (h.locked = !h.locked)))}>
-          {h.locked ? <DoorClosed size={26} /> : <DoorOpen size={26} />}
-          <b>{t('life_front_door')}</b>
-          <small>{h.locked ? t('life_locked') : t('life_unlocked')}</small>
-        </button>
-        <button aria-pressed={h.lights} onClick={() => update(() => (h.lights = !h.lights))}>
-          <Lightbulb size={26} fill={h.lights ? 'currentColor' : 'none'} />
-          <b>{t('life_lights')}</b>
-          <small>{h.lights ? t('on') : t('off')}</small>
-        </button>
+        {h.locked !== undefined && (
+          <button aria-pressed={!h.locked} onClick={() => (inGame ? send('home.lock', { id: h.id, locked: !h.locked }) : update(() => (h.locked = !h.locked)))}>
+            {h.locked ? <DoorClosed size={26} /> : <DoorOpen size={26} />}
+            <b>{t('life_front_door')}</b>
+            <small>{h.locked ? t('life_locked') : t('life_unlocked')}</small>
+          </button>
+        )}
+        {!inGame && (
+          <button aria-pressed={h.lights} onClick={() => update(() => (h.lights = !h.lights))}>
+            <Lightbulb size={26} fill={h.lights ? 'currentColor' : 'none'} />
+            <b>{t('life_lights')}</b>
+            <small>{h.lights ? t('on') : t('off')}</small>
+          </button>
+        )}
       </div>
-      <Group header={t('life_keys')} footer={t('life_key_holders_can_enter_this_property')}>
-        {h.keys.map((num) => (
+      {keys && (
+        <Group header={t('life_keys')} footer={t('life_key_holders_can_enter_this_property')}>
+          {keys.map((k) => (
+            <Row
+              key={k.id}
+              icon={<Avatar name={k.name || nameOf(k.id)} size={32} />}
+              title={k.name || nameOf(k.id)}
+              right={
+                <button className="danger" onClick={() => (inGame ? send('home.key', { id: h.id, give: false, holder: k.id }) : update(() => (h.keys = keys.filter((x) => x !== k))))}>
+                  {t('life_revoke')}
+                </button>
+              }
+            />
+          ))}
+          {/* A key goes to one of your contacts: in-game to whoever holds that number. */}
           <Row
-            key={num}
-            icon={<Avatar name={nameOf(num)} size={32} />}
-            title={nameOf(num)}
-            right={
-              <button className="danger" onClick={() => (inGame ? send('home.key', { id: h.id, number: num, give: false }) : update(() => (h.keys = h.keys.filter((k) => k !== num))))}>
-                {t('life_revoke')}
-              </button>
+            tone="tint"
+            icon={<KeyRound size={20} />}
+            title={t('life_give_key')}
+            onClick={() =>
+              actions({
+                title: t('life_give_a_key_to'),
+                options: s.contacts
+                  .filter((c) => !keys.some((k) => k.id === c.number || k.name === c.name))
+                  .slice(0, 6)
+                  .map((c) => ({ label: c.name, run: () => (inGame ? void send('home.key', { id: h.id, give: true, number: c.number }) : update(() => keys.push({ id: c.number, name: '' }))) })),
+              })
             }
           />
-        ))}
-        <Row
-          tone="tint"
-          icon={<KeyRound size={20} />}
-          title={t('life_give_key')}
-          onClick={() => actions({ title: t('life_give_a_key_to'), options: s.contacts.filter((c) => !h.keys.includes(c.number)).slice(0, 6).map((c) => ({ label: c.name, run: () => (inGame ? send('home.key', { id: h.id, number: c.number, give: true }) : update(() => h.keys.push(c.number))) })) })}
-        />
-      </Group>
+        </Group>
+      )}
       <Group>
-        <Row tone="tint" title={t('set_waypoint')} onClick={() => waypoint(h.name, h.x, h.y)} />
-        <Row tone="tint" title={t('life_share_address')} onClick={() => share({ kind: t('kind_location'), label: `${h.name} · ${h.addr}` })} />
+        <Row tone="tint" title={t('set_waypoint')} onClick={() => (inGame && h.way && rpc('home.way', { id: h.id }), waypoint(h.name, h.x, h.y))} />
+        <Row tone="tint" title={t('life_share_address')} onClick={() => share({ kind: t('kind_location'), label: h.addr ? `${h.name} · ${h.addr}` : h.name, item: h.x != null && h.y != null ? { kind: 'location', label: h.name, x: h.x, y: h.y } : undefined })} />
       </Group>
     </Page>
   );
@@ -147,12 +164,12 @@ function Houses() {
       <div className="house-list">
         {s.houses.map((h) => (
           <button key={h.id} onClick={() => nav.push(<HouseView id={h.id} />)}>
-            <Pic seed={h.seed} />
+            <Pic seed={h.seed ?? h.name.length * 11 + 5} />
             <span>
               <b>{h.name}</b>
               <small>{h.addr}</small>
             </span>
-            <span className={`pill ${h.locked ? '' : 'warn'}`}>{h.locked ? t('life_locked') : t('life_unlocked')}</span>
+            {h.locked !== undefined && <span className={`pill ${h.locked ? '' : 'warn'}`}>{h.locked ? t('life_locked') : t('life_unlocked')}</span>}
           </button>
         ))}
       </div>

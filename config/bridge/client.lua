@@ -53,3 +53,76 @@ function Bridge.callMute(id, muted)
     if GetResourceState('pma-voice') ~= 'started' then return end
     MumbleSetVolumeOverrideByServerId(id, muted and 0.0 or exports['pma-voice']:getCallVolume())
 end
+
+-- Housing ------------------------------------------------------------------------------------------
+-- The part of the Home app that has to happen in the player's own game, because that is the only
+-- place the housing script takes it from (see the table at the top of config/bridge/housing.lua).
+-- Each branch is that script's own documented export, event or callback.
+
+Bridge.home = {}
+
+local function running(res) return GetResourceState(res) == 'started' end
+
+local function decode(v)
+    if type(v) == 'table' then return v end
+    local ok, t = pcall(json.decode, v or '')
+    return ok and type(t) == 'table' and t or {}
+end
+
+--- The player's houses, for a script that only says so on the client (vms_housing). Nil otherwise.
+function Bridge.home.list()
+    if not running('vms_housing') then return nil end
+    local vms, out = exports['vms_housing'], {}
+    -- With keys as items there is nobody to list or revoke: a key is whoever holds the item.
+    local items = vms:GetConfiguration('UseKeysOnItem')
+    for _, p in ipairs(vms:GetPlayerProperties() or {}) do
+        local meta = decode(p.metadata)
+        local at = meta.enter or meta.menu
+        if p.object_id then
+            local building = vms:GetProperty(p.object_id)
+            if building and building.type == 'building' and building.metadata and building.metadata.enter then at = building.metadata.enter end
+        end
+        local keys
+        if not items then
+            keys = {}
+            for identifier, name in pairs(decode(p.keys)) do keys[#keys + 1] = { id = identifier, name = name } end
+        end
+        out[#out + 1] = { id = p.id, name = p.name, x = at and at.x, y = at and at.y, keys = keys }
+    end
+    return out
+end
+
+--- Carry out what the server could not: { action = 'lock' | 'key', id, give, identifier, target }.
+--- `identifier` is the character, `target` their server id when they are online.
+function Bridge.home.run(step)
+    local id, key = step.id, step.action == 'key'
+    if running('nolag_properties') then
+        if key and step.give then exports.nolag_properties:AddKey(id, step.identifier) end
+        if key and not step.give then exports.nolag_properties:RemoveKey(id, step.identifier) end
+    elseif running('vms_housing') then
+        if key and step.give and step.target then
+            TriggerServerEvent('vms_housing:sv:buyKey', id, step.target)
+            TriggerServerEvent('vms_housing:sv:giveKey', id, step.target)
+        elseif key and not step.give then
+            TriggerServerEvent('vms_housing:sv:removeKey', id, step.identifier)
+        end
+    elseif running('ps-housing') then
+        if key and step.give and step.target then TriggerServerEvent('ps-housing:server:addAccess', id, step.target) end
+        if key and not step.give then TriggerServerEvent('ps-housing:server:removeAccess', id, step.identifier) end
+    elseif running('esx_property') then
+        local ESX = exports.es_extended:getSharedObject()
+        local done = function() end
+        if step.action == 'lock' then
+            ESX.TriggerServerCallback('esx_property:toggleLock', done, id)
+        elseif step.give and step.target then
+            ESX.TriggerServerCallback('esx_property:GiveKey', done, id, step.target)
+        elseif key and not step.give then
+            ESX.TriggerServerCallback('esx_property:RemoveKey', done, id, step.identifier)
+        end
+    end
+end
+
+--- Set a waypoint to a house whose position only its script knows.
+function Bridge.home.waypoint(id)
+    if running('nolag_properties') then exports.nolag_properties:SetWaypointToProperty(id) end
+end

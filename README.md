@@ -74,7 +74,7 @@ Everything is in `config/config.lua`, with a comment on each option. The ones mo
 | `crypto` | Made-up coins bought with bank money. |
 | `mailDomain` | The part after `@` in Mail addresses. |
 
-Framework and inventory differences live in `config/bridge/`, one file each for framework, inventory, voice, housing and the client. `housing.lua` is a stub: fill it in for your housing script and the Home app appears.
+Framework and inventory differences live in `config/bridge/`, one file each for framework, inventory, banking, voice, housing and the client.
 
 Apps that a server cannot back are hidden rather than shown empty: Wallet, Crypto, Garage and Services on standalone, Home without a housing bridge, Music without songs.
 
@@ -99,7 +99,24 @@ A vehicle held in a police impound (jg-advancedgarages' `impound_retrievable`) c
 
 After the valet spawns a vehicle, keys are handed over through qb-vehiclekeys' event (which qbx_vehiclekeys and most key scripts also answer), cd_garage's and okokGarage's. Another key script goes in `Bridge.giveKeys` in `config/bridge/client.lua`.
 
-### Accounts
+### Housing
+
+The Home app lists the houses a player owns, with a waypoint to each, and as much else as the server's housing script offers. `Config.housing = 'auto'` finds the script; the app is hidden when there is none.
+
+| Script | List and waypoint | Lock the door | Keys |
+|---|---|---|---|
+| nolag_properties | yes | yes | yes |
+| vms_housing | yes | no | yes (not when its keys are items) |
+| rtx_housing | yes | yes | no |
+| ps-housing | yes | no | yes |
+| qbx_properties | yes | no | yes |
+| esx_property | yes | yes | yes |
+
+A key is given to one of the player's contacts, and goes to whoever holds that phone number. With vms_housing, ps-housing and esx_property that person has to be in the city at the time, because those scripts hand keys to a player rather than to a character.
+
+Each of these was written from the script's own documentation or source code and has not been run against the script itself, apart from the automated tests for qbx_properties. If something is off with yours, the bridge is `config/bridge/housing.lua` (and the client half at the end of `config/bridge/client.lua`); every script has its own short section there, and adding another is a matter of copying one. Quasar's housing is not supported.
+
+## Accounts
 
 Flock, Lumen, Loop, Shade and Mail use accounts with a username and password, so a player can hold several, stay anonymous, and sign in from any phone. Admins (ace `lwk_phone.admin`, or the server console) have two commands:
 
@@ -272,7 +289,6 @@ The phone also sets `data-theme` on the page's `<html>` and three CSS variables,
 ## Not built
 
 - **Distance in Ember.** Everyone on the server is in the deck.
-- **Housing.** `config/bridge/housing.lua` is a stub; the Home app stays hidden until it is filled in.
 - **Recorded clips are the whole game view**, not cropped to the viewfinder.
 - `GameMap`, `useCamera` and the music selector for community apps.
 

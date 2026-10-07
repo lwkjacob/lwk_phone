@@ -73,6 +73,10 @@ Config = {
         { job = 'taxi',      name = 'Taxi',      desc = 'Downtown Cab Co.',             color = '#ffcc00', icon = 'taxi' },
     },
 
+    -- Home: the housing script behind the Home app. 'auto' finds nolag_properties, vms_housing, rtx_housing,
+    -- ps-housing, qbx_properties or esx_property; 'none' hides the app. (README, "Housing".)
+    housing = 'auto',
+
     -- Garage -------------------------------------------------------------------------------------
     -- fromImpound = false: impounded vehicles cannot be released from the phone and have to be collected.
     garage = { valetFee = 100, impoundFee = 250, fromImpound = true },

@@ -81,6 +81,29 @@ end
 After['appData'] = function(res, data)
     if data.app == 'garage' and res.data then nameVehicles(res.data.vehicles) end
     if data.app == 'weather' then res.data = weather() end
+    -- A housing script that only lists a player's houses on the client fills the Home app from here.
+    if data.app == 'home' and res.data then res.data.houses = Bridge.home.list() or res.data.houses end
+end
+
+-- Home ---------------------------------------------------------------------------------------------
+
+--- Some housing scripts only take a lock or a key change from the player's own game. The server
+--- answers such a request with what to do; do it, give the script a moment, and read the list again.
+local function housed(res)
+    if not res.client then return end
+    Bridge.home.run(res.client)
+    res.client = nil
+    Wait(700)
+    local fresh = lib.callback.await('lwk_phone:rpc', false, 'appData', { app = 'home' })
+    if fresh and fresh.ok and fresh.data then res.houses = Bridge.home.list() or fresh.data.houses end
+end
+
+After['home.lock'] = housed
+After['home.key'] = housed
+
+Local['home.way'] = function(data)
+    Bridge.home.waypoint(data.id)
+    return ok()
 end
 
 After['garage.valet'] = function(res)

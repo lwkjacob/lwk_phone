@@ -86,6 +86,8 @@ function Check.lines(release, why)
         if #g.columns == 0 then warn(('%s has none of the columns this phone reads, so every vehicle will show as garaged. README, "Garages".'):format(g.table)) end
     end
 
+    row('Housing', Housing.kind() == 'none' and 'none found: the Home app is hidden' or Housing.kind())
+
     local token = Keys.fivemanage ~= '' or GetConvar('lwk_phone_fivemanage', '') ~= ''
     local hosts = Config.upload.hosts or {}
     row('Uploads', (token and 'token set' or 'no token') .. (#hosts > 0 and ', media only from ' .. table.concat(hosts, ', ') or ', media from anywhere'))

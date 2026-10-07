@@ -60,6 +60,21 @@ function Bridge.name(src)
     return (('%s %s'):format(c.firstname or '', c.lastname or ''):gsub('^%s+', ''):gsub('%s+$', ''))
 end
 
+--- A character's name from their identifier, whether or not they are online.
+function Bridge.charName(identifier)
+    local src = Bridge.sourceOf(identifier)
+    if src then return Bridge.name(src) end
+    local ok, name
+    if fw == 'esx' then
+        ok, name = pcall(MySQL.scalar.await, "SELECT CONCAT(firstname, ' ', lastname) FROM users WHERE identifier = ?", { identifier })
+    elseif fw == 'qb' or fw == 'qbox' then
+        ok, name = pcall(MySQL.scalar.await,
+            "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(charinfo, '$.firstname')), ' ', JSON_UNQUOTE(JSON_EXTRACT(charinfo, '$.lastname'))) FROM players WHERE citizenid = ?",
+            { identifier })
+    end
+    return ok and name or tostring(identifier)
+end
+
 -- Money: the phone only ever touches the bank account ------------------------------------
 
 function Bridge.getBank(src)

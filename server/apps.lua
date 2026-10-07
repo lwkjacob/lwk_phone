@@ -297,20 +297,35 @@ end
 -- Home (delegates to config/bridge/housing.lua) -------------------------------------------------------
 
 Apps.home = function(src)
-    return { houses = Housing.enabled and Housing.list(src) or {} }
+    return { houses = Housing.list(src) }
+end
+
+--- The answer to a change: the new list, or, where the housing script only takes orders from the
+--- player's own game, what that game has to do (client/apps.lua carries it out and re-reads the list).
+local function housed(src, done)
+    if not done then return Phone.fail(L('err_generic')) end
+    if type(done) == 'table' then return Phone.ok({ client = done }) end
+    return Phone.ok({ houses = Housing.list(src) })
 end
 
 RPC['home.lock'] = function(src, _, data)
-    local locked = Housing.enabled and Housing.setLocked(src, data.id, data.locked == true)
-    if locked == nil or locked == false and data.locked == true then return Phone.fail(L('err_generic')) end
-    return Phone.ok({ houses = Housing.list(src) })
+    return housed(src, Housing.setLocked(src, data.id, data.locked == true))
 end
 
+--- Give a key to the holder of a phone number, or take one back from a key holder (by the id the list gave).
 RPC['home.key'] = function(src, _, data)
-    local who = Util.number(data.number)
-    local done = Housing.enabled and who and (data.give and Housing.addKey(src, data.id, who) or not data.give and Housing.removeKey(src, data.id, who))
-    if not done then return Phone.fail(L('err_generic')) end
-    return Phone.ok({ houses = Housing.list(src) })
+    local who
+    if data.give then
+        local number = Util.number(data.number)
+        local target = number and Phone.source(number)
+        local id = target and Bridge.identifier(target)
+            or number and MySQL.scalar.await('SELECT owner FROM lwk_phone_last WHERE number = ? LIMIT 1', { number })
+        if not id or id == Bridge.identifier(src) then return Phone.fail(L('err_number')) end
+        who = { id = id, src = target }
+    elseif type(data.holder) == 'string' and #data.holder <= 80 then
+        who = { id = data.holder, src = Bridge.sourceOf(data.holder) }
+    end
+    return housed(src, Housing.key(src, data.id, data.give == true, who))
 end
 
 -- Crypto -----------------------------------------------------------------------------------------
