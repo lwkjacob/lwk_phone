@@ -322,6 +322,23 @@ function Bridge.vehicleBack(src, plate, before)
     return MySQL.update.await(('UPDATE %s SET %s WHERE plate = ? AND %s = ?'):format(TABLE, table.concat(sets, ', '), OWNER), params) > 0
 end
 
+-- Garage scripts this phone can name in the start-up report. Naming one changes nothing: what
+-- matters is the columns (see above), and those are read whatever the script is called.
+local GARAGES = { 'jg-advancedgarages', 'cd_garage', 'okokGarage', 'qbx_garages', 'qb-garages', 'esx_garage' }
+
+--- What the Garage app is working with, for the start-up report: { script = name or nil, table, columns = { names } }.
+function Bridge.garage()
+    local script
+    for _, res in ipairs(GARAGES) do
+        if GetResourceState(res) == 'started' then script = res break end
+    end
+    local c, found = columns(), {}
+    for _, o in ipairs(OUT) do
+        if c[o[1]] then found[#found + 1] = o[1] end
+    end
+    return { script = script, table = TABLE, columns = found }
+end
+
 function Bridge.isAdmin(src)
     return IsPlayerAceAllowed(src, Config.adminAce)
 end

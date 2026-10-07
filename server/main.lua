@@ -279,8 +279,3 @@ Inv.onUse(function(src, slot)
     TriggerClientEvent('lwk_phone:use', src, slot)
 end)
 
-CreateThread(function()
-    DB.wait()
-    print(('[lwk_phone] ready: framework %s, inventory %s (%s), voice %s'):format(
-        Bridge.framework, Inv.kind, Inv.unique and 'unique phones' or Inv.required and 'item required' or 'no item', Voice.kind))
-end)

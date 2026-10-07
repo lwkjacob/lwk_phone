@@ -109,6 +109,17 @@ function Util.bucket(capacity, perSecond)
     end
 end
 
+--- Is version `a` newer than `b`? Compares the numbers in each, so 'v1.10.0' is newer than '1.9.2'.
+function Util.newer(a, b)
+    local x, y = {}, {}
+    for n in tostring(a):gmatch('%d+') do x[#x + 1] = tonumber(n) end
+    for n in tostring(b):gmatch('%d+') do y[#y + 1] = tonumber(n) end
+    for i = 1, math.max(#x, #y) do
+        if (x[i] or 0) ~= (y[i] or 0) then return (x[i] or 0) > (y[i] or 0) end
+    end
+    return false
+end
+
 --- '?,?,?' for an IN (...) clause.
 function Util.marks(n)
     return ('?,'):rep(n):sub(1, -2)

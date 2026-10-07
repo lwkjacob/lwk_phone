@@ -45,6 +45,7 @@ server_scripts {
   'server/apps.lua',
   'server/exports.lua',
   'server/compat.lua',
+  'server/check.lua',
 }
 
 client_scripts {

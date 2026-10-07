@@ -47,6 +47,10 @@ Without a token the camera says storage is not set up, and everything else still
 
 Pictures, video and voice messages in texts and posts are only accepted from the hosts in `Config.upload.hosts` (your upload host by default). Without that limit, a player could send a link to a server of their own and collect the IP address of everyone whose phone displays it. Add a host there if you move your uploads elsewhere.
 
+## Checking your setup
+
+A few seconds after it starts, the phone prints a report to the server console: its version and whether a newer release is out, and the framework, inventory, voice script, bank, garage columns, upload storage and database it found. Anything that will get in its way is listed underneath with a `!`, such as another phone script running, no upload token, or OneSync being off. Type `phonecheck` in the console to print it again; it is the first thing to include when asking for help.
+
 ## Configure
 
 Everything is in `config/config.lua`, with a comment on each option. The ones most servers touch:
