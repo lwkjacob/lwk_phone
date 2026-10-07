@@ -170,12 +170,22 @@ local function jobSlice(src)
     if not j or j.name == Bridge.unemployed then return false end
     local staff = {}
     if j.isBoss then
-        for i, e in ipairs(Bridge.employees(j.name)) do
-            staff[i] = { id = e.id, name = e.name, grade = e.gradeLabel or tostring(e.grade), online = Bridge.sourceOf(e.id) ~= nil }
+        for _, e in ipairs(Bridge.employees(j.name)) do
+            local who = Bridge.sourceOf(e.id)
+            -- The list comes from the saved characters, which lag behind a promotion or a firing made a
+            -- moment ago. Someone who is online is shown as they are right now.
+            local now = who and Bridge.getJob(who)
+            if not now or now.name == j.name then
+                staff[#staff + 1] = {
+                    id = e.id, name = e.name, online = who ~= nil,
+                    level = tonumber(now and now.grade or e.grade) or 0,
+                    grade = now and (now.gradeLabel or tostring(now.grade)) or e.gradeLabel or tostring(e.grade),
+                }
+            end
         end
     end
-    return { company = j.name, label = j.label, grade = j.gradeLabel or tostring(j.grade), duty = j.duty, boss = j.isBoss, staff = staff,
-        balance = j.isBoss and Bank.balance(j.name) or nil }
+    return { company = j.name, label = j.label, grade = j.gradeLabel or tostring(j.grade), level = tonumber(j.grade) or 0, duty = j.duty,
+        boss = j.isBoss, staff = staff, grades = j.isBoss and Bridge.grades(j.name) or nil, balance = j.isBoss and Bank.balance(j.name) or nil }
 end
 
 Apps.services = function(src)
@@ -256,6 +266,28 @@ RPC['job.fire'] = function(src, _, data)
             local target = Bridge.sourceOf(e.id)
             if not target then return Phone.fail(L('err_offline')) end
             Bridge.setJob(target, Bridge.unemployed, 0)
+            return Phone.ok({ job = jobSlice(src) })
+        end
+    end
+    return Phone.fail(L('err_generic'))
+end
+
+--- A boss moves an employee to another grade: any grade up to the boss's own, for anyone below it.
+RPC['job.grade'] = function(src, _, data)
+    local j, grade = Bridge.getJob(src), Util.int(data.grade, 0, 1000)
+    if not j or not j.isBoss or not grade or type(data.id) ~= 'string' then return Phone.fail(L('err_generic')) end
+    local mine, exists = tonumber(j.grade) or 0, false
+    for _, g in ipairs(Bridge.grades(j.name)) do
+        if g.level == grade then exists = true end
+    end
+    if not exists or grade > mine then return Phone.fail(L('err_generic')) end
+    for _, e in ipairs(Bridge.employees(j.name)) do
+        if e.id == data.id then
+            local target = Bridge.sourceOf(e.id)
+            if not target then return Phone.fail(L('err_offline')) end
+            local now = Bridge.getJob(target)
+            if not now or now.name ~= j.name or (tonumber(now.grade) or 0) >= mine then return Phone.fail(L('err_generic')) end
+            if not Bridge.setJob(target, j.name, grade) then return Phone.fail(L('err_generic')) end
             return Phone.ok({ job = jobSlice(src) })
         end
     end

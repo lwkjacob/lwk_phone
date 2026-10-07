@@ -351,8 +351,12 @@ function Job() {
     actions({
       title: p.name,
       options: [
-        // Promotions need the framework's own grade list, so in-game they stay in the boss menu.
-        ...(inGame ? [] : ['Trainee', 'Mechanic', 'Manager'].filter((g) => g !== p.grade).map((g) => ({ label: t('life_set_grade_g', { g }), run: () => update(() => (p.grade = g)) }))),
+        // In-game: any of the job's grades up to the boss's own, for someone below the boss. The demo has three made-up ones.
+        ...(inGame
+          ? (p.level ?? 0) < (j.level ?? 0)
+            ? (j.grades ?? []).filter((g) => g.level !== p.level && g.level <= (j.level ?? 0)).map((g) => ({ label: t('life_set_grade_g', { g: g.name }), run: () => void send('job.grade', { id: p.id, grade: g.level }) }))
+            : []
+          : ['Trainee', 'Mechanic', 'Manager'].filter((g) => g !== p.grade).map((g) => ({ label: t('life_set_grade_g', { g }), run: () => update(() => (p.grade = g)) }))),
         { label: t('life_fire'), destructive: true, run: () => (inGame ? void send('job.fire', { id: p.id }) : update(() => (j.staff = j.staff.filter((x) => x !== p)))) },
       ],
     });

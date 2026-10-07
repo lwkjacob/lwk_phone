@@ -171,6 +171,23 @@ function Bridge.setJob(src, job, grade)
     return p.Functions.SetJob(job, grade) ~= false
 end
 
+--- A job's grades, lowest first: { { level, name } }.
+function Bridge.grades(job)
+    core()
+    local out = {}
+    if fw == 'esx' then
+        local ok, rows = pcall(MySQL.query.await, 'SELECT grade, label FROM job_grades WHERE job_name = ?', { job })
+        for _, r in ipairs(ok and rows or {}) do out[#out + 1] = { level = tonumber(r.grade) or 0, name = r.label } end
+    elseif fw == 'qb' or fw == 'qbox' then
+        local def
+        if fw == 'qbox' then def = exports.qbx_core:GetJob(job) else def = QB.Shared.Jobs[job] end
+        -- QBCore keys its grades '0', '1', ...; Qbox uses numbers.
+        for level, g in pairs(def and def.grades or {}) do out[#out + 1] = { level = tonumber(level) or 0, name = g.name } end
+    end
+    table.sort(out, function(a, b) return a.level < b.level end)
+    return out
+end
+
 --- Name of the "no job" job, for firing someone.
 Bridge.unemployed = 'unemployed'
 

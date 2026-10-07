@@ -199,7 +199,12 @@ export const services: Service[] = [
   { id: 'realestate', name: 'Real Estate', desc: 'Dynasty 8', color: '#34c759', online: 0, open: false, number: '555-0180' },
   { id: 'lawyer', name: 'Lawyer', desc: 'Legal counsel', color: '#af52de', online: 1, open: true, number: '555-0166' },
 ];
-export type Job = { company: string; label?: string; grade: string; duty?: boolean; balance?: number; boss: boolean; staff: { id?: string; name: string; grade: string; online: boolean }[] };
+export type Job = {
+  company: string; label?: string; grade: string; duty?: boolean; balance?: number; boss: boolean;
+  /** In-game, for a boss: their own grade as a number, and every grade of the job, lowest first. */
+  level?: number; grades?: { level: number; name: string }[];
+  staff: { id?: string; name: string; grade: string; level?: number; online: boolean }[];
+};
 export const job: Job = {
   company: 'mechanic', grade: 'Manager', duty: true, balance: 48200, boss: true,
   staff: [
