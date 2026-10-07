@@ -178,6 +178,9 @@ figure {
 
 :focus { outline: none; }
 
+/* Things that are clickable without being a <button> (a voice message, a shared location, a store row). */
+[role='button'] { cursor: pointer; }
+
 .sr-only {
   position: absolute;
   width: 1px;
