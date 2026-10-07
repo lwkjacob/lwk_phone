@@ -5,7 +5,7 @@ import type { CallLog, Chat, Msg, Voicemail } from './data';
 import { setLocale, t, type Strings } from './i18n';
 import { inGame, nuiFetch, rpc } from './net';
 import { setRtcConfig, signal, type Signal } from './rtc';
-import { S, addPhoto, alert, answered, blank, ended, goHome, hydrate, incomingCall, markSaved, notify, openApp, serverMsg, setClock, startCall, toVoicemail, uid, update } from './store';
+import { S, addPhoto, alert, answered, blank, callVideo, videoAsked, ended, goHome, hydrate, incomingCall, markSaved, notify, openApp, serverMsg, setClock, startCall, toVoicemail, uid, update } from './store';
 import { theme } from './theme';
 
 /* Messages from Lua. Lua talks to the phone with SendNUIMessage({ action = ..., ... }); the phone talks
@@ -145,7 +145,7 @@ type Incoming =
   | { action: 'open' | 'close' | 'unload' }
   | { action: 'patch'; data: Record<string, unknown> }
   | { action: 'msg'; ch: number; members: string[]; name?: string; msg: Msg }
-  | { action: 'call'; event: 'incoming' | 'answered' | 'ended' | 'voicemail'; number?: string; video?: boolean }
+  | { action: 'call'; event: 'incoming' | 'answered' | 'ended' | 'voicemail' | 'video' | 'videoAsk'; number?: string; video?: boolean; on?: boolean }
   | { action: 'notify'; app: string; title: string; body: string }
   | { action: 'refresh'; app: string }
   | { action: 'time'; h: number; m: number }
@@ -210,6 +210,8 @@ export function listen() {
       case 'call':
         if (m.event === 'incoming') return incomingCall(m.number ?? '', m.video);
         if (m.event === 'voicemail') return toVoicemail();
+        if (m.event === 'video') return callVideo(m.on === true);
+        if (m.event === 'videoAsk') return videoAsked();
         return m.event === 'answered' ? answered() : ended();
       case 'notify':
         return notify({ app: m.app, title: m.title, body: m.body });

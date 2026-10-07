@@ -231,6 +231,25 @@ RPC['voicemail.update'] = function(_, number, data)
     return Phone.ok({ voicemail = kept })
 end
 
+--- Switch a call between voice and video while it is going. Turning the cameras on takes both
+--- sides: the first to ask is put to the other, and it happens when they ask back (accept).
+--- Either side can go back to voice on their own.
+RPC['call.video'] = function(_, number, data)
+    local call = Calls.active(number)
+    if not call or call.state ~= 'active' then return Phone.fail(L('err_generic')) end
+    local other = call.caller == number and call.targets[1] or call.caller
+    local on = data.on == true
+    if on and not call.video and call.wantsVideo ~= other then
+        call.wantsVideo = number
+        Phone.push(other, { action = 'call', event = 'videoAsk' })
+        return Phone.ok()
+    end
+    call.video, call.wantsVideo = on, nil
+    Phone.push(number, { action = 'call', event = 'video', on = on })
+    Phone.push(other, { action = 'call', event = 'video', on = on })
+    return Phone.ok()
+end
+
 --- The Mute and Speaker buttons. Muted: the other end stops hearing this phone (people standing next
 --- to its holder still do). Speaker: people standing near it hear the call, see Calls.speakerTick.
 RPC['call.audio'] = function(src, number, data)

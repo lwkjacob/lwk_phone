@@ -140,9 +140,9 @@ function CallView({ c }: { c: Call }) {
               <CallBtn label={t('sys_add_call')} onClick={() => openApp('phone')}>
                 <Plus size={30} strokeWidth={2.6} />
               </CallBtn>
-              {/* ponytail: in-game a call stays voice or video as it started; switching would need telling the other phone. */}
-              {!inGame && (
-                <CallBtn label={c.video ? t('sys_stop_video') : t('video')} on={c.video} onClick={() => set({ video: !c.video })}>
+              {/* In-game the other phone is asked first (it answers through the server, see call.video); the demo just switches. */}
+              {live && (
+                <CallBtn label={c.video ? t('sys_stop_video') : t('video')} on={c.video} onClick={() => (inGame ? void rpc('call.video', { on: !c.video }) : set({ video: !c.video }))}>
                   {c.video ? <VideoOff size={30} /> : <Video size={30} fill="currentColor" />}
                 </CallBtn>
               )}

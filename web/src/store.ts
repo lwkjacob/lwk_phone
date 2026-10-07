@@ -464,6 +464,25 @@ export function toVoicemail() {
   });
 }
 
+/** The call became a video call, or went back to voice (both sides agreed, or either side stopped the video). */
+export function callVideo(on: boolean) {
+  update((s) => {
+    // A video call is held out in front, on speaker; a voice call goes back to the ear.
+    if (s.call) Object.assign(s.call, { video: on, speaker: on });
+  });
+}
+
+/** The other side wants to turn the cameras on: ask. Accepting is asking back. */
+export function videoAsked() {
+  const c = S.call;
+  if (!c) return;
+  alert({
+    title: nameOf(c.number),
+    message: t('sys_wants_video'),
+    buttons: [{ label: t('decline') }, { label: t('accept'), kind: 'bold', run: () => void rpc('call.video', { on: true }) }],
+  });
+}
+
 /** Pick up an incoming call. */
 export function answer() {
   if (!inGame) return answered();
