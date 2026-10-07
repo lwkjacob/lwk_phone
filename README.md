@@ -19,7 +19,7 @@ The built UI ships in `web/dist`, so Node is not needed to run the phone.
 
 The key under Escape (`` ` ``) opens the phone (players rebind it under Settings > Key Bindings > FiveM), as does `/phone`. `Left Alt` hands the mouse back to the game while the phone stays up, and again to take it back.
 
-In the camera, `Left Alt` lets the mouse aim (in selfie mode it moves the phone around your face), `Enter` is the shutter and `Up` flips the camera. The viewfinder lists these keys.
+In the camera, `Left Alt` lets the mouse aim (in selfie mode it moves the phone around your face), `Enter` is the shutter, `Up` flips the camera, and `Left Ctrl` lets you walk around with it up (press it again to stand still). The viewfinder lists these keys.
 
 ### The phone as an item
 

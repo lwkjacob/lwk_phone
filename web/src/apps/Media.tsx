@@ -186,7 +186,7 @@ export function CameraApp() {
   const [snap, setSnap] = useState(0);
   const [saving, setSaving] = useState(false);
   /** In-game: the names of the keys that work the camera, for the hints in the viewfinder. */
-  const [keys, setKeys] = useState<{ aim: string; shutter: string; flip: string } | null>(null);
+  const [keys, setKeys] = useState<{ aim: string; shutter: string; flip: string; walk: string } | null>(null);
   // In-game the viewfinder is the game camera; here it is a generated scene.
   const seed = selfie ? 21 : 88;
   const last = s.photos[0];
@@ -280,6 +280,9 @@ export function CameraApp() {
             </li>
             <li>
               <kbd>{keys.flip}</kbd> {t('media_flip_camera')}
+            </li>
+            <li>
+              <kbd>{keys.walk}</kbd> {t('camera_key_walk')}
             </li>
           </ul>
         )}
