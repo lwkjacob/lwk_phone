@@ -27,6 +27,17 @@ function moveApp(id: string, target: string) {
   });
 }
 
+/** Carry an app to the end of the last page. */
+function moveToEnd(id: string) {
+  update((s) => {
+    const i = s.apps.indexOf(id);
+    if (i >= 0) s.apps.push(s.apps.splice(i, 1)[0]);
+  });
+}
+
+/** Turn to the next (1) or previous (-1) home page. Home sets this; a dragged icon held at the screen's edge calls it. */
+let turnPage: (dir: number) => void = () => {};
+
 /** Change the order of the icons in `box`, and slide each one from where it was to where it ends up. */
 function shift(box: HTMLElement, change: () => void) {
   const icons = [...box.querySelectorAll<HTMLElement>('[data-icon]')];
@@ -65,6 +76,10 @@ function HomeIcon({ id, dock }: { id: string; dock?: boolean }) {
     let dwell = 0;
     let frame = 0;
     let last: PointerEvent | null = null;
+    // Held at the left or right edge of the screen, a dragged icon turns the page (and keeps turning).
+    let edge = 0;
+    let turning = 0;
+    const pages = el.closest('.home')?.querySelector('.home-pages');
     const press = S.edit ? 0 : window.setTimeout(() => ((held.current = true), update((x) => (x.edit = true))), 450);
 
     const centre = () => {
@@ -96,6 +111,14 @@ function HomeIcon({ id, dock }: { id: string; dock?: boolean }) {
       drag.ty = (m.clientY - drag.gy - (c.y - drag.ty * k)) / k;
       el.style.transform = `translate(${drag.tx}px, ${drag.ty}px) scale(1.12)`;
 
+      const scr = viewportRect(document.getElementById('screen')!);
+      const at = m.clientX < scr.left + 34 * k ? -1 : m.clientX > scr.left + scr.width - 34 * k ? 1 : 0;
+      if (at !== edge) {
+        edge = at;
+        window.clearInterval(turning);
+        if (at) turning = window.setInterval(() => turnPage(at), 700);
+      }
+
       // Resting over a neighbour for a moment makes it give way. (Across to the dock or another page happens on release.)
       const target = iconAt(m.clientX, m.clientY);
       const id2 = target && target.parentElement === el.parentElement ? (target.dataset.icon ?? null) : null;
@@ -108,9 +131,14 @@ function HomeIcon({ id, dock }: { id: string; dock?: boolean }) {
       last = m;
       frame ||= requestAnimationFrame(step);
     };
+    // The page sliding under a still pointer carries the icon's slot away: keep the icon where the pointer is.
+    const slide = () => void (drag && (frame ||= requestAnimationFrame(step)));
+    pages?.addEventListener('scroll', slide);
     function stop() {
       window.clearTimeout(press);
       window.clearTimeout(dwell);
+      window.clearInterval(turning);
+      pages?.removeEventListener('scroll', slide);
       cancelAnimationFrame(frame);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
@@ -123,6 +151,9 @@ function HomeIcon({ id, dock }: { id: string; dock?: boolean }) {
       el.style.transform = '';
       const target = iconAt(u.clientX, u.clientY);
       if (target?.dataset.icon) return shift(target.parentElement!, () => moveApp(id, target.dataset.icon!));
+      // Let go over the open space after the last icon of another page: it goes to the end.
+      const page = document.elementsFromPoint(u.clientX, u.clientY).map((n) => n.closest<HTMLElement>('.home-page')).find(Boolean);
+      if (page && page !== el.parentElement && !dock && !page.nextElementSibling) return moveToEnd(id);
       // Settle into its place rather than snapping there.
       el.animate([{ transform: from }, { transform: 'none' }], { duration: 220, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
     }
@@ -245,6 +276,7 @@ export function Home() {
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => setScrolling(false), 1400);
   };
+  turnPage = (dir) => goTo(Math.min(pages.length - 1, Math.max(0, page + dir)));
   const exitEdit = (e: MouseEvent) => s.edit && e.target === e.currentTarget && update((x) => (x.edit = false));
 
   return (
