@@ -195,8 +195,11 @@ function Explore() {
 function Activity() {
   const s = useS();
   const mine = s.flock.filter((p) => p.user === ME());
-  // ponytail: in-game this lists replies to your posts. Likes are only counted, not attributed; store who liked to list them here.
-  const items = mine.flatMap((p) => [...p.replies.filter((r) => r.user !== ME()).map((r) => ({ user: r.user, what: `replied: ${r.text}`, icon: 'reply' })), ...(inGame ? [] : [{ user: 'gia', what: `liked your post “${p.text.slice(0, 32)}”`, icon: 'like' }])]);
+  // Replies to your posts and who liked them. (The demo has one made-up like per post.)
+  const items = mine.flatMap((p) => [
+    ...p.replies.filter((r) => r.user !== ME()).map((r) => ({ user: r.user, what: t('flock_replied', { text: r.text }), icon: 'reply' })),
+    ...(inGame ? (p.likers ?? []) : ['gia']).map((user) => ({ user, what: t('flock_liked_your_post', { text: p.text.slice(0, 32) }), icon: 'like' })),
+  ]);
   return (
     <Page title={t('notifications')} large className="flush">
       {items.map((it, i) => (

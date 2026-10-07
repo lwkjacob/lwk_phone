@@ -145,6 +145,19 @@ local function feed(app, kind, viewer, since)
             if r.kind == 'repost' then p.reposts, p.reposted = r.n, mine or nil end
             if r.kind == 'save' then p.saved = mine or nil end
         end
+        -- Who liked the viewer's own posts, for their activity list.
+        local own = {}
+        for _, p in ipairs(posts) do
+            if p.user == viewer then own[#own + 1] = p.id end
+        end
+        if #own > 0 then
+            for _, r in ipairs(MySQL.query.await(("SELECT post, username FROM lwk_phone_reactions WHERE kind = 'like' AND username <> ? AND post IN (%s) LIMIT 200"):format(Util.marks(#own)), { viewer, table.unpack(own) })) do
+                local p = byId[r.post]
+                p.likers = p.likers or {}
+                p.likers[#p.likers + 1] = r.username
+                names[r.username] = true
+            end
+        end
     end
     for _, p in ipairs(posts) do p.comments = p.replies end
     return posts, names

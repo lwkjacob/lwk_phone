@@ -245,7 +245,7 @@ export const users: Record<string, User> = {
   jules: { name: 'Jules Mercer', bio: 'Real estate, Dynasty 8', followers: 1320, following: 760 },
 };
 
-export type Post = { id: number; user: string; text: string; time: number; likes: number; liked?: boolean; reposts: number; reposted?: boolean; pic?: Seed; replies: { user: string; text: string }[] };
+export type Post = { id: number; user: string; text: string; time: number; likes: number; liked?: boolean; reposts: number; reposted?: boolean; pic?: Seed; replies: { user: string; text: string }[]; /** In-game, on your own posts: who liked it. */ likers?: string[] };
 export const flock: Post[] = [
   { id: 1, user: 'weazel', text: 'BREAKING: Traffic on the Del Perro Freeway is at a standstill after a truck spilled 4,000 oranges. Avoid the area. #LSTraffic', time: now - 12 * m, likes: 1204, reposts: 388, pic: 19, replies: [{ user: 'dex', text: 'Free juice' }, { user: 'gia', text: 'I was late anyway' }] },
   { id: 2, user: 'ava', text: 'Golden hour at the pier never misses.', time: now - 50 * m, likes: 312, liked: true, reposts: 21, pic: 7, replies: [{ user: 'marcus', text: 'Unreal' }] },
