@@ -26,7 +26,7 @@ export function viewportRect(el: Element) {
 }
 
 export type Notif = { id: number; app: string; title: string; body: string; time: number; tap?: () => void };
-export type Call = { number: string; state: 'incoming' | 'outgoing' | 'active'; video: boolean; start: number; muted: boolean; speaker: boolean; min: boolean; /** We placed the call. */ out: boolean };
+export type Call = { number: string; /** 'voicemail': nobody picked up, and the caller is leaving a message. */ state: 'incoming' | 'outgoing' | 'active' | 'voicemail'; video: boolean; start: number; muted: boolean; speaker: boolean; min: boolean; /** We placed the call. */ out: boolean };
 export type AlertDef = {
   title: string;
   message?: string;
@@ -456,6 +456,14 @@ export function answered() {
   });
 }
 
+/** Nobody picked up: the caller stays on the line to leave a message. */
+export function toVoicemail() {
+  ring(null);
+  update((s) => {
+    if (s.call) Object.assign(s.call, { state: 'voicemail', start: Date.now() });
+  });
+}
+
 /** Pick up an incoming call. */
 export function answer() {
   if (!inGame) return answered();
@@ -480,7 +488,8 @@ export function ended() {
     s.calls.unshift({
       id: uid(),
       number: c.number,
-      dir: c.state === 'incoming' ? 'missed' : c.state === 'outgoing' ? 'out' : 'in',
+      // A call we placed is outgoing however it ended (answered, rung out, or left as a voicemail).
+      dir: c.state === 'incoming' ? 'missed' : c.out ? 'out' : 'in',
       time: Date.now(),
       video: c.video,
       dur: c.state === 'active' ? Math.round((Date.now() - c.start) / 1000) : undefined,

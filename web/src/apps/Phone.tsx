@@ -249,7 +249,7 @@ function Voicemail() {
         <div className="list">
           {s.voicemail.map((v) => (
             <div key={v.id} className={`vm ${open === v.id ? 'open' : ''}`}>
-              <button className="row-btn" aria-expanded={open === v.id} onClick={() => (setOpen(open === v.id ? null : v.id), update(() => (v.heard = true)))}>
+              <button className="row-btn" aria-expanded={open === v.id} onClick={() => (setOpen(open === v.id ? null : v.id), v.heard || (inGame && rpc('voicemail.update', { id: v.id })), update(() => (v.heard = true)))}>
                 <span className="row-lead">{!v.heard && <i className="dot" />}</span>
                 <span className="row-main">
                   <span className="row-t">{nameOf(v.number)}</span>
@@ -263,13 +263,13 @@ function Voicemail() {
               </button>
               {open === v.id && (
                 <div className="vm-body">
-                  <p>“{v.text}”</p>
+                  {v.text && <p>“{v.text}”</p>}
                   <div className="vm-acts">
-                    <button aria-label={t('play')}>
+                    <button aria-label={t('play')} onClick={() => v.audio && new Audio(v.audio).play().catch(() => {})}>
                       <Play size={20} fill="currentColor" />
                     </button>
                     <button onClick={() => startCall(v.number)}>{t('phone_call_back')}</button>
-                    <button className="danger" onClick={() => update((x) => (x.voicemail = x.voicemail.filter((y) => y !== v)))}>
+                    <button className="danger" onClick={() => (inGame && rpc('voicemail.update', { id: v.id, delete: true }), update((x) => (x.voicemail = x.voicemail.filter((y) => y !== v))))}>
                       {t('delete')}
                     </button>
                   </div>
@@ -296,8 +296,7 @@ export function PhoneApp() {
         { id: 'recents', label: t('phone_recents'), icon: <Clock size={24} fill="currentColor" stroke="var(--bar-solid)" />, badge: missed, view: <Recents /> },
         { id: 'contacts', label: t('contacts'), icon: <User size={24} fill="currentColor" strokeWidth={0} />, view: <Contacts /> },
         { id: 'keypad', label: t('keypad'), icon: <Grip size={24} strokeWidth={2.6} />, view: <Keypad /> },
-        // ponytail: voicemail is demo-only. In-game nothing records a message yet, so the tab is left out.
-        ...(inGame ? [] : [{ id: 'voicemail', label: t('phone_voicemail'), icon: <VoicemailIcon size={24} strokeWidth={2.4} />, badge: s.voicemail.filter((v) => !v.heard).length, view: <Voicemail /> }]),
+        { id: 'voicemail', label: t('phone_voicemail'), icon: <VoicemailIcon size={24} strokeWidth={2.4} />, badge: s.voicemail.filter((v) => !v.heard).length, view: <Voicemail /> },
       ]}
     />
   );

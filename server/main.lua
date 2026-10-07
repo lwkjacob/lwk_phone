@@ -169,9 +169,11 @@ end
 
 --- What the UI needs when a phone comes up: identity, saved data, conversations, config.
 local function init(src, number)
-    local kv = {}
+    local kv, voicemail = {}, nil
     for _, row in ipairs(MySQL.query.await('SELECT k, v FROM lwk_phone_data WHERE phone = ?', { number })) do
         if SAVE[row.k] then kv[row.k] = row.v end
+        -- Kept by the server (see server/calls.lua): the phone cannot write this one.
+        if row.k == 'voicemail' then voicemail = json.decode(row.v) end
     end
     readFlags(number, kv.settings)
 
@@ -190,6 +192,7 @@ local function init(src, number)
         kv = kv,
         chats = Messages.chats(number),
         calls = Calls.log(number),
+        voicemail = voicemail or {},
         accounts = Social.sessions(number),
         hidden = hidden,
         locale = { ui = Locale.ui(), intl = Locale.intl() },

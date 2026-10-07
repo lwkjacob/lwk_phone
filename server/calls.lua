@@ -75,19 +75,40 @@ function Calls.speakerTick()
     end
 end
 
+-- Voicemail. A call nobody picks up ends with the caller being offered the chance to leave a
+-- message: their phone records it, uploads it like a voice message, and hands over the link.
+local leaving = {}   -- caller's number -> { to, from = what the other phone will show, at }
+
+--- Can the caller of this unanswered call leave a message? Needs somewhere to store the recording
+--- and a phone at the other end. Not for calls to a company: there is no one phone to leave it on.
+local function takesMessage(call)
+    if call.company or call.answered then return false end
+    if Keys.fivemanage == '' and GetConvar('lwk_phone_fivemanage', '') == '' then return false end
+    return MySQL.scalar.await('SELECT 1 FROM lwk_phone_phones WHERE number = ?', { call.callee }) ~= nil
+end
+
 local function finish(call, by)
     calls[call.id] = nil
     for src, id in pairs(listeners) do
         if id == call.id then unlisten(src) end
     end
     local duration = call.answered and os.time() - call.answered or 0
+    -- Rang out or was declined (anything but the caller giving up): over to voicemail.
+    local message = by ~= call.caller and takesMessage(call)
+    if message then
+        leaving[call.caller] = { to = call.callee, from = call.hidden and L('no_caller_id') or call.caller, at = os.time() }
+    end
     local parties = { call.caller, table.unpack(call.targets) }
     for _, n in ipairs(parties) do
         inCall[n] = nil
         local src = Phone.source(n)
         if src then
             pcall(Voice.set, src, 0)
-            if n ~= by then Phone.push(src, { action = 'call', event = 'ended' }) end
+            if n == call.caller and message then
+                Phone.push(src, { action = 'call', event = 'voicemail' })
+            elseif n ~= by then
+                Phone.push(src, { action = 'call', event = 'ended' })
+            end
         end
     end
     MySQL.insert('INSERT INTO lwk_phone_calls (caller, callee, video, hidden, answered, duration, created) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -178,6 +199,36 @@ RPC['call.end'] = function(_, number)
     end
     finish(call, number)
     return Phone.ok()
+end
+
+--- The message left after an unanswered call. Once, and only for the call that was just made.
+RPC['voicemail.leave'] = function(_, number, data)
+    local v = leaving[number]
+    leaving[number] = nil
+    local audio, seconds = Util.url(data.audio), Util.int(data.seconds, 1, 60)
+    if not v or os.time() - v.at > 120 or not audio or not seconds then return Phone.fail(L('err_generic')) end
+    local list = Phone.get(v.to, 'voicemail') or {}
+    table.insert(list, 1, { id = Phone.now() + math.random(0, 999), number = v.from, time = Phone.now(), dur = seconds, audio = audio })
+    while #list > 20 do table.remove(list) end
+    Phone.set(v.to, 'voicemail', list)
+    Phone.patch(v.to, { voicemail = list })
+    Phone.notify(v.to, 'phone', v.from, L('voicemail_new'))
+    return Phone.ok()
+end
+
+--- Mark a voicemail as listened to, or delete it.
+RPC['voicemail.update'] = function(_, number, data)
+    local id, list, kept = tonumber(data.id), Phone.get(number, 'voicemail') or {}, {}
+    for _, v in ipairs(list) do
+        if v.id ~= id then
+            kept[#kept + 1] = v
+        elseif not data.delete then
+            v.heard = true
+            kept[#kept + 1] = v
+        end
+    end
+    Phone.set(number, 'voicemail', kept)
+    return Phone.ok({ voicemail = kept })
 end
 
 --- The Mute and Speaker buttons. Muted: the other end stops hearing this phone (people standing next

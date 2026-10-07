@@ -271,7 +271,6 @@ The phone also sets `data-theme` on the page's `<html>` and three CSS variables,
 
 ## Not built
 
-- **Voicemail.** The tab only exists in the browser demo.
 - **Switching a call between voice and video** once it has started.
 - **Distance in Ember.** Everyone on the server is in the deck.
 - **Housing.** `config/bridge/housing.lua` is a stub; the Home app stays hidden until it is filled in.

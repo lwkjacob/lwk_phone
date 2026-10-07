@@ -5,7 +5,7 @@ import { Avatar, DialPad, Pic } from '../ui';
 import { t } from '../i18n';
 import { gameView } from '../gameview';
 import { inGame, rpc } from '../net';
-import { connect } from '../rtc';
+import { connect, record, type Recording } from '../rtc';
 
 function CallBtn({ label, on, onClick, children }: { label: string; on?: boolean; onClick: () => void; children: ReactNode }) {
   return (
@@ -24,7 +24,9 @@ function CallView({ c }: { c: Call }) {
   const [typed, setTyped] = useState('');
   const name = nameOf(c.number);
   const live = c.state === 'active';
-  const status = c.state === 'incoming' ? (c.video ? t('sys_incoming_video_call') : t('sys_mobile')) : c.state === 'outgoing' ? t('sys_calling') : fmtDur(Math.max(0, (now - c.start) / 1000));
+  const taking = c.state === 'voicemail';
+  const clock = fmtDur(Math.max(0, (now - c.start) / 1000));
+  const status = c.state === 'incoming' ? (c.video ? t('sys_incoming_video_call') : t('sys_mobile')) : c.state === 'outgoing' ? t('sys_calling') : taking ? `${t('sys_leave_a_message')} · ${clock}` : clock;
   const set = (patch: Partial<Call>) => update((s) => s.call && Object.assign(s.call, patch));
   const video = c.video && live;
   const remote = useRef<HTMLVideoElement>(null);
@@ -51,6 +53,28 @@ function CallView({ c }: { c: Call }) {
     rpc('call.audio', { muted: c.muted, speaker: c.speaker });
     rpc('callAnim', { on: !c.speaker });
   }, [live, c.muted, c.speaker]);
+
+  // Voicemail: nobody picked up, so the microphone is recorded until the caller hangs up (or for 30 seconds),
+  // and the recording is handed to the server for the other phone.
+  const take = useRef<Promise<Recording | null> | null>(null);
+  const end = async () => {
+    const rec = await take.current;
+    take.current = null;
+    if (rec) {
+      const seconds = Math.max(1, Math.round((Date.now() - c.start) / 1000));
+      const audio = await rec.stop();
+      if (audio) await rpc('voicemail.leave', { seconds, audio });
+    }
+    hangup();
+  };
+  useEffect(() => {
+    if (!taking || !inGame) return;
+    take.current = record();
+    take.current.then((rec) => rec || hangup());
+    const limit = window.setTimeout(end, 30_000);
+    return () => window.clearTimeout(limit);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the call turns into a voicemail
+  }, [taking]);
 
   return (
     // Minimised, the call stays mounted (hidden) so a video connection is not dropped.
@@ -128,7 +152,7 @@ function CallView({ c }: { c: Call }) {
             </div>
           )}
           <div className="call-end">
-            <button className="call-round red" aria-label={t('sys_end_call')} onClick={hangup}>
+            <button className="call-round red" aria-label={t('sys_end_call')} onClick={taking ? end : hangup}>
               <Phone size={32} fill="currentColor" strokeWidth={0} className="hang" />
             </button>
             {pad && (

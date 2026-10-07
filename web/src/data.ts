@@ -37,7 +37,7 @@ export const calls: CallLog[] = [
   { id: 7, number: '555-0142', dir: 'out', time: now - 3 * d, dur: 912 },
 ];
 
-export type Voicemail = { id: number; number: string; time: number; dur: number; heard?: boolean; text: string };
+export type Voicemail = { id: number; number: string; time: number; dur: number; heard?: boolean; /** The demo's transcript. */ text?: string; /** In-game: the recording. */ audio?: string };
 export const voicemail: Voicemail[] = [
   { id: 1, number: '555-0101', time: now - d, dur: 24, text: 'Hi sweetheart, call me back when you get a minute. Nothing urgent.' },
   { id: 2, number: '555-0147', time: now - 4 * d, dur: 41, heard: true, text: 'This is the tow yard. Your vehicle is ready for pickup, fee is two fifty.' },

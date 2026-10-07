@@ -1,11 +1,11 @@
 import { APPS, addCustomApp, applySkin, removeCustomApp, type CustomApp } from './apps';
 import { warmMap } from './apps/Maps';
 import { closeFromFrame, openByName, sendCustomAppMessage, showContextMenu, showPopUp } from './apps/Custom';
-import type { CallLog, Chat, Msg } from './data';
+import type { CallLog, Chat, Msg, Voicemail } from './data';
 import { setLocale, t, type Strings } from './i18n';
 import { inGame, nuiFetch, rpc } from './net';
 import { setRtcConfig, signal, type Signal } from './rtc';
-import { S, addPhoto, alert, answered, blank, ended, goHome, hydrate, incomingCall, markSaved, notify, openApp, serverMsg, setClock, startCall, uid, update } from './store';
+import { S, addPhoto, alert, answered, blank, ended, goHome, hydrate, incomingCall, markSaved, notify, openApp, serverMsg, setClock, startCall, toVoicemail, uid, update } from './store';
 import { theme } from './theme';
 
 /* Messages from Lua. Lua talks to the phone with SendNUIMessage({ action = ..., ... }); the phone talks
@@ -44,6 +44,7 @@ type Init = {
   kv: Record<string, string>;
   chats: Chat[];
   calls: CallLog[];
+  voicemail: Voicemail[];
   accounts: Record<string, string>;
   hidden: string[];
   locale: { ui?: Strings; intl?: string };
@@ -90,6 +91,7 @@ function init(d: Init) {
     me: { name: d.name, number: d.number, handle: '', email: d.accounts?.mail ? `${d.accounts.mail}@${c.mailDomain}` : '' },
     chats: d.chats,
     calls: d.calls,
+    voicemail: Array.isArray(d.voicemail) ? d.voicemail : [],
     // An empty Lua table arrives as [], whatever it was meant to be.
     accounts: Array.isArray(d.accounts) ? {} : d.accounts,
     places: (c.places ?? []).map((p, i) => ({ id: i + 1, name: p.name, kind: p.kind, x: p.x, y: p.y })),
@@ -143,7 +145,7 @@ type Incoming =
   | { action: 'open' | 'close' | 'unload' }
   | { action: 'patch'; data: Record<string, unknown> }
   | { action: 'msg'; ch: number; members: string[]; name?: string; msg: Msg }
-  | { action: 'call'; event: 'incoming' | 'answered' | 'ended'; number?: string; video?: boolean }
+  | { action: 'call'; event: 'incoming' | 'answered' | 'ended' | 'voicemail'; number?: string; video?: boolean }
   | { action: 'notify'; app: string; title: string; body: string }
   | { action: 'refresh'; app: string }
   | { action: 'time'; h: number; m: number }
@@ -207,6 +209,7 @@ export function listen() {
         return serverMsg(m);
       case 'call':
         if (m.event === 'incoming') return incomingCall(m.number ?? '', m.video);
+        if (m.event === 'voicemail') return toVoicemail();
         return m.event === 'answered' ? answered() : ended();
       case 'notify':
         return notify({ app: m.app, title: m.title, body: m.body });
