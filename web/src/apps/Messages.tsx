@@ -6,7 +6,6 @@ import { record, type Recording } from '../rtc';
 import { PhotoPicker } from './Media';
 import { ContactView } from './Phone';
 import { t } from '../i18n';
-import { GifSheet } from '../pickers';
 import { inGame, rpc } from '../net';
 import { APPS } from './index';
 
@@ -62,7 +61,7 @@ function ChatInfo({ id }: { id: number }) {
 function ChatView({ id }: { id: number }) {
   const s = useS();
   const nav = useNav();
-  const [pick, setPick] = useState<'photo' | 'gif' | 'voice' | null>(null);
+  const [pick, setPick] = useState<'photo' | 'voice' | null>(null);
   const c = s.chats.find((x) => x.id === id);
   useEffect(() => {
     update((x) => {
@@ -82,7 +81,6 @@ function ChatView({ id }: { id: number }) {
     actions({
       options: [
         { label: t('messages_photo_library'), run: () => setPick('photo') },
-        ...(inGame ? [] : [{ label: t('gif'), run: () => setPick('gif') }]),
         { label: t('messages_send_location'), run: () => sendLocation(id) },
         { label: t('messages_voice_message'), run: () => setPick('voice') },
         ...(group || (inGame && !APPS.wallet) ? [] : [{ label: t('send_money'), run: () => prompt(t('send_money'), t('amount'), (v) => Number(v) > 0 && sendMsg(id, { money: Math.floor(Number(v)) }), '', t('messages_to_name', { name: titleOf(c) })) }]),
@@ -125,7 +123,6 @@ function ChatView({ id }: { id: number }) {
       <Bubbles msgs={c.msgs} who={group ? nameOf : undefined} typing={s.typing === id} empty={t('messages_start_the_conversation')} />
       {pick === 'photo' && <PhotoPicker onPick={(seed) => sendMsg(id, { pic: seed })} onClose={() => setPick(null)} />}
       {pick === 'voice' && <VoiceSheet onSend={(voice, audio) => sendMsg(id, { voice, audio })} onClose={() => setPick(null)} />}
-      {pick === 'gif' && <GifSheet onPick={(gif) => sendMsg(id, { gif })} onClose={() => setPick(null)} />}
     </Page>
   );
 }

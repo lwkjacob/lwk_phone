@@ -508,7 +508,7 @@ export function chatWith(number: string) {
 }
 
 export const preview = (msg?: Msg) =>
-  !msg ? t('no_messages') : msg.text ?? (msg.pic ? t('photo') : msg.loc ? t('preview_location') : msg.money ? t('preview_sent', { amount: money(msg.money, 0) }) : msg.voice ? t('preview_voice') : msg.gif ? 'GIF' : '');
+  !msg ? t('no_messages') : msg.text ?? (msg.pic ? t('photo') : msg.loc ? t('preview_location') : msg.money ? t('preview_sent', { amount: money(msg.money, 0) }) : msg.voice ? t('preview_voice') : '');
 
 export function sendMsg(chatId: number, msg: Partial<Msg>) {
   const chat = S.chats.find((c) => c.id === chatId);

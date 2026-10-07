@@ -43,7 +43,7 @@ export const voicemail: Voicemail[] = [
   { id: 2, number: '555-0147', time: now - 4 * d, dur: 41, heard: true, text: 'This is the tow yard. Your vehicle is ready for pickup, fee is two fifty.' },
 ];
 
-export type Msg = { id: number; me?: boolean; from?: string; text?: string; pic?: Seed; loc?: string; money?: number; voice?: number; gif?: Seed; x?: number; y?: number; time: number; failed?: boolean; /** Recorded audio for a voice message. */ audio?: string };
+export type Msg = { id: number; me?: boolean; from?: string; text?: string; pic?: Seed; loc?: string; money?: number; voice?: number; x?: number; y?: number; time: number; failed?: boolean; /** Recorded audio for a voice message. */ audio?: string };
 export type Chat = { id: number; /** Server channel id, once the conversation exists there. */ ch?: number; numbers: string[]; name?: string; msgs: Msg[]; unread: number; muted?: boolean };
 export const chats: Chat[] = [
   {
@@ -64,7 +64,7 @@ export const chats: Chat[] = [
       { id: 1, from: '555-0188', text: 'Who’s driving?', time: now - 6 * h },
       { id: 2, from: '555-0117', text: 'Not me, mine’s on the lift', time: now - 6 * h + m },
       { id: 3, me: true, text: 'I’ll drive. Be outside at 8.', time: now - 6 * h + 3 * m },
-      { id: 4, from: '555-0109', gif: 3, time: now - 5 * h },
+      { id: 4, from: '555-0109', text: 'Told you so', time: now - 5 * h },
       { id: 5, from: '555-0188', text: 'Legend', time: now - 5 * h + m },
     ],
   },

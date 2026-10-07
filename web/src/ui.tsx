@@ -414,11 +414,6 @@ export function Bubbles({ msgs, who, typing, empty }: { msgs: Msg[]; who?: (from
             <div className={`bub ${x.me ? 'me' : ''} ${tail ? 'tail' : ''} ${x.text ? '' : 'media'}`}>
               {x.text}
               {x.pic != null && <Pic seed={x.pic} className="bub-pic ugc" />}
-              {x.gif != null && (
-                <Pic seed={x.gif} className="bub-pic gif">
-                  <b>{t('gif')}</b>
-                </Pic>
-              )}
               {x.loc && (
                 <span className="bub-loc" role={x.x != null ? 'button' : undefined} onClick={() => x.x != null && x.y != null && rpc('waypoint', { x: x.x, y: x.y })}>
                   <span className="bub-map">

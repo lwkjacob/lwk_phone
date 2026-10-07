@@ -777,22 +777,6 @@ button.row:active,
   height: 250px;
 }
 
-.bub-pic.gif,
-.pic.gif { height: 150px; }
-
-.pic.gif b {
-  position: absolute;
-  left: 8px;
-  bottom: 8px;
-  padding: 2px 6px;
-  border-radius: 5px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
-  font-size: 11px;
-}
-
-.pic.gif { animation: pan 3s ease-in-out infinite alternate; }
-
 .bub-loc,
 .bub-money {
   width: 210px;

@@ -231,7 +231,7 @@ Inside the app's page the same globals exist (`fetchNui`, `useNuiEvent`, `getSet
 
 Beyond the custom-app exports, these also answer under that name. Client: `SendNotification`, `IsOpen`, `ToggleOpen`, `GetEquippedPhoneNumber`, `HasPhoneItem`, `IsDisabled`, `ToggleDisabled`, `OpenApp`, `CloseApp`, `CreateCall`, `IsInCall`, `AddContact`, `SaveToGallery`, `SetPopUp`, `SetContextMenu`, `ToggleHomeIndicator`, `ToggleLandscape`, `ToggleFlashlight`, `EnableWalkableCam`, `DisableWalkableCam`, `GetSettings`, `GetAirplaneMode`, `GetStreamerMode`, `FormatNumber`, and the callback trio. Server: `GetEquippedPhoneNumber`, `GetSourceFromNumber`, `HasPhoneItem`, `SendNotification`, `NotifyEveryone`, `SendMessage`, `SendCoords`, `SendMail`, `AddTransaction`, `AddContact`, `CreateCall`, `EndCall`, `IsInCall`, `GetSettings`, `HasAirplaneMode`, `GetSocialMediaUsername`, `FormatNumber`, `RegisterCallback`, `BaseCallback`.
 
-Exports with no counterpart here (battery, custom numbers, music and live trays, posting to its social apps, and so on) answer `nil` and print one line in the console naming the export, so an app that calls one keeps running. In a page, `useCamera`, `components.fetchPhone`, `components.setMusicSelector` and `GameMap` are not available.
+Exports with no counterpart here (battery, custom numbers, music and live trays, posting to its social apps, and so on) answer `nil` and print one line in the console naming the export, so an app that calls one keeps running. In a page, `useCamera`, `components.fetchPhone`, `components.setMusicSelector`, the GIF picker and `GameMap` are not available.
 
 ### Inside the app's page
 
@@ -263,7 +263,6 @@ window.addEventListener('message', (e) => e.data === 'componentsLoaded' && start
 | `components.uploadMedia(type, blob)` | Upload `"Image"`, `"Video"` or `"Audio"`; resolves with its URL. |
 | `components.createGameRender(canvas)` | Draws the game's picture into your canvas; `takePhoto()`, `startRecording(cb)`, `pause()`, `resume()`, `destroy()`. |
 | `components.setEmojiPickerVisible({ onSelect })` | Emoji picker; `onSelect({ emoji })`. Pass `false` to close. |
-| `components.setGifPickerVisible({ onSelect })` | GIF picker; `onSelect(url)`. Pass `false` to close. |
 | `components.setColorPicker({ onSelect, onClose })` | Colour picker; both receive a hex colour. |
 
 The phone also sets `data-theme` on the page's `<html>` and three CSS variables, `--safe-top`, `--safe-bottom` and `--safe-left`, for the space the status bar, home indicator and (sideways) camera cut-out cover.
@@ -273,7 +272,6 @@ The phone also sets `data-theme` on the page's `<html>` and three CSS variables,
 ## Not built
 
 - **Voicemail.** The tab only exists in the browser demo.
-- **GIF search.** There is no GIF service behind the picker in-game, so Messages leaves the option out.
 - **Switching a call between voice and video** once it has started.
 - **Who liked your post** in Flock's activity tab (replies are listed, likes are only counted).
 - **Distance in Ember.** Everyone on the server is in the deck.

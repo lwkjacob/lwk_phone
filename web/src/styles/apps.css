@@ -131,8 +131,6 @@
 
 .pgrid .pic { width: 100%; aspect-ratio: 1; }
 .pgrid.tall .pic { aspect-ratio: 3 / 4; }
-.pgrid.gifs { gap: 6px; padding: 0 12px; grid-template-columns: repeat(2, 1fr); }
-.pgrid.gifs .pic { aspect-ratio: 4 / 3; height: auto; border-radius: 10px; }
 .pgrid-add { aspect-ratio: 1; display: grid; place-items: center; background: var(--fill2); color: var(--tint); }
 .pgrid .picked { outline: 4px solid var(--tint); outline-offset: -4px; }
 

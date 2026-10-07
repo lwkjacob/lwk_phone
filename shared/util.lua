@@ -69,7 +69,6 @@ function Util.body(v)
     local out = {
         text  = Util.text(v.text, 1, 1000),
         pic   = Util.url(v.pic),
-        gif   = Util.url(v.gif),
         audio = Util.url(v.audio),
         loc   = Util.text(v.loc, 1, 64),
         voice = Util.int(v.voice, 1, 600),

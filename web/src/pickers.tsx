@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { t } from './i18n';
 import { Pic, Search, Seg, Sheet } from './ui';
 
-/* Emoji, GIF and colour pickers. Used by the phone's own apps and handed to community apps
- * through components.setEmojiPickerVisible / setGifPickerVisible / setColorPicker. */
+/* Emoji and colour pickers. Used by the phone's own apps and handed to community apps
+ * through components.setEmojiPickerVisible / setColorPicker. */
 
 const EMOJI = {
   smileys: '😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😋 😛 😜 🤪 🤑 🤗 🤭 🤫 🤔 🤐 🤨 😐 😑 😶 😏 😒 🙄 😬 🤥 😔 😪 😴 😷 🤒 🤕 🤢 🤮 🥵 🥶 🥴 😵 🤯 🤠 🥳 😎 🤓 🧐 😕 😟 🙁 😮 😲 😳 🥺 😨 😰 😥 😢 😭 😱 😖 😞 😓 😩 😫 🥱 😤 😡 😠 🤬 😈 💀 🤡 👻 👽 🤖',
@@ -35,37 +35,6 @@ export function EmojiSheet({ onPick, onClose }: { onPick: (emoji: string) => voi
   return (
     <Sheet title={t('emoji')} onClose={onClose} cancel={t('done')} fit>
       <EmojiGrid onPick={onPick} />
-    </Sheet>
-  );
-}
-
-// ponytail: generated placeholders with tags. In-game these are search results from a GIF service, and `seed` becomes a URL.
-const GIFS: [seed: number, tags: string][] = [
-  [3, 'happy yes dance'], [18, 'laugh lol funny'], [29, 'no nope'], [42, 'car drive fast'], [57, 'party celebrate'], [66, 'sad cry'],
-  [74, 'angry mad'], [83, 'wow shocked'], [95, 'love heart'], [104, 'money rich'], [117, 'hello wave hi'], [126, 'bye goodbye'],
-];
-
-export function GifSheet({ onPick, onClose }: { onPick: (seed: number) => void; onClose: () => void }) {
-  const [q, setQ] = useState('');
-  const list = GIFS.filter(([, tags]) => tags.includes(q.trim().toLowerCase()));
-  return (
-    <Sheet title={t('gifs')} onClose={onClose}>
-      {(close) => (
-        <>
-          <Search value={q} onChange={setQ} placeholder={t('search_gifs')} />
-          {list.length ? (
-            <div className="pgrid gifs">
-              {list.map(([seed, tags]) => (
-                <Pic key={seed} seed={seed} className="gif" alt={tags.split(' ')[0]} onClick={() => (onPick(seed), close())}>
-                  <b>GIF</b>
-                </Pic>
-              ))}
-            </div>
-          ) : (
-            <p className="bubbles-empty">{t('no_gifs', { q })}</p>
-          )}
-        </>
-      )}
     </Sheet>
   );
 }

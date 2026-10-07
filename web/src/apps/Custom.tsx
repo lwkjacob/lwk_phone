@@ -4,7 +4,7 @@ import { gameView } from '../gameview';
 import { inGame, upload } from '../net';
 import { nuiFetch } from '../nui';
 import { S, actions, addPhoto, alert, goHome, notify, openApp, share, startCall, update, useS } from '../store';
-import { ColorSheet, EmojiSheet, GifSheet } from '../pickers';
+import { ColorSheet, EmojiSheet } from '../pickers';
 import { picUrl } from '../ui';
 import { APPS } from './index';
 import { PhotoPicker } from './Media';
@@ -99,7 +99,7 @@ export function CustomAppView({ id }: { id: string }) {
   const watchers = useRef<((settings: ReturnType<typeof settingsFor>) => void)[]>([]);
   const [gallery, setGallery] = useState<GalleryOpts | null>(null);
   const [full, setFull] = useState<string | null>(null);
-  const [picker, setPicker] = useState<{ kind: 'emoji' | 'gif' | 'color'; run: (value: string) => void } | null>(null);
+  const [picker, setPicker] = useState<{ kind: 'emoji' | 'color'; run: (value: string) => void } | null>(null);
   const app = APPS[id]?.custom;
   const theme = s.settings.dark ? 'dark' : 'light';
 
@@ -138,7 +138,6 @@ export function CustomAppView({ id }: { id: string }) {
     frames.set(id, w);
     watchers.current = [];
     const pickPhoto = (o: GalleryOpts) => setGallery(o);
-    const pickGif = (run: (gif: string) => void) => setPicker({ kind: 'gif', run });
     const pickEmoji = (run: (emoji: string) => void) => setPicker({ kind: 'emoji', run });
     const pickColor = (o: { onSelect?: (color: string) => void; onClose?: (color: string) => void }) => setPicker({ kind: 'color', run: (c) => (o.onSelect?.(c), o.onClose?.(c)) });
     const onMessage = (event: string, cb: (data: unknown) => void) => w.addEventListener('message', (e: MessageEvent) => e.data?.action === event && cb(e.data.data));
@@ -199,9 +198,9 @@ export function CustomAppView({ id }: { id: string }) {
       setColorPicker: pickColor,
       // Both take options to open, or `false` to close.
       setEmojiPickerVisible: (o: false | { onSelect: (e: { emoji: string }) => void }) => (o ? pickEmoji((emoji) => o.onSelect({ emoji })) : setPicker(null)),
-      setGifPickerVisible: (o: false | { onSelect: (gif: string) => void }) => (o ? pickGif(o.onSelect) : setPicker(null)),
       // These belong to the other phone's own insides, or to pickers this phone does not have.
       fetchPhone: unavailable('fetchPhone'),
+      setGifPickerVisible: unavailable('setGifPickerVisible'),
       setMusicSelector: unavailable('setMusicSelector'),
     };
     const api = {
@@ -226,7 +225,7 @@ export function CustomAppView({ id }: { id: string }) {
       setContextMenu: showContextMenu,
       setContactSelector: components.setContactSelector,
       selectGallery: (o: Omit<GalleryOpts, 'onSelect'> & { cb: GalleryOpts['onSelect'] }) => pickPhoto({ ...o, onSelect: o.cb }),
-      selectGIF: pickGif,
+      selectGIF: unavailable('selectGIF'),
       selectEmoji: pickEmoji,
       colorPicker: (cb: (color: string) => void) => pickColor({ onSelect: cb }),
     };
@@ -259,7 +258,6 @@ export function CustomAppView({ id }: { id: string }) {
       <iframe ref={frame} className="custom-app" title={app.name} src={uiUrl(app.ui)} onLoad={onLoad} />
       {gallery && <PhotoPicker videos={!!gallery.includeVideos && gallery.includeImages === false} onPick={pick} onClose={() => setGallery(null)} />}
       {picker?.kind === 'emoji' && <EmojiSheet onPick={picker.run} onClose={() => setPicker(null)} />}
-      {picker?.kind === 'gif' && <GifSheet onPick={(seed) => picker.run(picUrl(seed))} onClose={() => setPicker(null)} />}
       {picker?.kind === 'color' && <ColorSheet onPick={picker.run} onClose={() => setPicker(null)} />}
       {full && (
         <div className="fullimg" role="dialog" aria-label={t('custom_image')}>
