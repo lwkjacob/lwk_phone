@@ -252,7 +252,10 @@ end
 --   in_garage, garage_id, impound     jg-advancedgarages, cd_garage
 --   state, garage                     qb-garages, qbx_garages (0 out, 1 garaged, 2 impound)
 --   stored, parking, pound            esx_garage and most ESX garages
+--   stored, garage                    esx_advancedgarage
+--   stored                            lunar_garage (on QBCore it adds `stored` and leaves `state` alone)
 --   parking                           okokGarage (next to state / stored)
+--   garage, garageSpotID, impound_*   vms_garagesv2 (`garage` is empty while the vehicle is out)
 -- A garage script with other columns: edit `where` and Bridge.vehicleOut below.
 
 local TABLE = fw == 'esx' and 'owned_vehicles' or 'player_vehicles'
@@ -273,6 +276,16 @@ local function yes(v) return v == true or v == 1 end
 
 --- Where a vehicle is: state, garage name, and whether it is held in an impound it may not leave.
 local function where(r, c)
+    -- vms_garagesv2, as its own phone integrations read it. An impound there is a fine paid at the counter.
+    if c.garageSpotID then
+        local name = r.garage
+        if name and GetResourceState('vms_garagesv2') == 'started' then
+            local ok, label = pcall(function() return (exports['vms_garagesv2']:getGarageInfo(name)) end)
+            if ok and type(label) == 'string' then name = label end
+        end
+        if r.impound_date and r.impound_data then return 'impound', name or '', true end
+        return r.garage and 'garaged' or 'out', name or ''
+    end
     local garage = r.garage_id or r.parking or r.garage or ''
     if c.garage_id and GetResourceState('cd_garage') == 'started' then
         local ok, label = pcall(function() return exports.cd_garage:GetGarageLabelFromGarageId(r.garage_id) end)
@@ -282,7 +295,8 @@ local function where(r, c)
         return 'impound', garage, c.impound_retrievable and not yes(tonumber(r.impound_retrievable))
     end
     if c.in_garage then return yes(tonumber(r.in_garage) or r.in_garage) and 'garaged' or 'out', garage end
-    if c.state then return r.state == 0 and 'out' or r.state == 2 and 'impound' or 'garaged', garage end
+    local lunar = c.stored and GetResourceState('lunar_garage') == 'started'
+    if c.state and not lunar then return r.state == 0 and 'out' or r.state == 2 and 'impound' or 'garaged', garage end
     if c.pound and r.pound and r.pound ~= '' then return 'impound', r.pound end
     if c.stored then
         local stored = tonumber(r.stored) or (r.stored and 1 or 0)
@@ -318,13 +332,16 @@ end
 
 -- The columns that say where a vehicle is, and what each holds while the vehicle is out.
 local OUT = { { 'in_garage', '0' }, { 'impound', '0' }, { 'state', '0' }, { 'stored', '0' }, { 'pound', 'NULL' } }
+local OUT_VMS = { { 'garage', 'NULL' }, { 'garageSpotID', 'NULL' } }
+
+local function outs(c) return c.garageSpotID and OUT_VMS or OUT end
 
 --- Mark a vehicle as out of its garage / released from impound. Returns what those columns held
 --- before (for Bridge.vehicleBack), or false when nothing was changed.
 function Bridge.vehicleOut(src, plate)
     if fw == 'standalone' then return false end
     local c, names, sets = columns(), {}, {}
-    for _, o in ipairs(OUT) do
+    for _, o in ipairs(outs(c)) do
         if c[o[1]] then
             names[#names + 1] = o[1]
             sets[#sets + 1] = o[1] .. ' = ' .. o[2]
@@ -335,13 +352,15 @@ function Bridge.vehicleOut(src, plate)
     local before = MySQL.single.await(('SELECT %s FROM %s WHERE plate = ? AND %s = ?'):format(table.concat(names, ', '), TABLE, OWNER), { plate, owner })
     if not before then return false end
     local changed = MySQL.update.await(('UPDATE %s SET %s WHERE plate = ? AND %s = ?'):format(TABLE, table.concat(sets, ', '), OWNER), { plate, owner })
+    -- vms_garagesv2 frees the parking space when told a phone took the vehicle.
+    if changed > 0 and c.garageSpotID and before.garage then TriggerEvent('vms_garagesv2:vehicleTakenByPhone', before.garage, before.garageSpotID) end
     return changed > 0 and before
 end
 
 --- Undo Bridge.vehicleOut: put the vehicle back where it was. `before` is what vehicleOut returned.
 function Bridge.vehicleBack(src, plate, before)
     local c, sets, params = columns(), {}, {}
-    for _, o in ipairs(OUT) do
+    for _, o in ipairs(outs(c)) do
         local name, v = o[1], before[o[1]]
         if c[name] and v == nil then
             sets[#sets + 1] = name .. ' = NULL'
@@ -356,7 +375,7 @@ end
 
 -- Garage scripts this phone can name in the start-up report. Naming one changes nothing: what
 -- matters is the columns (see above), and those are read whatever the script is called.
-local GARAGES = { 'jg-advancedgarages', 'cd_garage', 'okokGarage', 'qbx_garages', 'qb-garages', 'esx_garage' }
+local GARAGES = { 'jg-advancedgarages', 'cd_garage', 'vms_garagesv2', 'okokGarage', 'lunar_garage', 'qbx_garages', 'qb-garages', 'esx_advancedgarage', 'esx_garage' }
 
 --- What the Garage app is working with, for the start-up report: { script = name or nil, table, columns = { names } }.
 function Bridge.garage()
@@ -365,7 +384,7 @@ function Bridge.garage()
         if GetResourceState(res) == 'started' then script = res break end
     end
     local c, found = columns(), {}
-    for _, o in ipairs(OUT) do
+    for _, o in ipairs(outs(c)) do
         if c[o[1]] then found[#found + 1] = o[1] end
     end
     return { script = script, table = TABLE, columns = found }

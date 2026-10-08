@@ -15,7 +15,11 @@ local ART = {
 }
 
 local FRAMEWORKS = { qbox = 'Qbox', qb = 'QBCore', esx = 'ESX', standalone = 'none (standalone)' }
-local INVENTORIES = { ox = 'ox_inventory', qb = 'qb-inventory', none = 'none' }
+local INVENTORIES = {
+    ox = 'ox_inventory', qb = 'qb-inventory', ps = 'ps-inventory', codem = 'codem-inventory', core = 'core_inventory',
+    jaksam = 'jaksam_inventory', tgiann = 'tgiann-inventory', esx = "ESX's own", none = 'none',
+}
+local VOICES = { pma = 'pma-voice', salty = 'saltychat', mumble = 'mumble-voip', none = 'none' }
 
 -- Other phones. Two of them on one server fight over the same key and the same command.
 local PHONES = { 'npwd', 'qb-phone', 'qs-smartphone', 'qs-smartphone-pro', 'gksphone', 'high_phone', 'roadphone', 'yseries', 'sd-phone', 'okokPhone' }
@@ -69,8 +73,9 @@ function Check.lines(release, why)
     row('Framework', FRAMEWORKS[fw] or fw)
     row('Inventory', (INVENTORIES[Inv.kind] or Inv.kind) .. (Inv.unique and ': each phone item is its own phone' or Inv.required and ': a phone item is needed' or ': no item needed'))
 
-    row('Voice', Voice.kind == 'pma' and 'pma-voice' or 'none')
+    row('Voice', VOICES[Voice.kind] or Voice.kind)
     if Voice.kind == 'none' then warn('No voice script: calls will connect but nobody will hear anything. Install pma-voice.') end
+    if Voice.kind == 'salty' then warn('saltychat: muting your microphone on a call does not silence you at the other end. Everything else works.') end
 
     if fw == 'standalone' then
         row('Bank', 'not used')
@@ -78,7 +83,7 @@ function Check.lines(release, why)
         warn('No framework: Wallet, Crypto, Garage and Services need money, vehicles and jobs, so they are hidden.')
     else
         local bank = Bank.kind()
-        row('Bank', bank == 'none' and 'none found' or bank)
+        row('Bank', bank == 'none' and 'none found' or bank == 'esx_addonaccount' and started('esx_society') and 'esx_society (its money is in esx_addonaccount)' or bank)
         if bank == 'none' then warn('No bank script this phone knows: the company account in Services is off. Wallet works with any bank. README, "Banks".') end
 
         local g = Bridge.garage()

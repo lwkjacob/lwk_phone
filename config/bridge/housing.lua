@@ -10,6 +10,9 @@
 --   ps-housing         yes    -      yes    its `properties` table; keys through its own events
 --   qbx_properties     yes    -      yes    its `properties` table
 --   esx_property       yes    yes    yes    its properties.json; lock and keys through its own callbacks
+--   qb-houses          yes    -      yes    its `player_houses` table; keys through its own events
+--   bcs_housing        yes    yes    yes    its server exports (the lock only for shell and IPL houses, as it says)
+--   RxHousing          yes    -      yes    its server exports
 --
 -- "its own events / callbacks" means the player's game asks the housing script itself, which then
 -- applies its own checks; this file never changes another script's data behind its back, except
@@ -24,7 +27,7 @@
 
 Housing = {}
 
-local ORDER = { 'nolag_properties', 'vms_housing', 'rtx_housing', 'ps-housing', 'qbx_properties', 'esx_property' }
+local ORDER = { 'nolag_properties', 'vms_housing', 'rtx_housing', 'bcs_housing', 'RxHousing', 'ps-housing', 'qbx_properties', 'qb-houses', 'esx_property' }
 local SCRIPTS = {}
 local kind
 
@@ -51,6 +54,13 @@ local function holders(ids)
     local out = {}
     for _, id in ipairs(ids) do out[#out + 1] = { id = id, name = Bridge.charName(id) } end
     return out
+end
+
+--- A property from a script that documents its exports but not the fields inside a property: the
+--- name and the position are looked for under the names such data usually has.
+local function loose(d, id)
+    local at = d.coords or d.entrance or d.enter or d.position or {}
+    return d.name or d.label or d.address or ('Property %s'):format(id), tonumber(at.x), tonumber(at.y)
 end
 
 -- nolag_properties -------------------------------------------------------------------------------
@@ -82,8 +92,8 @@ SCRIPTS['vms_housing'] = {
 
 -- rtx_housing --------------------------------------------------------------------------------------
 -- rtx-dev.gitbook.io/rtxdev/rtx-housing-system/exports-events/server-exports. The exports are
--- documented; the fields inside a property are not, so the name and position are looked for under
--- the names such data usually has. A property this cannot name is listed as "Property <id>".
+-- documented; the fields inside a property are not (see `loose` above). A property this cannot
+-- name is listed as "Property <id>".
 SCRIPTS['rtx_housing'] = {
     list = function(src)
         local out = {}
@@ -91,13 +101,8 @@ SCRIPTS['rtx_housing'] = {
             local id = type(p) == 'table' and (p.id or p.propertyId or p.propertyid or p.property_id) or p
             id = tonumber(id) or tonumber(key)
             if id then
-                local d = type(p) == 'table' and p or decode(exports['rtx_housing']:GetPropertyData(id))
-                local at = d.coords or d.entrance or d.enter or d.position or {}
-                out[#out + 1] = {
-                    id = id, name = d.name or d.label or d.address or ('Property %d'):format(id),
-                    x = tonumber(at.x), y = tonumber(at.y),
-                    locked = exports['rtx_housing']:GetPropertyLockStatus(id) == true,
-                }
+                local name, x, y = loose(type(p) == 'table' and p or decode(exports['rtx_housing']:GetPropertyData(id)), id)
+                out[#out + 1] = { id = id, name = name, x = x, y = y, locked = exports['rtx_housing']:GetPropertyLockStatus(id) == true }
             end
         end
         return out
@@ -180,6 +185,89 @@ SCRIPTS['esx_property'] = {
     end,
     lock = 'client',
     key = 'client',
+}
+
+-- qb-houses ----------------------------------------------------------------------------------------
+-- github.com/qbcore-framework/qb-houses: `player_houses` joined to `houselocations`. The key holders
+-- are also held in the script's memory, so they are changed through its own events, from the owner's
+-- game. Its lock is not kept anywhere the server can read, so the door is left alone.
+SCRIPTS['qb-houses'] = {
+    list = function(_, identifier)
+        local out = {}
+        for _, r in ipairs(MySQL.query.await([[SELECT h.house, h.keyholders, l.label, l.coords FROM player_houses h
+            LEFT JOIN houselocations l ON l.name = h.house WHERE h.citizenid = ?]], { identifier })) do
+            local at, ids = decode(r.coords).enter or {}, {}
+            for _, holder in ipairs(decode(r.keyholders)) do   -- the owner is in their own list
+                if holder ~= identifier then ids[#ids + 1] = holder end
+            end
+            out[#out + 1] = { id = r.house, name = r.label or r.house, x = tonumber(at.x), y = tonumber(at.y), keys = holders(ids) }
+        end
+        return out
+    end,
+    key = 'client',
+}
+
+-- bcs_housing --------------------------------------------------------------------------------------
+-- docs.baguscodestudio.com/paid_scripts/housing/exports/server, and "Home Object (Server Side)" for
+-- the fields. A key there is a named set of permissions: the phone hands out the first one the house has.
+SCRIPTS['bcs_housing'] = {
+    list = function(_, identifier)
+        local bcs, out = exports.bcs_housing, {}
+        for _, h in pairs(bcs:GetOwnedHomes(identifier) or {}) do
+            local keys = {}
+            for holder, k in pairs(bcs:GetKeyHolders(h.identifier) or {}) do
+                if holder ~= identifier then keys[#keys + 1] = { id = holder, name = type(k) == 'table' and k.name or Bridge.charName(holder) } end
+            end
+            local locked
+            if h.type ~= 'mlo' then locked = bcs:isLocked(h.identifier) == true end
+            out[#out + 1] = { id = h.identifier, name = h.name, x = h.entry and tonumber(h.entry.x), y = h.entry and tonumber(h.entry.y), locked = locked, keys = keys }
+        end
+        return out
+    end,
+    lock = function(_, id, locked)
+        -- LockHome turns the lock the other way, so it is only called when the door is the wrong way.
+        if (exports.bcs_housing:isLocked(id) == true) ~= locked then exports.bcs_housing:LockHome(id) end
+        return true
+    end,
+    key = function(_, id, give, who)
+        if not give then
+            exports.bcs_housing:RemoveKeyHolder(id, who.id)
+            return true
+        end
+        local name = next(exports.bcs_housing:GetKeyList(id) or {})
+        if not who.src or not name then return false end   -- it gives keys to a player, not to a character
+        exports.bcs_housing:AddKeyHolder(id, who.src, name)
+        return true
+    end,
+}
+
+-- RxHousing ----------------------------------------------------------------------------------------
+-- docs.rxscripts.xyz/scripts/general/housing/exports. As with rtx_housing the exports are documented
+-- and the fields inside a property are not (see `loose` above). It has no export for the door.
+SCRIPTS['RxHousing'] = {
+    list = function(_, identifier)
+        local rx, out = exports['RxHousing'], {}
+        for key, p in pairs(rx:GetOwnedProperties(identifier) or {}) do
+            local id = type(p) == 'table' and (p.id or p.propertyId or p.property_id) or p
+            id = tonumber(id) or tonumber(key)
+            if id then
+                local keys = {}
+                for k, v in pairs(rx:GetPropertyKeyholders(id) or {}) do
+                    local holder = type(v) == 'table' and (v.identifier or v.id) or type(v) == 'string' and v or type(k) == 'string' and k
+                    if holder and holder ~= identifier then
+                        keys[#keys + 1] = { id = holder, name = type(v) == 'table' and v.name or Bridge.charName(holder) }
+                    end
+                end
+                local name, x, y = loose(type(p) == 'table' and p or decode(rx:GetProperty(id)), id)
+                out[#out + 1] = { id = id, name = name, x = x, y = y, keys = keys }
+            end
+        end
+        return out
+    end,
+    key = function(_, id, give, who)
+        if give then return exports['RxHousing']:AddKeyholder(id, who.id) == true end
+        return exports['RxHousing']:RemoveKeyholder(id, who.id) == true
+    end,
 }
 
 -- What the rest of the phone calls -----------------------------------------------------------------

@@ -50,9 +50,18 @@ end
 --- The other end of a call muted (or unmuted) their microphone: stop (or go back to) hearing
 --- player `id` over the call. The voice script resets this by itself when the call ends.
 function Bridge.callMute(id, muted)
-    if GetResourceState('pma-voice') ~= 'started' then return end
-    MumbleSetVolumeOverrideByServerId(id, muted and 0.0 or exports['pma-voice']:getCallVolume())
+    if GetResourceState('pma-voice') == 'started' then
+        MumbleSetVolumeOverrideByServerId(id, muted and 0.0 or exports['pma-voice']:getCallVolume())
+    elseif GetResourceState('mumble-voip') == 'started' then
+        MumbleSetVolumeOverrideByServerId(id, muted and 0.0 or 1.0)   -- 1.0 is what it gives everyone on a call
+    end
+    -- saltychat carries voice over TeamSpeak, where this game cannot turn one player down.
 end
+
+-- mumble-voip takes the call channel from the player's own game and nowhere else.
+RegisterNetEvent('lwk_phone:voice', function(channel)
+    if GetResourceState('mumble-voip') == 'started' then exports['mumble-voip']:SetCallChannel(channel) end
+end)
 
 -- Housing ------------------------------------------------------------------------------------------
 -- The part of the Home app that has to happen in the player's own game, because that is the only
@@ -109,6 +118,9 @@ function Bridge.home.run(step)
     elseif running('ps-housing') then
         if key and step.give and step.target then TriggerServerEvent('ps-housing:server:addAccess', id, step.target) end
         if key and not step.give then TriggerServerEvent('ps-housing:server:removeAccess', id, step.identifier) end
+    elseif running('qb-houses') then
+        if key and step.give and step.target then TriggerServerEvent('qb-houses:server:giveHouseKey', step.target, id) end
+        if key and not step.give then TriggerServerEvent('qb-houses:server:removeHouseKey', id, { citizenid = step.identifier }) end
     elseif running('esx_property') then
         local ESX = exports.es_extended:getSharedObject()
         local done = function() end

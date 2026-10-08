@@ -4,7 +4,7 @@ Config = {
     -- General -------------------------------------------------------------------
     locale    = 'en',          -- a file in config/locales/: 'en' or 'fr' (README, "Languages", for adding one)
     framework = 'auto',        -- auto | qbox | qb | esx | standalone
-    bank      = 'auto',        -- company accounts: auto | lwk_bank | Renewed-Banking | qb-banking | okokBanking | qb-management | esx_addonaccount | none
+    bank      = 'auto',        -- company accounts: auto | a bank's resource name | none   (the list is in config/bridge/banking.lua)
     debug     = false,         -- prints every RPC to the server console
 
     -- Apps other resources add (community apps) go to the App Store, where players install the ones they want.
@@ -19,11 +19,12 @@ Config = {
     cursorKey = 'LMENU',       -- hold the phone up but hand the mouse back to the game (aim the camera)
 
     -- The phone as an item ----------------------------------------------------------
-    -- 'auto' turns both on when a framework AND an inventory with item metadata are running
-    -- (ox_inventory, qb-inventory). Standalone servers always get one phone per player.
+    -- 'auto' turns both on when a framework AND an inventory the phone knows are running (README,
+    -- "The phone as an item"). `unique` needs an inventory whose items carry data; ESX's own does not.
+    -- Standalone servers always get one phone per player.
     item = {
         name      = 'phone',
-        inventory = 'auto',    -- auto | ox | qb | none
+        inventory = 'auto',    -- auto | ox | qb | ps | codem | core | jaksam | tgiann | esx | none   (config/bridge/inventory.lua)
         require   = 'auto',    -- the player must carry the item to open the phone
         unique    = 'auto',    -- each item is its own phone: number and data live on the item, so phones can be stolen
     },
@@ -34,7 +35,7 @@ Config = {
     -- Calls ---------------------------------------------------------------------------
     calls = {
         ringSeconds = 30,      -- unanswered calls become missed calls after this
-        voice       = 'auto',  -- auto | pma | none   (none = calls connect but carry no audio)
+        voice       = 'auto',  -- auto | pma | salty | mumble | none   (none = calls connect but carry no audio)
     },
 
     -- Video and live streams travel player-to-player over WebRTC. Direct routes often fail
@@ -79,7 +80,8 @@ Config = {
     transfer = 'auto',
 
     -- Home: the housing script behind the Home app. 'auto' finds nolag_properties, vms_housing, rtx_housing,
-    -- ps-housing, qbx_properties or esx_property; 'none' hides the app. (README, "Housing".)
+    -- bcs_housing, RxHousing, ps-housing, qbx_properties, qb-houses or esx_property; 'none' hides the app.
+    -- (README, "Housing".)
     housing = 'auto',
 
     -- Garage -------------------------------------------------------------------------------------
