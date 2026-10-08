@@ -1,6 +1,16 @@
 -- Framework bridge (server). Everything framework-specific lives here so the rest of the
 -- resource only speaks: identifier, name, bank money, job, vehicles, admin.
--- Detected once: qbx_core > qb-core > es_extended > standalone. Config.framework can force one.
+-- Detected once: qbx_core > qb-core > es_extended > ox_core > standalone. Config.framework can force one.
+--
+-- ox_core differs from the other three in shape, and each difference is dealt with here:
+--   a character is known by a number (charId), which this bridge hands out as text like the others;
+--   money is in accounts (the character's default account is "the bank");
+--   there are no jobs, only groups, and a character can be in several: their job is the group they have
+--     made active, or failing that their group of type 'job';
+--   grades start at 1, and the top grade (or the grade whose account role is 'owner') is the boss;
+--   vehicles have a table of their own, and ox_core has to spawn one itself for it to stay tracked.
+-- A player and an account there are plain data whose methods are called by name: the exports used below
+-- are the ones ox_core's own Lua library is built on (ox_core/lib/server).
 --
 -- Standalone has no characters, money, jobs or owned vehicles: the identifier is the
 -- player's licence and the apps that need the rest are hidden (see Bridge.has).
@@ -13,6 +23,7 @@ local fw = Config.framework ~= 'auto' and Config.framework
     or (present('qbx_core') and 'qbox')
     or (present('qb-core') and 'qb')
     or (present('es_extended') and 'esx')
+    or (present('ox_core') and 'ox')
     or 'standalone'
 Bridge.framework = fw
 
@@ -27,6 +38,50 @@ local function player(src)
     if fw == 'qbox' then return exports.qbx_core:GetPlayer(src) end
     if fw == 'qb' then return QB.Functions.GetPlayer(src) end
     if fw == 'esx' then return ESX.GetPlayerFromId(src) end
+    if fw == 'ox' then
+        local p = exports.ox_core:GetPlayer(src)
+        return p and p.charId and p or nil   -- connected but still choosing a character: not a player yet
+    end
+end
+
+local ox = {}
+
+--- Call a method of an ox_core player: ox.call(src, 'get', 'name').
+function ox.call(src, ...) return exports.ox_core:CallPlayer(src, ...) end
+
+--- The id of a character's default account. The character goes in as a number: text is read as a state id.
+function ox.account(charId)
+    local a = exports.ox_core:GetCharacterAccount(tonumber(charId))
+    return a and a.accountId
+end
+
+function ox.balance(account)
+    return account and tonumber(exports.ox_core:CallAccount(account, 'get', 'balance')) or 0
+end
+
+--- 'addBalance' or 'removeBalance'. ox_core refuses an overdraft itself and writes its own history.
+function ox.move(account, method, amount, reason)
+    local res = account and exports.ox_core:CallAccount(account, method, { amount = amount, message = reason })
+    return type(res) == 'table' and res.success == true
+end
+
+--- A character's place in a group: the one asked for, else the one they have made active, else their
+--- group of type 'job'. Nil when they have none.
+function ox.job(src, want)
+    local active = ox.call(src, 'get', 'activeGroup')
+    local name = want or active
+    local grade = name and ox.call(src, 'getGroup', name)
+    if not grade and not want then
+        local found = ox.call(src, 'getGroupByType', 'job')
+        name, grade = found and found[1], found and found[2]
+    end
+    if not name or not grade then return nil end
+    local g = GlobalState['group.' .. name] or {}
+    local grades, roles = g.grades or {}, g.accountRoles or {}
+    return {
+        name = name, label = g.label or name, grade = grade, gradeLabel = grades[grade],
+        isBoss = grade == #grades or (roles[grade] or roles[tostring(grade)]) == 'owner', duty = active == name,
+    }
 end
 
 --- What this server can do. The UI hides apps whose feature is missing.
@@ -49,6 +104,7 @@ function Bridge.identifier(src)
     local p = player(src)
     if not p then return nil end
     if fw == 'esx' then return p.getIdentifier() end
+    if fw == 'ox' then return tostring(p.charId) end
     return p.PlayerData.citizenid
 end
 
@@ -56,6 +112,7 @@ function Bridge.name(src)
     local p = player(src)
     if not p then return GetPlayerName(src) or 'Unknown' end
     if fw == 'esx' then return p.getName() end
+    if fw == 'ox' then return ox.call(src, 'get', 'name') or GetPlayerName(src) or 'Unknown' end
     local c = p.PlayerData.charinfo or {}
     return (('%s %s'):format(c.firstname or '', c.lastname or ''):gsub('^%s+', ''):gsub('%s+$', ''))
 end
@@ -71,6 +128,8 @@ function Bridge.charName(identifier)
         ok, name = pcall(MySQL.scalar.await,
             "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(charinfo, '$.firstname')), ' ', JSON_UNQUOTE(JSON_EXTRACT(charinfo, '$.lastname'))) FROM players WHERE citizenid = ?",
             { identifier })
+    elseif fw == 'ox' then
+        ok, name = pcall(MySQL.scalar.await, 'SELECT fullName FROM characters WHERE charId = ?', { tonumber(identifier) })
     end
     return ok and name or tostring(identifier)
 end
@@ -84,6 +143,7 @@ function Bridge.getBank(src)
         local acc = p.getAccount('bank')
         return acc and acc.money or 0
     end
+    if fw == 'ox' then return ox.balance(ox.account(p.charId)) end
     return p.Functions.GetMoney('bank') or 0
 end
 
@@ -93,6 +153,9 @@ function Bridge.getCash(src)
     if fw == 'esx' then
         local acc = p.getAccount('money')
         return acc and acc.money or 0
+    end
+    if fw == 'ox' then   -- cash there is an item
+        return GetResourceState('ox_inventory') == 'started' and exports.ox_inventory:GetItemCount(src, 'money') or 0
     end
     return p.Functions.GetMoney('cash') or 0
 end
@@ -104,6 +167,7 @@ function Bridge.addBank(src, amount, reason)
         p.addAccountMoney('bank', amount, reason)
         return true
     end
+    if fw == 'ox' then return ox.move(ox.account(p.charId), 'addBalance', amount, reason) end
     return p.Functions.AddMoney('bank', amount, reason) ~= false
 end
 
@@ -115,6 +179,7 @@ function Bridge.removeBank(src, amount, reason)
         p.removeAccountMoney('bank', amount, reason)
         return true
     end
+    if fw == 'ox' then return ox.move(ox.account(p.charId), 'removeBalance', amount, reason) end
     return p.Functions.RemoveMoney('bank', amount, reason) == true
 end
 
@@ -131,15 +196,18 @@ function Bridge.addBankOffline(identifier, amount)
             "UPDATE users SET accounts = JSON_SET(accounts, '$.bank', CAST(JSON_EXTRACT(accounts, '$.bank') AS SIGNED) + ?) WHERE identifier = ?",
             { amount, identifier }) > 0
     end
+    if fw == 'ox' then return ox.move(ox.account(identifier), 'addBalance', amount) end   -- an account is there whether or not its owner is
     return false
 end
 
 -- Jobs -----------------------------------------------------------------------------------------
 
 --- { name, label, grade, gradeLabel, isBoss, duty } or nil. `duty` is nil where the framework has no duty.
-function Bridge.getJob(src)
+--- `as` only matters where a character can have more than one job (ox_core): their place in that one.
+function Bridge.getJob(src, as)
     local p = player(src)
     if not p then return nil end
+    if fw == 'ox' then return ox.job(src, as) end
     if fw == 'esx' then
         local j = p.getJob()
         return { name = j.name, label = j.label, grade = j.grade, gradeLabel = j.grade_label, isBoss = j.grade_name == 'boss' }
@@ -155,6 +223,7 @@ end
 function Bridge.onDuty(job)
     core()
     local out = {}
+    if fw == 'ox' then return exports.ox_core:GetGroupActivePlayers(job) or out end
     if fw == 'esx' then
         for _, p in pairs(ESX.GetExtendedPlayers('job', job)) do out[#out + 1] = p.source end
     elseif fw == 'qb' or fw == 'qbox' then
@@ -168,6 +237,12 @@ function Bridge.onDuty(job)
 end
 
 function Bridge.toggleDuty(src)
+    if fw == 'ox' then   -- on duty there is having the group active
+        local j = ox.job(src)
+        if not j then return false end
+        if j.duty then return ox.call(src, 'setActiveGroup') == true end
+        return ox.call(src, 'setActiveGroup', j.name) == true
+    end
     if fw ~= 'qb' and fw ~= 'qbox' then return false end
     local p = player(src)
     if not p then return false end
@@ -176,9 +251,14 @@ function Bridge.toggleDuty(src)
 end
 
 --- Give an online player a job and grade (hiring, firing, promoting). Returns success.
-function Bridge.setJob(src, job, grade)
+--- `from` is the job they are leaving when `job` is Bridge.unemployed: needed where a character can have several.
+function Bridge.setJob(src, job, grade, from)
     local p = player(src)
     if not p then return false end
+    if fw == 'ox' then
+        if job == Bridge.unemployed then return from ~= nil and ox.call(src, 'setGroup', from, 0) == true end
+        return ox.call(src, 'setGroup', job, math.max(grade or 1, 1)) == true   -- 0 there means out of the group
+    end
     if fw == 'esx' then
         p.setJob(job, grade)
         return true
@@ -190,6 +270,10 @@ end
 function Bridge.grades(job)
     core()
     local out = {}
+    if fw == 'ox' then
+        for level, name in ipairs((GlobalState['group.' .. job] or {}).grades or {}) do out[level] = { level = level, name = name } end
+        return out
+    end
     if fw == 'esx' then
         local ok, rows = pcall(MySQL.query.await, 'SELECT grade, label FROM job_grades WHERE job_name = ?', { job })
         for _, r in ipairs(ok and rows or {}) do out[#out + 1] = { level = tonumber(r.grade) or 0, name = r.label } end
@@ -219,6 +303,12 @@ function Bridge.employees(job)
                    CONCAT(JSON_UNQUOTE(JSON_EXTRACT(charinfo, '$.firstname')), ' ', JSON_UNQUOTE(JSON_EXTRACT(charinfo, '$.lastname'))) AS name,
                    JSON_EXTRACT(job, '$.grade.level') AS grade, JSON_UNQUOTE(JSON_EXTRACT(job, '$.grade.name')) AS gradeLabel
             FROM players WHERE JSON_UNQUOTE(JSON_EXTRACT(job, '$.name')) = ?]], { job })
+    elseif fw == 'ox' then
+        ok, rows = pcall(MySQL.query.await, [[
+            SELECT CAST(c.charId AS CHAR) AS id, c.fullName AS name, g.grade AS grade, gg.label AS gradeLabel
+            FROM character_groups g JOIN characters c ON c.charId = g.charId
+            LEFT JOIN ox_group_grades gg ON gg.`group` = g.name AND gg.grade = g.grade
+            WHERE g.name = ? AND c.deleted IS NULL]], { job })
     end
     return ok and rows or {}
 end
@@ -235,6 +325,9 @@ function Bridge.sourceOf(identifier)
     elseif fw == 'esx' then
         local p = ESX.GetPlayerFromIdentifier(identifier)
         return p and p.source
+    elseif fw == 'ox' then
+        local p = tonumber(identifier) and exports.ox_core:GetPlayerFromCharId(tonumber(identifier))
+        return p and tonumber(p.source)
     end
     for _, src in ipairs(GetPlayers()) do
         if Bridge.identifier(tonumber(src)) == identifier then return tonumber(src) end
@@ -306,6 +399,7 @@ local function where(r, c)
 end
 
 local function decode(text)
+    if type(text) == 'table' then return text end
     local ok, t = pcall(json.decode, text or '')
     return ok and type(t) == 'table' and t or {}
 end
@@ -313,6 +407,22 @@ end
 function Bridge.vehicles(src)
     local out = {}
     if fw == 'standalone' then return out end
+    if fw == 'ox' then
+        -- Its own table: `stored` is the garage, 'impound', or empty while the vehicle is out in the world.
+        local ok, rows = pcall(MySQL.query.await, 'SELECT id, plate, model, data, `stored` FROM vehicles WHERE owner = ?', { tonumber(Bridge.identifier(src)) })
+        for _, r in ipairs(ok and rows or {}) do
+            local props = decode(r.data).properties or {}
+            out[#out + 1] = {
+                id = r.id, plate = r.plate, model = r.model, garage = r.stored or '',
+                state = r.stored == nil and 'out' or r.stored == 'impound' and 'impound' or 'garaged',
+                fuel = math.floor(tonumber(props.fuelLevel) or 100),
+                engine = math.floor((tonumber(props.engineHealth) or 1000) / 10),
+                body = math.floor((tonumber(props.bodyHealth) or 1000) / 10),
+                props = props,
+            }
+        end
+        return out
+    end
     local c = columns()
     local ok, rows = pcall(MySQL.query.await, ('SELECT * FROM %s WHERE %s = ?'):format(TABLE, OWNER), { Bridge.identifier(src) })
     for _, r in ipairs(ok and rows or {}) do
@@ -340,6 +450,11 @@ local function outs(c) return c.garageSpotID and OUT_VMS or OUT end
 --- before (for Bridge.vehicleBack), or false when nothing was changed.
 function Bridge.vehicleOut(src, plate)
     if fw == 'standalone' then return false end
+    if fw == 'ox' then
+        -- Nothing is marked here: ox_core empties `stored` itself when it spawns the vehicle (Bridge.spawnVehicle).
+        local id = MySQL.scalar.await('SELECT id FROM vehicles WHERE plate = ? AND owner = ? AND `stored` IS NOT NULL', { plate, tonumber(Bridge.identifier(src)) })
+        return id and { id = id } or false
+    end
     local c, names, sets = columns(), {}, {}
     for _, o in ipairs(outs(c)) do
         if c[o[1]] then
@@ -359,6 +474,7 @@ end
 
 --- Undo Bridge.vehicleOut: put the vehicle back where it was. `before` is what vehicleOut returned.
 function Bridge.vehicleBack(src, plate, before)
+    if fw == 'ox' then return true end   -- nothing was changed (see Bridge.vehicleOut)
     local c, sets, params = columns(), {}, {}
     for _, o in ipairs(outs(c)) do
         local name, v = o[1], before[o[1]]
@@ -377,8 +493,19 @@ end
 -- matters is the columns (see above), and those are read whatever the script is called.
 local GARAGES = { 'jg-advancedgarages', 'cd_garage', 'vms_garagesv2', 'okokGarage', 'lunar_garage', 'qbx_garages', 'qb-garages', 'esx_advancedgarage', 'esx_garage' }
 
+--- Bring a vehicle into the world at `coords`. Only defined where the framework has to do this itself for
+--- the vehicle to stay that character's (ox_core): elsewhere it is nil and the player's game spawns it.
+--- `before` is what Bridge.vehicleOut returned.
+if fw == 'ox' then
+    function Bridge.spawnVehicle(before, coords, heading)
+        local ok, v = pcall(function() return exports.ox_core:SpawnVehicle(before.id, coords, heading) end)
+        return ok and v ~= nil
+    end
+end
+
 --- What the Garage app is working with, for the start-up report: { script = name or nil, table, columns = { names } }.
 function Bridge.garage()
+    if fw == 'ox' then return { script = 'ox_core', table = 'vehicles', columns = { 'stored' } } end
     local script
     for _, res in ipairs(GARAGES) do
         if GetResourceState(res) == 'started' then script = res break end

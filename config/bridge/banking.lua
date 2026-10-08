@@ -17,6 +17,7 @@
 --   fd_banking         other open-source bridges (its own documentation is not public)
 --   tgiann-bank        other open-source bridges (its documentation could not be read)
 --   esx_addonaccount   its source. This is also where esx_society keeps a job's money (`society_<job>`).
+--   ox_core            its source: a group's own account (the group needs `hasAccount`)
 --
 -- For another bank, set Config.bank = 'none' and fill in the three Bank.* functions below.
 
@@ -26,7 +27,7 @@ Bank = {}
 -- esx_addonaccount is last: on ESX it runs under every bank above, and they are the ones holding the money then.
 local ORDER = {
     'lwk_bank', 'Renewed-Banking', 'qb-banking', 'okokBanking', 'wasabi_banking', 'tgg-banking', 'p_banking', 'fd_banking', 'tgiann-bank',
-    'qb-management', 'esx_addonaccount',
+    'qb-management', 'esx_addonaccount', 'ox_core',
 }
 local kind
 
@@ -65,6 +66,10 @@ function Bank.balance(job)
         if k == 'esx_addonaccount' then
             local a = addon(job)
             return a and a.money
+        end
+        if k == 'ox_core' then
+            local a = exports.ox_core:GetGroupAccount(job)
+            return a and exports.ox_core:CallAccount(a.accountId, 'get', 'balance')
         end
     end)
     return ok and tonumber(v) or nil
@@ -107,6 +112,10 @@ local function move(job, amount, reason, add)
             if not a then return false end
             if add then a.addMoney(amount) else a.removeMoney(amount) end
             return true
+        elseif k == 'ox_core' then
+            local a = exports.ox_core:GetGroupAccount(job)
+            local res = a and exports.ox_core:CallAccount(a.accountId, add and 'addBalance' or 'removeBalance', { amount = amount, message = reason })
+            return type(res) == 'table' and res.success == true
         end
         return false
     end)

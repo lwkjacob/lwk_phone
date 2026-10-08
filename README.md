@@ -1,6 +1,6 @@
 # LWK Phone
 
-A free phone for FiveM. A small finished core, add-on apps from an App Store, a theme file servers can edit, and community apps other resources register at runtime. Works on Qbox, QBCore, ESX and standalone servers.
+A free phone for FiveM. A small finished core, add-on apps from an App Store, a theme file servers can edit, and community apps other resources register at runtime. Works on Qbox, QBCore, ESX, ox_core and standalone servers.
 
 **Status: feature-complete, in testing.** Report anything that breaks on the [issue tracker](https://github.com/lwkjacob/lwk_phone/issues). What is deliberately not built is listed under [Not built](#not-built).
 
@@ -71,7 +71,7 @@ Everything is in `config/config.lua`, with a comment on each option. The ones mo
 | Option | What it does |
 |---|---|
 | `locale` | Language file from `config/locales/`. |
-| `framework` | `auto` detects Qbox, QBCore or ESX and falls back to standalone. |
+| `framework` | `auto` detects Qbox, QBCore, ESX or ox_core and falls back to standalone. |
 | `autoInstallApps` | Whether community apps may install themselves on every phone, or always go to the App Store first (the default). |
 | `bank` | Which bank script holds company money. `auto` finds it. |
 | `keybind`, `command`, `walk`, `cursorKey` | How the phone opens and whether players can move with it out. |
@@ -91,11 +91,22 @@ Framework and inventory differences live in `config/bridge/`, one file each for 
 
 Apps that a server cannot back are hidden rather than shown empty: Wallet, Crypto, Garage and Services on standalone, Home without a housing bridge, Music without songs.
 
+### ox_core
+
+ox_core is shaped differently from the other frameworks, so a few things read differently there:
+
+- **Jobs are groups.** A character can be in several. Their job, as far as Services is concerned, is the group they have made active, or failing that their group of type `job`. On duty means having that group active. The top grade of a group (or a grade whose account role is `owner`) is the boss.
+- **The bank is the character's default account**, and the company account is the group's own account (the group needs `hasAccount`). Phone payments show in ox_core's own transaction history.
+- **The valet's vehicle is spawned by ox_core**, not by the player's game, so it stays that character's tracked vehicle. The model has to be one ox_core knows.
+- **Coming from NPWD** works here too: ox_core runs NPWD itself, and the number it kept on each character is carried over.
+
+This was written from ox_core's source code and has not been played on.
+
 ### Banks
 
 Wallet works with any bank script, because a player's balance is framework bank money in all of them.
 
-The Company Account under Services > My Job (balance, deposit and withdraw, for bosses) is read from whichever of these is running: lwk_bank, Renewed-Banking, qb-banking, okokBanking, wasabi_banking, tgg-banking, p_banking, fd_banking, tgiann-bank, qb-management, or esx_society / esx_addonaccount (`society_<job>`). With none of them, that section is not shown. Phone payments are also written to the bank's own history on Renewed-Banking, qb-banking and wasabi_banking; lwk_bank lists them by itself. For another bank, edit `config/bridge/banking.lua`.
+The Company Account under Services > My Job (balance, deposit and withdraw, for bosses) is read from whichever of these is running: lwk_bank, Renewed-Banking, qb-banking, okokBanking, wasabi_banking, tgg-banking, p_banking, fd_banking, tgiann-bank, qb-management, esx_society / esx_addonaccount (`society_<job>`), or on ox_core the group's own account. With none of them, that section is not shown. Phone payments are also written to the bank's own history on Renewed-Banking, qb-banking and wasabi_banking; lwk_bank lists them by itself. For another bank, edit `config/bridge/banking.lua`.
 
 ### Garages
 

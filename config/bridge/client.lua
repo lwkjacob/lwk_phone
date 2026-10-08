@@ -9,6 +9,7 @@ local fw = Config.framework ~= 'auto' and Config.framework
     or (present('qbx_core') and 'qbox')
     or (present('qb-core') and 'qb')
     or (present('es_extended') and 'esx')
+    or (present('ox_core') and 'ox')
     or 'standalone'
 Bridge.framework = fw
 
@@ -18,6 +19,10 @@ local ESX = fw == 'esx' and exports.es_extended:getSharedObject() or nil
 function Bridge.loaded()
     if fw == 'esx' then return ESX.IsPlayerLoaded() end
     if fw == 'qb' or fw == 'qbox' then return LocalPlayer.state.isLoggedIn == true end
+    if fw == 'ox' then   -- a character has been chosen once the player has a charId
+        local ok, p = pcall(function() return exports.ox_core:GetPlayer() end)
+        return ok and type(p) == 'table' and p.charId ~= nil
+    end
     return NetworkIsPlayerActive(PlayerId())
 end
 
@@ -29,6 +34,9 @@ function Bridge.watch(onLoad, onUnload)
     elseif fw == 'qb' or fw == 'qbox' then
         RegisterNetEvent('QBCore:Client:OnPlayerLoaded', onLoad)
         RegisterNetEvent('QBCore:Client:OnPlayerUnload', onUnload)
+    elseif fw == 'ox' then   -- raised inside the player's own game, not sent from the server
+        AddEventHandler('ox:playerLoaded', function() onLoad() end)
+        AddEventHandler('ox:playerLogout', function() onUnload() end)
     end
 end
 

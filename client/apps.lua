@@ -116,6 +116,19 @@ After['garage.valet'] = function(res)
     local pos = GetEntityCoords(PlayerPedId())
     local found, node, heading = GetClosestVehicleNodeWithHeading(pos.x + 12.0, pos.y + 12.0, pos.z, 1, 3.0, 0)
     local at = found and node or pos
+    if spawn.server then
+        -- This framework spawns its own vehicles: tell it where, and it does the rest (tuning included).
+        local done = lib.callback.await('lwk_phone:rpc', false, 'garage.spawn', { plate = spawn.plate, x = at.x, y = at.y, z = at.z, h = heading or 0.0 })
+        if not done or not done.ok then
+            lib.callback.await('lwk_phone:rpc', false, 'garage.failed', { plate = spawn.plate })
+            return { ok = false, error = L('err_valet_failed') }
+        end
+        nameVehicles(done.vehicles)
+        res.vehicles = done.vehicles
+        Bridge.giveKeys(nil, spawn.plate)
+        SetNewWaypoint(at.x, at.y)
+        return res
+    end
     local vehicle = 0
     if model and pcall(lib.requestModel, model, 5000) then
         vehicle = CreateVehicle(model, at.x, at.y, at.z, heading or 0.0, true, false)

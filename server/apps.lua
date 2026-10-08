@@ -117,6 +117,9 @@ RPC['garage.valet'] = function(src, number, data)
     end
     if not found or found.state == 'out' then return Phone.fail(L('err_generic')) end
     if found.state == 'impound' and (found.held or not Config.garage.fromImpound) then return Phone.fail(L('err_impound')) end
+    -- Where the framework spawns the vehicle (below), it is not marked as out until then: one valet at a time.
+    local pending = valets[number]
+    if Bridge.spawnVehicle and pending and pending.plate == plate and not pending.spawned and os.time() - pending.at < 15 then return Phone.fail(L('err_generic')) end
     local fee = found.state == 'impound' and Config.garage.impoundFee or Config.garage.valetFee
     if not Bridge.removeBank(src, fee, 'phone-valet') then return Phone.fail(L('err_funds')) end
     local before = Bridge.vehicleOut(src, found.plate)
@@ -127,7 +130,24 @@ RPC['garage.valet'] = function(src, number, data)
     local label = found.state == 'impound' and L('tx_impound') or L('tx_valet')
     record(number, label, -fee, src)
     valets[number] = { plate = plate, raw = found.plate, fee = fee, before = before, label = label, at = os.time() }
-    return Phone.ok({ spawn = { model = found.model, plate = found.plate, props = found.props }, vehicles = vehicles(src) })
+    -- Where the framework has to spawn the vehicle itself, the player's game only says where (garage.spawn).
+    local spawn = Bridge.spawnVehicle and { plate = found.plate, server = true } or { model = found.model, plate = found.plate, props = found.props }
+    return Phone.ok({ spawn = spawn, vehicles = vehicles(src) })
+end
+
+--- The second half of a valet where the framework spawns the vehicle (Bridge.spawnVehicle): the player's
+--- game has found a place on the road for the valet just paid for. The place has to be near the player.
+RPC['garage.spawn'] = function(src, number, data)
+    local v = valets[number]
+    local x, y, z = tonumber(data.x), tonumber(data.y), tonumber(data.z)
+    if not Bridge.spawnVehicle or not v or v.spawned or v.plate ~= plateOf(data.plate) or os.time() - v.at > 60 or not (x and y and z) then
+        return Phone.fail(L('err_generic'))
+    end
+    local at = vector3(x, y, z)
+    if #(GetEntityCoords(GetPlayerPed(src)) - at) > 100.0 then return Phone.fail(L('err_generic')) end
+    if not Bridge.spawnVehicle(v.before, at, tonumber(data.h) or 0.0) then return Phone.fail(L('err_generic')) end
+    v.spawned = true
+    return Phone.ok({ vehicles = vehicles(src) })
 end
 
 --- The player's game could not produce the vehicle the valet was bringing (a model this server does not
@@ -174,7 +194,7 @@ local function jobSlice(src)
             local who = Bridge.sourceOf(e.id)
             -- The list comes from the saved characters, which lag behind a promotion or a firing made a
             -- moment ago. Someone who is online is shown as they are right now.
-            local now = who and Bridge.getJob(who)
+            local now = who and Bridge.getJob(who, j.name)
             if not now or now.name == j.name then
                 staff[#staff + 1] = {
                     id = e.id, name = e.name, online = who ~= nil,
@@ -265,7 +285,7 @@ RPC['job.fire'] = function(src, _, data)
             if (tonumber(e.grade) or 0) >= (tonumber(j.grade) or 0) then return Phone.fail(L('err_generic')) end
             local target = Bridge.sourceOf(e.id)
             if not target then return Phone.fail(L('err_offline')) end
-            Bridge.setJob(target, Bridge.unemployed, 0)
+            Bridge.setJob(target, Bridge.unemployed, 0, j.name)
             return Phone.ok({ job = jobSlice(src) })
         end
     end
@@ -285,7 +305,7 @@ RPC['job.grade'] = function(src, _, data)
         if e.id == data.id then
             local target = Bridge.sourceOf(e.id)
             if not target then return Phone.fail(L('err_offline')) end
-            local now = Bridge.getJob(target)
+            local now = Bridge.getJob(target, j.name)
             if not now or now.name ~= j.name or (tonumber(now.grade) or 0) >= mine then return Phone.fail(L('err_generic')) end
             if not Bridge.setJob(target, j.name, grade) then return Phone.fail(L('err_generic')) end
             return Phone.ok({ job = jobSlice(src) })

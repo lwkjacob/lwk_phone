@@ -21,8 +21,11 @@
 
 Transfer = {}
 
-local esx = Bridge.framework == 'esx'
-local PLAYERS, ID = esx and 'users' or 'players', esx and 'identifier' or 'citizenid'
+-- Where the framework keeps its characters. ox_core runs NPWD itself and gives it this table and these columns.
+local esx, ox = Bridge.framework == 'esx', Bridge.framework == 'ox'
+local PLAYERS = esx and 'users' or ox and 'characters' or 'players'
+local ID = esx and 'identifier' or ox and 'charId' or 'citizenid'
+local NUMBER = ox and 'phoneNumber' or 'phone_number'
 
 local function rows(sql, params)
     local ok, res = pcall(MySQL.query.await, sql, params or {})
@@ -157,9 +160,9 @@ function Transfer.source()
 
     -- Both phones add a phone_number column to the framework's player table. On QBCore, NPWD is often
     -- run through an integration that leaves the number where QBCore itself keeps it, in charinfo.
-    if column(PLAYERS, 'phone_number') then
-        numberSql = 'phone_number'
-    elseif not esx then
+    if column(PLAYERS, NUMBER) then
+        numberSql = NUMBER
+    elseif not esx and not ox then
         numberSql = "JSON_UNQUOTE(JSON_EXTRACT(charinfo, '$.phone'))"
     else
         reader = false
