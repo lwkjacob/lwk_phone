@@ -6,10 +6,10 @@ A free phone for FiveM. A small finished core, add-on apps from an App Store, a 
 
 ## Install
 
-Needs [ox_lib](https://github.com/overextended/ox_lib), [oxmysql](https://github.com/overextended/oxmysql) and MariaDB 10.2+ or MySQL 8. Voice calls use [pma-voice](https://github.com/AvarianKnight/pma-voice). On a call, **Mute** stops the other end hearing you while people next to you still can, and **Speaker** lets anyone standing within a few metres hear the call and be heard on it (this needs OneSync, which tells the server where players are).
+Needs [ox_lib](https://github.com/overextended/ox_lib), [oxmysql](https://github.com/overextended/oxmysql) and MariaDB 10.2+ or MySQL 8. Voice calls use [pma-voice](https://github.com/AvarianKnight/pma-voice), saltychat or mumble-voip, whichever is running. On a call, **Mute** stops the other end hearing you while people next to you still can (not with saltychat), and **Speaker** lets anyone standing within a few metres hear the call and be heard on it (this needs OneSync, which tells the server where players are).
 
 1. Put the folder in `resources` and name it `lwk_phone`.
-2. In `server.cfg`, after ox_lib, oxmysql, your framework, your inventory and pma-voice:
+2. In `server.cfg`, after ox_lib, oxmysql, your framework, your inventory and your voice script:
    ```
    ensure lwk_phone
    ```
@@ -23,7 +23,20 @@ In the camera, `Left Alt` lets the mouse aim (in selfie mode it moves the phone 
 
 ### The phone as an item
 
-On a framework server with ox_inventory or qb-inventory, the phone is an item and **each item is its own phone**: the number is written onto the item and every bit of phone data is keyed by that number. Give the item away, or have it taken, and the phone goes with it. On standalone servers there is no item and each player simply has a phone.
+On a framework server with one of the inventories below, the phone is an item and **each item is its own phone**: the number is written onto the item and every bit of phone data is keyed by that number. Give the item away, or have it taken, and the phone goes with it. On standalone servers there is no item and each player simply has a phone.
+
+| Inventory | Phone is an item | Each item is its own phone |
+|---|---|---|
+| ox_inventory | ✅ | ✅ |
+| qb-inventory | ✅ | ✅ |
+| ps-inventory | ✅ | ✅ |
+| codem-inventory | ✅ | ✅ |
+| core_inventory | ✅ | ✅ |
+| jaksam_inventory | ✅ | ✅ |
+| tgiann-inventory | ✅ | ✅ |
+| ESX's own inventory | ✅ (once the `items` table has a `phone` row) | ❌ (its items carry no data, so the phone belongs to the character) |
+
+Only ox_inventory has been played on so far. The others were written from each inventory's documentation or source code; report anything that is off.
 
 ox_inventory, in `data/items.lua`:
 
@@ -31,7 +44,7 @@ ox_inventory, in `data/items.lua`:
 ['phone'] = { label = 'Phone', weight = 190, stack = false, consume = 0, client = { export = 'lwk_phone.usePhone' } },
 ```
 
-qb-inventory, in `qb-core/shared/items.lua`: an item named `phone` with `unique = true`, `useable = true`, `shouldClose = true`.
+Every other inventory: an item named `phone` in its item list (`qb-core/shared/items.lua`, the inventory's own list, or the `items` table on ESX), not stackable, usable, closing the inventory when used. With several phones in a pocket, using one opens that one; where the inventory does not say which was used, the first is opened.
 
 To change this, see `Config.item` (`require = false` drops the item altogether; `unique = false` keeps the item but ties the phone to the character).
 
@@ -82,7 +95,7 @@ Apps that a server cannot back are hidden rather than shown empty: Wallet, Crypt
 
 Wallet works with any bank script, because a player's balance is framework bank money in all of them.
 
-The Company Account under Services > My Job (balance, deposit and withdraw, for bosses) is read from whichever of these is running: lwk_bank, Renewed-Banking, qb-banking, okokBanking, qb-management, or esx_addonaccount (`society_<job>`). With none of them, that section is not shown. Phone payments are also written to the bank's own history on Renewed-Banking and qb-banking; lwk_bank lists them by itself. For another bank, edit `config/bridge/banking.lua`.
+The Company Account under Services > My Job (balance, deposit and withdraw, for bosses) is read from whichever of these is running: lwk_bank, Renewed-Banking, qb-banking, okokBanking, wasabi_banking, tgg-banking, p_banking, fd_banking, tgiann-bank, qb-management, or esx_society / esx_addonaccount (`society_<job>`). With none of them, that section is not shown. Phone payments are also written to the bank's own history on Renewed-Banking, qb-banking and wasabi_banking; lwk_bank lists them by itself. For another bank, edit `config/bridge/banking.lua`.
 
 ### Garages
 
@@ -93,9 +106,14 @@ Every garage script keeps vehicles in the framework's table (`player_vehicles` o
 | `in_garage`, `garage_id`, `impound` | jg-advancedgarages, cd_garage |
 | `state`, `garage` | qb-garages, qbx_garages |
 | `stored`, `parking`, `pound` | esx_garage and most ESX garages |
+| `stored`, `garage` | esx_advancedgarage |
+| `stored` | lunar_garage |
 | `parking` beside the framework's own | okokGarage |
+| `garage`, `garageSpotID`, `impound_date` | vms_garagesv2 |
 
-A vehicle held in a police impound (jg-advancedgarages' `impound_retrievable`) cannot be released from the phone. Set `garage.fromImpound = false` to stop the phone releasing impounded vehicles at all. A garage script with other columns needs `where` and `Bridge.vehicleOut` in `config/bridge/framework.lua` adjusted.
+A garage script that is not in this table still works if it keeps one of these sets of columns, which most do. `phonecheck` prints the columns the phone found.
+
+A vehicle held in a police impound (jg-advancedgarages' `impound_retrievable`, any impound in vms_garagesv2) cannot be released from the phone. Set `garage.fromImpound = false` to stop the phone releasing impounded vehicles at all. A garage script with other columns needs `where` and `Bridge.vehicleOut` in `config/bridge/framework.lua` adjusted.
 
 After the valet spawns a vehicle, keys are handed over through qb-vehiclekeys' event (which qbx_vehiclekeys and most key scripts also answer), cd_garage's and okokGarage's. Another key script goes in `Bridge.giveKeys` in `config/bridge/client.lua`.
 
@@ -108,8 +126,8 @@ A server that switches to this phone does not start from nothing. If the old pho
 
 | Old phone | Number | Contacts | Texts | Calls | Photos | Notes |
 |---|---|---|---|---|---|---|
-| NPWD | yes | yes | yes | yes | yes | yes |
-| GCPhone | yes | yes | yes | yes | (it has none) | (it has none) |
+| NPWD | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| GCPhone | ✅ | ✅ | ✅ | ✅ | ❌ (it has none) | ❌ (it has none) |
 
 To switch: stop the old phone and remove it from `server.cfg`, **leave its tables in the database**, and start this one. The old tables are only read, never changed, so nothing is lost if you go back. The start-up report says what was found. `Config.transfer = 'none'` switches all of this off.
 
@@ -123,14 +141,17 @@ The Home app lists the houses a player owns, with a waypoint to each, and as muc
 
 | Script | List and waypoint | Lock the door | Keys |
 |---|---|---|---|
-| nolag_properties | yes | yes | yes |
-| vms_housing | yes | no | yes (not when its keys are items) |
-| rtx_housing | yes | yes | no |
-| ps-housing | yes | no | yes |
-| qbx_properties | yes | no | yes |
-| esx_property | yes | yes | yes |
+| nolag_properties | ✅ | ✅ | ✅ |
+| vms_housing | ✅ | ❌ | ✅ (not when its keys are items) |
+| rtx_housing | ✅ | ✅ | ❌ |
+| bcs_housing | ✅ | ✅ (shell and IPL houses) | ✅ |
+| RxHousing | ✅ | ❌ | ✅ |
+| ps-housing | ✅ | ❌ | ✅ |
+| qbx_properties | ✅ | ❌ | ✅ |
+| qb-houses | ✅ | ❌ | ✅ |
+| esx_property | ✅ | ✅ | ✅ |
 
-A key is given to one of the player's contacts, and goes to whoever holds that phone number. With vms_housing, ps-housing and esx_property that person has to be in the city at the time, because those scripts hand keys to a player rather than to a character.
+A key is given to one of the player's contacts, and goes to whoever holds that phone number. With vms_housing, bcs_housing, ps-housing, qb-houses and esx_property that person has to be in the city at the time, because those scripts hand keys to a player rather than to a character.
 
 Each of these was written from the script's own documentation or source code and has not been run against the script itself, apart from the automated tests for qbx_properties. If something is off with yours, the bridge is `config/bridge/housing.lua` (and the client half at the end of `config/bridge/client.lua`); every script has its own short section there, and adding another is a matter of copying one. Quasar's housing is not supported.
 
