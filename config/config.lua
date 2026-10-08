@@ -73,6 +73,11 @@ Config = {
         { job = 'taxi',      name = 'Taxi',      desc = 'Downtown Cab Co.',             color = '#ffcc00', icon = 'taxi' },
     },
 
+    -- Moving from another phone: when its tables are still in the database, everyone keeps the number they
+    -- had there, and setup offers to bring their contacts, texts, calls, photos and notes across.
+    -- 'auto' finds NPWD or GCPhone; 'none' switches it off. (README, "Moving from another phone".)
+    transfer = 'auto',
+
     -- Home: the housing script behind the Home app. 'auto' finds nolag_properties, vms_housing, rtx_housing,
     -- ps-housing, qbx_properties or esx_property; 'none' hides the app. (README, "Housing".)
     housing = 'auto',

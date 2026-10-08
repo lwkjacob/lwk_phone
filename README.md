@@ -99,6 +99,24 @@ A vehicle held in a police impound (jg-advancedgarages' `impound_retrievable`) c
 
 After the valet spawns a vehicle, keys are handed over through qb-vehiclekeys' event (which qbx_vehiclekeys and most key scripts also answer), cd_garage's and okokGarage's. Another key script goes in `Bridge.giveKeys` in `config/bridge/client.lua`.
 
+### Moving from another phone
+
+A server that switches to this phone does not start from nothing. If the old phone's tables are still in the database, then:
+
+- **Everyone keeps their number.** It moves the first time a character's phone loads, with nothing to do, and numbers that belong to characters who have not been back yet are held for them.
+- **Setup offers the rest.** The first time a player opens the phone, it shows what it found on their old one (contacts, conversations, call history, photos, notes) and offers to transfer it or start fresh.
+
+| Old phone | Number | Contacts | Texts | Calls | Photos | Notes |
+|---|---|---|---|---|---|---|
+| NPWD | yes | yes | yes | yes | yes | yes |
+| GCPhone | yes | yes | yes | yes | (it has none) | (it has none) |
+
+To switch: stop the old phone and remove it from `server.cfg`, **leave its tables in the database**, and start this one. The old tables are only read, never changed, so nothing is lost if you go back. The start-up report says what was found. `Config.transfer = 'none'` switches all of this off.
+
+A conversation belongs to two people: it comes across whole the first time either of them transfers, and is not brought over a second time when the other does. Social app accounts are not transferred, because passwords cannot be carried from one phone to another.
+
+Only these two free phones are covered. Transfers from paid phones are not supported and are not planned. Fuck Quasar.
+
 ### Housing
 
 The Home app lists the houses a player owns, with a waypoint to each, and as much else as the server's housing script offers. `Config.housing = 'auto'` finds the script; the app is hidden when there is none.

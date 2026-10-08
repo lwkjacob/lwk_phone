@@ -37,6 +37,7 @@ server_scripts {
   'config/bridge/inventory.lua',
   'config/bridge/voice.lua',
   'config/bridge/housing.lua',
+  'config/bridge/transfer.lua',
   'server/db.lua',
   'server/main.lua',
   'server/messages.lua',
@@ -44,6 +45,7 @@ server_scripts {
   'server/social.lua',
   'server/apps.lua',
   'server/exports.lua',
+  'server/transfer.lua',
   'server/compat.lua',
   'server/check.lua',
 }

@@ -33,7 +33,8 @@ export function DevPanel() {
       <p>Simulate what the game sends to the phone.</p>
       <button onClick={() => update((x) => (x.open = !x.open))}>{s.open ? 'Close phone' : 'Open phone'} (F1)</button>
       <button onClick={lock}>Lock</button>
-      <button onClick={() => update((x) => ((x.setup = true), (x.locked = true), (x.app = null)))}>Run first-time setup</button>
+      <button onClick={() => update((x) => ((x.setup = true), (x.locked = true), (x.app = null), (x.oldPhone = null)))}>Run first-time setup</button>
+      <button onClick={() => update((x) => ((x.setup = true), (x.locked = true), (x.app = null), (x.oldPhone = { from: 'NPWD', counts: { contacts: 86, threads: 23, calls: 112, photos: 140, notes: 9 } })))}>Setup with an old phone</button>
       <button onClick={() => incomingCall('555-0142')}>Incoming call</button>
       <button onClick={() => incomingCall('555-0188', true)}>Incoming video call</button>
       <button onClick={() => incomingCall('555-0173')}>Call from unknown number</button>

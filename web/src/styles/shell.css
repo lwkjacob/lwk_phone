@@ -1058,6 +1058,48 @@
 .setup .pass-dots i.on { background: var(--label); }
 .setup .pad b { color: var(--label); }
 
+/* Setup: moving from an old phone. Two phones, and what flows between them. */
+.setup-step.move { justify-content: flex-start; padding-top: 86px; }
+.move-art { display: flex; align-items: center; gap: 14px; color: var(--label2); }
+.move-art .tint { color: var(--tint); }
+.move-flow { width: 62px; height: 30px; display: flex; align-items: center; justify-content: center; gap: 9px; color: var(--label2); }
+.move-flow i { width: 8px; height: 8px; border-radius: 50%; background: var(--tint); animation: move-dot 1.1s ease-in-out infinite; }
+.move-art.moved .move-flow { color: #30d158; }
+.move-art.moved svg:last-child { animation: move-land 0.5s var(--spring); }
+
+@keyframes move-dot {
+  0% { transform: translateX(-16px) scale(0.5); opacity: 0; }
+  40% { opacity: 1; transform: translateX(0) scale(1); }
+  100% { transform: translateX(16px) scale(0.5); opacity: 0; }
+}
+
+@keyframes move-land {
+  0% { transform: scale(0.9); }
+  60% { transform: scale(1.08); }
+  100% { transform: none; }
+}
+
+.move-list { width: 100%; margin: 26px 0 0; padding: 0 16px; list-style: none; border-radius: 14px; background: var(--bg2); }
+.move-list li { height: 46px; display: flex; align-items: center; gap: 10px; font-size: 16px; transition: opacity 0.3s; }
+.move-list li + li { border-top: 0.5px solid var(--sep); }
+.move-list span { flex: 1; text-align: left; }
+.move-list b { font-weight: 500; color: var(--label2); font-variant-numeric: tabular-nums; }
+.move-list i { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; background: transparent; transition: background 0.25s; }
+.move-list li.in i { background: #30d158; }
+.move-list li.now i { box-shadow: inset 0 0 0 2px var(--tint); animation: move-wait 0.9s ease-in-out infinite; }
+.setup-step.move .move-art.moving ~ .move-list li:not(.in):not(.now) { opacity: 0.45; }
+
+@keyframes move-wait {
+  50% { opacity: 0.35; }
+}
+
+.move-bar { width: 100%; height: 5px; margin-top: 18px; border-radius: 3px; background: var(--fill); overflow: hidden; }
+.move-bar i { display: block; height: 100%; border-radius: 3px; background: var(--tint); transition: width 0.6s var(--ease); }
+.move-foot { width: 100%; margin-top: auto; padding-top: 18px; padding-bottom: 46px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.move-foot .btn { flex: none; width: 100%; }
+.move-foot .btn.ghost { color: var(--tint); }
+.move-foot small { max-width: 290px; font-size: 13px; line-height: 1.3; color: var(--label2); }
+
 .setup-foot {
   flex: none;
   display: flex;

@@ -31,6 +31,8 @@ local LIMITS = {
     ['company.text']   = { 3, 0.2 },
     ['wallet.request'] = { 3, 0.1 },
     ['share.send']     = { 5, 0.5 },
+    ['transfer.check'] = { 4, 0.05 },   -- each one reads through another phone's tables
+    ['transfer.run']   = { 2, 0.02 },
 }
 
 local function allowed(src, name)
@@ -123,9 +125,16 @@ end
 -- Which phone? -------------------------------------------------------------------------------
 
 local function allocate(owner, name)
+    -- Coming from another phone, a character keeps the number they had there (config/bridge/transfer.lua)...
+    local old = Util.number(Transfer.old(owner))
+    if old and not MySQL.scalar.await('SELECT 1 FROM lwk_phone_phones WHERE number = ?', { old }) then
+        MySQL.insert.await('INSERT INTO lwk_phone_phones (number, owner, name) VALUES (?, ?, ?)', { old, owner, name })
+        return old
+    end
     for _ = 1, 40 do
         local number = Util.randomNumber(Config.numbers.prefixes, Config.numbers.digits)
-        if not MySQL.scalar.await('SELECT 1 FROM lwk_phone_phones WHERE number = ?', { number }) then
+        -- ...and nobody new is given a number that is waiting for its old owner.
+        if not Transfer.reserved(number) and not MySQL.scalar.await('SELECT 1 FROM lwk_phone_phones WHERE number = ?', { number }) then
             MySQL.insert.await('INSERT INTO lwk_phone_phones (number, owner, name) VALUES (?, ?, ?)', { number, owner, name })
             return number
         end

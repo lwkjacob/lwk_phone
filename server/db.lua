@@ -118,6 +118,13 @@ local COLUMNS = {
     { 'lwk_phone_members', 'cleared', 'INT NOT NULL DEFAULT 0' },
 }
 
+-- What has been brought over from another phone already (server/transfer.lua).
+TABLES[#TABLES + 1] = [[CREATE TABLE IF NOT EXISTS lwk_phone_imported (
+    source VARCHAR(24) NOT NULL,
+    ref VARCHAR(120) NOT NULL,
+    PRIMARY KEY (source, ref)
+)]]
+
 local ready = false
 
 MySQL.ready(function()

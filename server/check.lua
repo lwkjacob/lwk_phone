@@ -88,6 +88,12 @@ function Check.lines(release, why)
 
     row('Housing', Housing.kind() == 'none' and 'none found: the Home app is hidden' or Housing.kind())
 
+    local old, oldName = Transfer.source()
+    if old then row('Transfer', ('%s data found: %d numbers kept for their owners, the rest offered in setup'):format(old.label, Transfer.kept())) end
+    if old and GetResourceState(oldName) == 'started' then
+        warn(('%s is still running. Stop it: its data is brought over from the database, not from the running script.'):format(old.label))
+    end
+
     local token = Keys.fivemanage ~= '' or GetConvar('lwk_phone_fivemanage', '') ~= ''
     local hosts = Config.upload.hosts or {}
     row('Uploads', (token and 'token set' or 'no token') .. (#hosts > 0 and ', media only from ' .. table.concat(hosts, ', ') or ', media from anywhere'))
@@ -105,7 +111,7 @@ function Check.lines(release, why)
     row('Language', Config.locale)
 
     for _, res in ipairs(PHONES) do
-        if started(res) then warn(('Another phone is running: %s. Two phones fight over the same key and the same command; stop one of them.'):format(res)) end
+        if started(res) and res ~= oldName then warn(('Another phone is running: %s. Two phones fight over the same key and the same command; stop one of them.'):format(res)) end
     end
     -- The four-line resource that lets LB Phone apps find this phone has no page of its own. One that has is the real thing.
     if started('lb-phone') and GetNumResourceMetadata('lb-phone', 'ui_page') > 0 then

@@ -64,6 +64,8 @@ export const S = {
   loaded: {} as Record<string, 'loading' | 'ready' | 'error'>,
   /** Browser demo only: how the fake server behaves, to exercise loading and failure states. */
   net: 'fast' as 'fast' | 'slow' | 'fail',
+  /** Setup: an old phone found for this player, and what is on it. In-game the server says; the dev panel can pretend. */
+  oldPhone: null as null | { from: string; counts: { contacts: number; threads: number; calls: number; photos: number; notes: number } },
   /** A full-screen app (a game, say) asked for the home indicator to be hidden. It still works, it is just not drawn. */
   hideHomeBar: false,
   settings: {
