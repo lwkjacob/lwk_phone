@@ -1,6 +1,6 @@
 {
   "name": "Default",
-  "font": "'Inter Variable', -apple-system, system-ui, sans-serif",
+  "font": "'Inter Variable', system-ui, sans-serif",
   "iconRadius": 0.225,
   "island": "pill",
   "frames": {
