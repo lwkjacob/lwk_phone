@@ -21,6 +21,7 @@
 -- A house, as the phone shows it:
 --   { id, name, addr?, x?, y?, locked = true|false|nil, keys = { { id, name } }|nil, way = true|nil }
 -- `locked` nil: no door control. `keys` nil: no key control. `way`: the client has to set the waypoint.
+-- `online = true` on a script: it hands a key to a player, not to a character, so they have to be in the city.
 --
 -- For another script: add an entry to SCRIPTS with the functions it can back, and (if it needs the
 -- player's game to do something) a branch in Bridge.home in config/bridge/client.lua.
@@ -87,6 +88,7 @@ SCRIPTS['nolag_properties'] = {
 SCRIPTS['vms_housing'] = {
     list = function() return {} end,
     key = 'client',
+    online = true,
     unchecked = true,   -- the list is not known here, so ownership is left to the script's own checks
 }
 
@@ -129,6 +131,7 @@ SCRIPTS['ps-housing'] = {
         return out
     end,
     key = 'client',
+    online = true,
 }
 
 -- qbx_properties -----------------------------------------------------------------------------------
@@ -185,6 +188,7 @@ SCRIPTS['esx_property'] = {
     end,
     lock = 'client',
     key = 'client',
+    online = true,
 }
 
 -- qb-houses ----------------------------------------------------------------------------------------
@@ -205,6 +209,7 @@ SCRIPTS['qb-houses'] = {
         return out
     end,
     key = 'client',
+    online = true,
 }
 
 -- bcs_housing --------------------------------------------------------------------------------------
@@ -307,6 +312,7 @@ end
 function Housing.key(src, id, give, who)
     local s = SCRIPTS[Housing.kind()]
     if not s or not s.key or not who or not who.id or not owns(src, id) then return false end
+    if give and s.online and not who.src then return false end
     if s.key == 'client' then return { action = 'key', id = id, give = give, identifier = who.id, target = who.src } end
     local ok, done = pcall(s.key, src, id, give, who)
     return ok and done == true

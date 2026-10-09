@@ -84,6 +84,11 @@ local leaving = {}   -- caller's number -> { to, from = what the other phone wil
 local function takesMessage(call)
     if call.company or call.answered then return false end
     if Keys.fivemanage == '' and GetConvar('lwk_phone_fivemanage', '') == '' then return false end
+    -- Blocking is done by the phone that blocks (it ignores the call), so a blocked caller rings out
+    -- like anyone else. They do not get to leave a message.
+    for _, c in ipairs(Phone.get(call.callee, 'contacts') or {}) do
+        if c.blocked and Util.number(c.number) == call.caller then return false end
+    end
     return MySQL.scalar.await('SELECT 1 FROM lwk_phone_phones WHERE number = ?', { call.callee }) ~= nil
 end
 
@@ -93,14 +98,15 @@ local function finish(call, by)
         if id == call.id then unlisten(src) end
     end
     local duration = call.answered and os.time() - call.answered or 0
+    -- Off the call before anything below waits on the database: nobody answers a call that is over.
+    local parties = { call.caller, table.unpack(call.targets) }
+    for _, n in ipairs(parties) do inCall[n] = nil end
     -- Rang out or was declined (anything but the caller giving up): over to voicemail.
     local message = by ~= call.caller and takesMessage(call)
     if message then
         leaving[call.caller] = { to = call.callee, from = call.hidden and L('no_caller_id') or call.caller, at = os.time() }
     end
-    local parties = { call.caller, table.unpack(call.targets) }
     for _, n in ipairs(parties) do
-        inCall[n] = nil
         local src = Phone.source(n)
         if src then
             pcall(Voice.set, src, 0)

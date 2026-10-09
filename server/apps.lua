@@ -479,13 +479,14 @@ RegisterCommand('phoneprune', function(src, args)
     local calls = MySQL.update.await('DELETE FROM lwk_phone_calls WHERE created < ?', { before })
     local mail = MySQL.update.await('DELETE FROM lwk_phone_mail WHERE created < ?', { before })
     local posts = MySQL.update.await('DELETE FROM lwk_phone_posts WHERE created < ?', { before })
-    -- What that leaves hanging: replies and reactions to posts that are gone, and conversations with
-    -- nothing left in them (not Shade's channels: those are rooms people join by name).
+    -- What that leaves hanging: replies and reactions to posts that are gone, and conversations that old
+    -- with nothing left in them (not Shade's channels: those are rooms people join by name). A conversation
+    -- started since then and not written in yet is left alone.
     MySQL.update.await('DELETE r FROM lwk_phone_posts r LEFT JOIN lwk_phone_posts p ON p.id = r.parent WHERE r.parent IS NOT NULL AND p.id IS NULL')
     MySQL.update.await('DELETE x FROM lwk_phone_reactions x LEFT JOIN lwk_phone_posts p ON p.id = x.post WHERE p.id IS NULL')
-    local empty = "c.kind <> 'shade' AND NOT EXISTS (SELECT 1 FROM lwk_phone_msgs x WHERE x.channel = c.id)"
-    MySQL.update.await('DELETE m FROM lwk_phone_members m JOIN lwk_phone_channels c ON c.id = m.channel WHERE ' .. empty)
-    MySQL.update.await('DELETE c FROM lwk_phone_channels c WHERE ' .. empty)
+    local empty = "c.kind <> 'shade' AND c.updated < ? AND NOT EXISTS (SELECT 1 FROM lwk_phone_msgs x WHERE x.channel = c.id)"
+    MySQL.update.await('DELETE m FROM lwk_phone_members m JOIN lwk_phone_channels c ON c.id = m.channel WHERE ' .. empty, { before })
+    MySQL.update.await('DELETE c FROM lwk_phone_channels c WHERE ' .. empty, { before })
     tell(src, ('pruned everything older than %d days: %d texts, %d calls, %d emails, %d posts'):format(days, texts, calls, mail, posts))
     Phone.log(('**prune** older than %d days: %d texts, %d calls, %d emails, %d posts'):format(days, texts, calls, mail, posts))
 end, false)
