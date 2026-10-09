@@ -5,7 +5,7 @@ import type { CallLog, Chat, Msg, Voicemail } from './data';
 import { setLocale, t, type Strings } from './i18n';
 import { inGame, nuiFetch, rpc } from './net';
 import { setRtcConfig, signal, type Signal } from './rtc';
-import { S, addPhoto, alert, answered, blank, callVideo, videoAsked, ended, goHome, hydrate, incomingCall, markSaved, notify, openApp, serverMsg, setClock, startCall, toVoicemail, uid, update } from './store';
+import { S, addPhoto, alert, answered, blank, callVideo, videoAsked, ended, goHome, hydrate, incomingCall, markSaved, notify, serverMsg, setClock, startCall, toVoicemail, uid, update } from './store';
 import { theme } from './theme';
 
 /* Messages from Lua. Lua talks to the phone with SendNUIMessage({ action = ..., ... }); the phone talks
@@ -282,6 +282,3 @@ export function listen() {
   window.addEventListener('keydown', (e) => e.key === 'Escape' && nuiFetch(null, 'close'));
   nuiFetch(null, 'ready');
 }
-
-/** Opening a conversation from a notification, by its server channel. */
-export const openChat = (id: number) => openApp('messages', null, { chat: id });

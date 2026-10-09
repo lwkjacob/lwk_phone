@@ -47,6 +47,11 @@ local function allowed(src, name)
 end
 
 function Phone.now() return os.time() * 1000 end
+
+--- The token for the upload host, from config/keys.lua or the convar. '' when there is none.
+function Phone.uploadToken()
+    return Keys.fivemanage ~= '' and Keys.fivemanage or GetConvar('lwk_phone_fivemanage', '')
+end
 function Phone.number(src) return equipped[src] end
 function Phone.source(number) return byNumber[number] end
 function Phone.flags(number) return flags[number] or {} end
@@ -194,7 +199,7 @@ local function init(src, number)
     if #Config.music == 0 then hidden[#hidden + 1] = 'music' end
     if Bridge.has.money and not Config.crypto.enabled then hidden[#hidden + 1] = 'crypto' end
 
-    local token = Keys.fivemanage ~= '' and Keys.fivemanage or GetConvar('lwk_phone_fivemanage', '')
+    local token = Phone.uploadToken()
     return {
         number = number,
         name = MySQL.scalar.await('SELECT name FROM lwk_phone_phones WHERE number = ?', { number }) or Bridge.name(src),

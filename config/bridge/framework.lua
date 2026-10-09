@@ -398,12 +398,6 @@ local function where(r, c)
     return 'garaged', garage
 end
 
-local function decode(text)
-    if type(text) == 'table' then return text end
-    local ok, t = pcall(json.decode, text or '')
-    return ok and type(t) == 'table' and t or {}
-end
-
 function Bridge.vehicles(src)
     local out = {}
     if fw == 'standalone' then return out end
@@ -411,7 +405,7 @@ function Bridge.vehicles(src)
         -- Its own table: `stored` is the garage, 'impound', or empty while the vehicle is out in the world.
         local ok, rows = pcall(MySQL.query.await, 'SELECT id, plate, model, data, `stored` FROM vehicles WHERE owner = ?', { tonumber(Bridge.identifier(src)) })
         for _, r in ipairs(ok and rows or {}) do
-            local props = decode(r.data).properties or {}
+            local props = Util.decode(r.data).properties or {}
             out[#out + 1] = {
                 id = r.id, plate = r.plate, model = r.model, garage = r.stored or '',
                 state = r.stored == nil and 'out' or r.stored == 'impound' and 'impound' or 'garaged',
@@ -427,7 +421,7 @@ function Bridge.vehicles(src)
     local ok, rows = pcall(MySQL.query.await, ('SELECT * FROM %s WHERE %s = ?'):format(TABLE, OWNER), { Bridge.identifier(src) })
     for _, r in ipairs(ok and rows or {}) do
         -- QBCore keeps the spawn name in `vehicle` and the tuning in `mods`; ESX keeps the tuning, model included, in `vehicle`.
-        local props = decode(fw == 'esx' and r.vehicle or r.mods)
+        local props = Util.decode(fw == 'esx' and r.vehicle or r.mods)
         local state, garage, held = where(r, c)
         out[#out + 1] = {
             plate = r.plate, model = fw == 'esx' and props.model or r.vehicle or tonumber(r.hash), garage = garage, state = state, held = held or nil,

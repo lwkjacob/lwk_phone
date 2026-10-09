@@ -83,7 +83,7 @@ local leaving = {}   -- caller's number -> { to, from = what the other phone wil
 --- and a phone at the other end. Not for calls to a company: there is no one phone to leave it on.
 local function takesMessage(call)
     if call.company or call.answered then return false end
-    if Keys.fivemanage == '' and GetConvar('lwk_phone_fivemanage', '') == '' then return false end
+    if Phone.uploadToken() == '' then return false end
     -- Blocking is done by the phone that blocks (it ignores the call), so a blocked caller rings out
     -- like anyone else. They do not get to leave a message.
     for _, c in ipairs(Phone.get(call.callee, 'contacts') or {}) do

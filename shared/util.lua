@@ -119,6 +119,14 @@ function Util.newer(a, b)
     return false
 end
 
+--- JSON text as a table. Anything that is not an object or a list (bad JSON, nothing at all) is an empty
+--- table; a value that is a table already is handed straight back.
+function Util.decode(v)
+    if type(v) == 'table' then return v end
+    local ok, t = pcall(json.decode, v or '')
+    return ok and type(t) == 'table' and t or {}
+end
+
 --- '?,?,?' for an IN (...) clause.
 function Util.marks(n)
     return ('?,'):rep(n):sub(1, -2)

@@ -426,7 +426,7 @@ end
 -- The token never leaves the server: the phone asks for a one-time upload link and posts the file to it.
 
 RPC['upload'] = function()
-    local token = Keys.fivemanage ~= '' and Keys.fivemanage or GetConvar('lwk_phone_fivemanage', '')
+    local token = Phone.uploadToken()
     if token == '' then return Phone.fail(L('err_no_upload')) end
     local p = promise.new()
     PerformHttpRequest('https://api.fivemanage.com/api/v3/file/presigned-url', function(status, body)

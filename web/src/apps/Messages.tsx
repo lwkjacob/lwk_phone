@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Phone, Plus, SquarePen, Video } from 'lucide-react';
 import { actions, canon, chatWith, confirm, contactOf, fmtAgo, fmtDur, nameOf, preview, prompt, S, sendMsg, startCall, uid, update, useNow, useS } from '../store';
-import { Avatar, Bubbles, Composer, Empty, Group, Page, Pic, Row, Search, Sheet, Stack, Toggle, Wave, useNav } from '../ui';
+import { Avatar, Bubbles, Composer, Empty, Group, Page, Row, Search, Sheet, Stack, Toggle, Wave, useNav } from '../ui';
 import { record, type Recording } from '../rtc';
 import { PhotoPicker } from './Media';
 import { ContactView } from './Phone';

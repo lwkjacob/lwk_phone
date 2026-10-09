@@ -19,12 +19,126 @@
 --   esx_addonaccount   its source. This is also where esx_society keeps a job's money (`society_<job>`).
 --   ox_core            its source: a group's own account (the group needs `hasAccount`)
 --
--- For another bank, set Config.bank = 'none' and fill in the three Bank.* functions below.
+-- For another bank: add an entry to BANKS with the calls it has, and its resource name to ORDER.
 
 Bank = {}
 
+-- One entry per bank, named after its resource:
+--   balance(job)                        the company account's balance, or nil when the job has none
+--   add(job, amount, reason)            money in. Answers whether it worked
+--   remove(job, amount, reason)         money out (the balance has been checked already)
+--   statement(src, amount, label, out)  optional: a line in the player's own history. `out`: the money left them
+-- An error in any of them is taken as "no".
+local BANKS = {}
+
+BANKS['lwk_bank'] = {
+    balance = function(job) return exports.lwk_bank:GetBusinessBalance(job) end,
+    add = function(job, amount, reason) return exports.lwk_bank:AddBusinessMoney(job, amount, reason) end,
+    remove = function(job, amount, reason) return exports.lwk_bank:RemoveBusinessMoney(job, amount, reason) end,
+}
+
+BANKS['Renewed-Banking'] = {
+    balance = function(job) return exports['Renewed-Banking']:getAccountMoney(job) end,
+    add = function(job, amount) return exports['Renewed-Banking']:addAccountMoney(job, amount) end,
+    remove = function(job, amount) return exports['Renewed-Banking']:removeAccountMoney(job, amount) end,
+    statement = function(src, amount, label, out)
+        local name = Bridge.name(src)
+        exports['Renewed-Banking']:handleTransaction(Bridge.identifier(src), label, amount, label,
+            out and name or label, out and label or name, out and 'withdraw' or 'deposit')
+    end,
+}
+
+BANKS['qb-banking'] = {
+    balance = function(job) return exports['qb-banking']:GetAccountBalance(job) end,
+    add = function(job, amount, reason) return exports['qb-banking']:AddMoney(job, amount, reason) end,
+    remove = function(job, amount, reason) return exports['qb-banking']:RemoveMoney(job, amount, reason) end,
+    statement = function(src, amount, label, out)
+        exports['qb-banking']:CreateBankStatement(src, 'checking', amount, label, out and 'withdraw' or 'deposit', 'player')
+    end,
+}
+
+BANKS['wasabi_banking'] = {
+    balance = function(job) return exports.wasabi_banking:GetAccountBalance(job, 'society') end,
+    add = function(job, amount) return exports.wasabi_banking:AddMoney('society', job, amount) end,
+    remove = function(job, amount) return exports.wasabi_banking:RemoveMoney('society', job, amount) end,
+    statement = function(src, amount, label, out)
+        exports.wasabi_banking:Transaction(Bridge.identifier(src), label, amount, out and 'sent' or 'deposit', 'personal')
+    end,
+}
+
+BANKS['tgg-banking'] = {
+    balance = function(job) return exports['tgg-banking']:GetSocietyAccountMoney(job) end,
+    add = function(job, amount) return exports['tgg-banking']:AddSocietyMoney(job, amount) end,
+    remove = function(job, amount) return exports['tgg-banking']:RemoveSocietyMoney(job, amount) end,
+}
+
+BANKS['p_banking'] = {
+    balance = function(job) return exports['p_banking']:getAccountMoney(job) end,
+    add = function(job, amount) return exports['p_banking']:addAccountMoney(job, amount) end,
+    remove = function(job, amount) return exports['p_banking']:removeAccountMoney(job, amount) end,
+}
+
+BANKS['fd_banking'] = {
+    balance = function(job) return exports['fd_banking']:GetAccount(job) end,
+    add = function(job, amount, reason) return exports['fd_banking']:AddMoney(job, amount, reason) end,
+    remove = function(job, amount, reason) return exports['fd_banking']:RemoveMoney(job, amount, reason) end,
+}
+
+-- The next three do not say whether a movement worked: no error is taken as success.
+BANKS['tgiann-bank'] = {
+    balance = function(job) return exports['tgiann-bank']:GetJobAccountBalance(job) end,
+    add = function(job, amount) exports['tgiann-bank']:AddJobMoney(job, amount) return true end,
+    remove = function(job, amount) exports['tgiann-bank']:RemoveJobMoney(job, amount) return true end,
+}
+
+for _, res in ipairs({ 'okokBanking', 'qb-management' }) do   -- the same three calls under two names
+    BANKS[res] = {
+        balance = function(job) return exports[res]:GetAccount(job) end,
+        add = function(job, amount) exports[res]:AddMoney(job, amount) return true end,
+        remove = function(job, amount) exports[res]:RemoveMoney(job, amount) return true end,
+    }
+end
+
+-- esx_addonaccount hands the account over through an event, and the account has its own methods.
+local function society(job)
+    local account
+    TriggerEvent('esx_addonaccount:getSharedAccount', 'society_' .. job, function(a) account = a end)
+    return account
+end
+
+BANKS['esx_addonaccount'] = {
+    balance = function(job)
+        local a = society(job)
+        return a and a.money
+    end,
+    add = function(job, amount)
+        local a = society(job)
+        if a then a.addMoney(amount) end
+        return a ~= nil
+    end,
+    remove = function(job, amount)
+        local a = society(job)
+        if a then a.removeMoney(amount) end
+        return a ~= nil
+    end,
+}
+
+--- Call a method of an ox_core group's account (see the notes on ox_core in config/bridge/framework.lua).
+local function group(job, ...)
+    local a = exports.ox_core:GetGroupAccount(job)
+    return a and exports.ox_core:CallAccount(a.accountId, ...)
+end
+
+local function moved(res) return type(res) == 'table' and res.success == true end
+
+BANKS['ox_core'] = {
+    balance = function(job) return group(job, 'get', 'balance') end,
+    add = function(job, amount, reason) return moved(group(job, 'addBalance', { amount = amount, message = reason })) end,
+    remove = function(job, amount, reason) return moved(group(job, 'removeBalance', { amount = amount, message = reason })) end,
+}
+
 -- lwk_bank also answers to the other banks' names, so it is looked for first.
--- esx_addonaccount is last: on ESX it runs under every bank above, and they are the ones holding the money then.
+-- esx_addonaccount comes after them: on ESX it runs under every bank above, and they are the ones holding the money then.
 local ORDER = {
     'lwk_bank', 'Renewed-Banking', 'qb-banking', 'okokBanking', 'wasabi_banking', 'tgg-banking', 'p_banking', 'fd_banking', 'tgiann-bank',
     'qb-management', 'esx_addonaccount', 'ox_core',
@@ -43,94 +157,30 @@ function Bank.kind()
     return kind
 end
 
-local function addon(job)
-    local account
-    TriggerEvent('esx_addonaccount:getSharedAccount', 'society_' .. job, function(a) account = a end)
-    return account
-end
-
 --- Balance of a job's company account, or nil when there is no such account (or no bank).
 function Bank.balance(job)
-    local k = Bank.kind()
-    local ok, v = pcall(function()
-        if k == 'lwk_bank' then return exports.lwk_bank:GetBusinessBalance(job) end
-        if k == 'Renewed-Banking' then return exports['Renewed-Banking']:getAccountMoney(job) end
-        if k == 'qb-banking' then return exports['qb-banking']:GetAccountBalance(job) end
-        if k == 'okokBanking' then return exports.okokBanking:GetAccount(job) end
-        if k == 'wasabi_banking' then return exports.wasabi_banking:GetAccountBalance(job, 'society') end
-        if k == 'tgg-banking' then return exports['tgg-banking']:GetSocietyAccountMoney(job) end
-        if k == 'p_banking' then return exports['p_banking']:getAccountMoney(job) end
-        if k == 'fd_banking' then return exports['fd_banking']:GetAccount(job) end
-        if k == 'tgiann-bank' then return exports['tgiann-bank']:GetJobAccountBalance(job) end
-        if k == 'qb-management' then return exports['qb-management']:GetAccount(job) end
-        if k == 'esx_addonaccount' then
-            local a = addon(job)
-            return a and a.money
-        end
-        if k == 'ox_core' then
-            local a = exports.ox_core:GetGroupAccount(job)
-            return a and exports.ox_core:CallAccount(a.accountId, 'get', 'balance')
-        end
-    end)
+    local bank = BANKS[Bank.kind()]
+    if not bank then return nil end
+    local ok, v = pcall(bank.balance, job)
     return ok and tonumber(v) or nil
 end
 
-local function move(job, amount, reason, add)
-    local k = Bank.kind()
-    local ok, v = pcall(function()
-        if k == 'lwk_bank' then
-            if add then return exports.lwk_bank:AddBusinessMoney(job, amount, reason) end
-            return exports.lwk_bank:RemoveBusinessMoney(job, amount, reason)
-        elseif k == 'Renewed-Banking' then
-            if add then return exports['Renewed-Banking']:addAccountMoney(job, amount) end
-            return exports['Renewed-Banking']:removeAccountMoney(job, amount)
-        elseif k == 'qb-banking' then
-            if add then return exports['qb-banking']:AddMoney(job, amount, reason) end
-            return exports['qb-banking']:RemoveMoney(job, amount, reason)
-        elseif k == 'wasabi_banking' then
-            if add then return exports.wasabi_banking:AddMoney('society', job, amount) end
-            return exports.wasabi_banking:RemoveMoney('society', job, amount)
-        elseif k == 'tgg-banking' then
-            if add then return exports['tgg-banking']:AddSocietyMoney(job, amount) end
-            return exports['tgg-banking']:RemoveSocietyMoney(job, amount)
-        elseif k == 'p_banking' then
-            if add then return exports['p_banking']:addAccountMoney(job, amount) end
-            return exports['p_banking']:removeAccountMoney(job, amount)
-        elseif k == 'fd_banking' then
-            if add then return exports['fd_banking']:AddMoney(job, amount, reason) end
-            return exports['fd_banking']:RemoveMoney(job, amount, reason)
-        elseif k == 'tgiann-bank' then
-            -- Not known to say whether it worked: no error is taken as success.
-            if add then exports['tgiann-bank']:AddJobMoney(job, amount) else exports['tgiann-bank']:RemoveJobMoney(job, amount) end
-            return true
-        elseif k == 'okokBanking' or k == 'qb-management' then
-            -- Neither says whether it worked: no error is taken as success.
-            if add then exports[k]:AddMoney(job, amount) else exports[k]:RemoveMoney(job, amount) end
-            return true
-        elseif k == 'esx_addonaccount' then
-            local a = addon(job)
-            if not a then return false end
-            if add then a.addMoney(amount) else a.removeMoney(amount) end
-            return true
-        elseif k == 'ox_core' then
-            local a = exports.ox_core:GetGroupAccount(job)
-            local res = a and exports.ox_core:CallAccount(a.accountId, add and 'addBalance' or 'removeBalance', { amount = amount, message = reason })
-            return type(res) == 'table' and res.success == true
-        end
-        return false
-    end)
+local function move(way, job, amount, reason)
+    local bank = BANKS[Bank.kind()]
+    if not bank then return false end
+    local ok, v = pcall(bank[way], job, amount, reason)
     return ok and v ~= nil and v ~= false and v ~= 0
 end
 
 function Bank.add(job, amount, reason)
-    return move(job, amount, reason, true)
+    return move('add', job, amount, reason)
 end
 
 -- Checks the balance itself: not every bank refuses an overdraft.
 function Bank.remove(job, amount, reason)
     local have = Bank.balance(job)
     if not have or have < amount then return false end
-    return move(job, amount, reason, false)
+    return move('remove', job, amount, reason)
 end
 
 --- Add a line to the player's history in the bank's own app. The money has already moved;
@@ -139,16 +189,6 @@ end
 -- movements by itself; tgg-banking and p_banking want the account's IBAN, which the phone does not
 -- know; the others have no public call for it. There, phone payments do not show in the bank's history.
 function Bank.statement(src, amount, label)
-    local k, out = Bank.kind(), amount < 0
-    pcall(function()
-        if k == 'Renewed-Banking' then
-            local name = Bridge.name(src)
-            exports['Renewed-Banking']:handleTransaction(Bridge.identifier(src), label, math.abs(amount), label,
-                out and name or label, out and label or name, out and 'withdraw' or 'deposit')
-        elseif k == 'qb-banking' then
-            exports['qb-banking']:CreateBankStatement(src, 'checking', math.abs(amount), label, out and 'withdraw' or 'deposit', 'player')
-        elseif k == 'wasabi_banking' then
-            exports.wasabi_banking:Transaction(Bridge.identifier(src), label, math.abs(amount), out and 'sent' or 'deposit', 'personal')
-        end
-    end)
+    local bank = BANKS[Bank.kind()]
+    if bank and bank.statement then pcall(bank.statement, src, math.abs(amount), label, amount < 0) end
 end

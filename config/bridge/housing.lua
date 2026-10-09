@@ -45,12 +45,6 @@ function Housing.kind()
     return kind
 end
 
-local function decode(v)
-    if type(v) == 'table' then return v end
-    local ok, t = pcall(json.decode, v or '')
-    return ok and type(t) == 'table' and t or {}
-end
-
 local function holders(ids)
     local out = {}
     for _, id in ipairs(ids) do out[#out + 1] = { id = id, name = Bridge.charName(id) } end
@@ -103,7 +97,7 @@ SCRIPTS['rtx_housing'] = {
             local id = type(p) == 'table' and (p.id or p.propertyId or p.propertyid or p.property_id) or p
             id = tonumber(id) or tonumber(key)
             if id then
-                local name, x, y = loose(type(p) == 'table' and p or decode(exports['rtx_housing']:GetPropertyData(id)), id)
+                local name, x, y = loose(type(p) == 'table' and p or Util.decode(exports['rtx_housing']:GetPropertyData(id)), id)
                 out[#out + 1] = { id = id, name = name, x = x, y = y, locked = exports['rtx_housing']:GetPropertyLockStatus(id) == true }
             end
         end
@@ -122,10 +116,10 @@ SCRIPTS['ps-housing'] = {
     list = function(_, identifier)
         local out = {}
         for _, r in ipairs(MySQL.query.await('SELECT property_id, street, region, apartment, has_access, door_data FROM properties WHERE owner_citizenid = ?', { identifier })) do
-            local door = decode(r.door_data)
+            local door = Util.decode(r.door_data)
             out[#out + 1] = {
                 id = r.property_id, name = r.apartment or r.street or ('Property %d'):format(r.property_id), addr = r.region,
-                x = tonumber(door.x), y = tonumber(door.y), keys = holders(decode(r.has_access)),
+                x = tonumber(door.x), y = tonumber(door.y), keys = holders(Util.decode(r.has_access)),
             }
         end
         return out
@@ -141,8 +135,8 @@ SCRIPTS['qbx_properties'] = {
     list = function(_, identifier)
         local out = {}
         for _, r in ipairs(MySQL.query.await('SELECT id, property_name, coords, keyholders FROM properties WHERE owner = ?', { identifier })) do
-            local at = decode(r.coords)
-            out[#out + 1] = { id = r.id, name = r.property_name, x = tonumber(at.x), y = tonumber(at.y), keys = holders(decode(r.keyholders)) }
+            local at = Util.decode(r.coords)
+            out[#out + 1] = { id = r.id, name = r.property_name, x = tonumber(at.x), y = tonumber(at.y), keys = holders(Util.decode(r.keyholders)) }
         end
         return out
     end,
@@ -150,7 +144,7 @@ SCRIPTS['qbx_properties'] = {
         local owner = Bridge.identifier(src)
         local raw = MySQL.scalar.await('SELECT keyholders FROM properties WHERE id = ? AND owner = ?', { id, owner })
         if not raw then return false end
-        local list, kept, had = decode(raw), {}, false
+        local list, kept, had = Util.decode(raw), {}, false
         for _, holder in ipairs(list) do
             if holder == who.id then had = true else kept[#kept + 1] = holder end
         end
@@ -171,7 +165,7 @@ SCRIPTS['qbx_properties'] = {
 SCRIPTS['esx_property'] = {
     list = function(_, identifier)
         local out = {}
-        for i, p in ipairs(decode(LoadResourceFile('esx_property', 'properties.json'))) do
+        for i, p in ipairs(Util.decode(LoadResourceFile('esx_property', 'properties.json'))) do
             if p.Owner == identifier then
                 local keys = {}
                 for id, k in pairs(type(p.Keys) == 'table' and p.Keys or {}) do
@@ -200,8 +194,8 @@ SCRIPTS['qb-houses'] = {
         local out = {}
         for _, r in ipairs(MySQL.query.await([[SELECT h.house, h.keyholders, l.label, l.coords FROM player_houses h
             LEFT JOIN houselocations l ON l.name = h.house WHERE h.citizenid = ?]], { identifier })) do
-            local at, ids = decode(r.coords).enter or {}, {}
-            for _, holder in ipairs(decode(r.keyholders)) do   -- the owner is in their own list
+            local at, ids = Util.decode(r.coords).enter or {}, {}
+            for _, holder in ipairs(Util.decode(r.keyholders)) do   -- the owner is in their own list
                 if holder ~= identifier then ids[#ids + 1] = holder end
             end
             out[#out + 1] = { id = r.house, name = r.label or r.house, x = tonumber(at.x), y = tonumber(at.y), keys = holders(ids) }
@@ -263,7 +257,7 @@ SCRIPTS['RxHousing'] = {
                         keys[#keys + 1] = { id = holder, name = type(v) == 'table' and v.name or Bridge.charName(holder) }
                     end
                 end
-                local name, x, y = loose(type(p) == 'table' and p or decode(rx:GetProperty(id)), id)
+                local name, x, y = loose(type(p) == 'table' and p or Util.decode(rx:GetProperty(id)), id)
                 out[#out + 1] = { id = id, name = name, x = x, y = y, keys = keys }
             end
         end

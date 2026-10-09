@@ -99,7 +99,7 @@ function Check.lines(release, why)
         warn(('%s is still running. Stop it: its data is brought over from the database, not from the running script.'):format(old.label))
     end
 
-    local token = Keys.fivemanage ~= '' or GetConvar('lwk_phone_fivemanage', '') ~= ''
+    local token = Phone.uploadToken() ~= ''
     local hosts = Config.upload.hosts or {}
     row('Uploads', (token and 'token set' or 'no token') .. (#hosts > 0 and ', media only from ' .. table.concat(hosts, ', ') or ', media from anywhere'))
     if not token then warn('No upload token: the camera, voice messages and voice memos are off. README, "Photos, video and voice messages".') end

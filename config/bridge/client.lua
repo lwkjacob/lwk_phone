@@ -80,12 +80,6 @@ Bridge.home = {}
 
 local function running(res) return GetResourceState(res) == 'started' end
 
-local function decode(v)
-    if type(v) == 'table' then return v end
-    local ok, t = pcall(json.decode, v or '')
-    return ok and type(t) == 'table' and t or {}
-end
-
 --- The player's houses, for a script that only says so on the client (vms_housing). Nil otherwise.
 function Bridge.home.list()
     if not running('vms_housing') then return nil end
@@ -93,7 +87,7 @@ function Bridge.home.list()
     -- With keys as items there is nobody to list or revoke: a key is whoever holds the item.
     local items = vms:GetConfiguration('UseKeysOnItem')
     for _, p in ipairs(vms:GetPlayerProperties() or {}) do
-        local meta = decode(p.metadata)
+        local meta = Util.decode(p.metadata)
         local at = meta.enter or meta.menu
         if p.object_id then
             local building = vms:GetProperty(p.object_id)
@@ -102,7 +96,7 @@ function Bridge.home.list()
         local keys
         if not items then
             keys = {}
-            for identifier, name in pairs(decode(p.keys)) do keys[#keys + 1] = { id = identifier, name = name } end
+            for identifier, name in pairs(Util.decode(p.keys)) do keys[#keys + 1] = { id = identifier, name = name } end
         end
         out[#out + 1] = { id = p.id, name = p.name, x = at and at.x, y = at and at.y, keys = keys }
     end

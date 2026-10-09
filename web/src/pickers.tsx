@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { t } from './i18n';
-import { Pic, Search, Seg, Sheet } from './ui';
+import { Seg, Sheet } from './ui';
 
 /* Emoji and colour pickers. Used by the phone's own apps and handed to community apps
  * through components.setEmojiPickerVisible / setColorPicker. */
