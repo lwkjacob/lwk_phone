@@ -1,157 +1,100 @@
 # LWK Phone
 
-A free phone for FiveM. A small finished core, add-on apps from an App Store, a theme file servers can edit, and community apps other resources register at runtime. Works on Qbox, QBCore, ESX, ox_core and standalone servers.
+A free, open-source phone for FiveM by **LWK Development**. Twenty-six apps, voice and video calls, a full map of San Andreas, a phone that can be an item in your pocket, a theme file you can edit on a live server, and community apps that other resources add at runtime.
 
-**Status: feature-complete, in testing.** Report anything that breaks on the [issue tracker](https://github.com/lwkjacob/lwk_phone/issues). What is deliberately not built is listed under [Not built](#not-built).
+![Overview](.github/showcase.png)
 
-## Install
+Works with **Qbox, QBCore, ESX, ox_core and standalone** servers (detected automatically), and brings players' numbers and data across from **[NPWD and GCPhone](#moving-from-another-phone)**.
 
-Needs [ox_lib](https://github.com/overextended/ox_lib), [oxmysql](https://github.com/overextended/oxmysql) and MariaDB 10.2+ or MySQL 8. Voice calls use [pma-voice](https://github.com/AvarianKnight/pma-voice), saltychat or mumble-voip, whichever is running. On a call, **Mute** stops the other end hearing you while people next to you still can (not with saltychat), and **Speaker** lets anyone standing within a few metres hear the call and be heard on it (this needs OneSync, which tells the server where players are).
+## Features
 
-1. Put the folder in `resources` and name it `lwk_phone`.
-2. In `server.cfg`, after ox_lib, oxmysql, your framework, your inventory and your voice script:
-   ```
-   ensure lwk_phone
-   ```
-3. Start the server. The database tables are created on first start; there is no SQL file to import.
+- **Calls** with voice through your voice script, video calls, voicemail, Mute and Speaker, and switching between voice and video while the call is going.
+- **Messages**: texts, photos, locations with a map of where you are, voice notes and money, one to one or in groups.
+- **Camera and Photos.** Photos, selfies and video, a key to walk around with the camera up, and a library with albums and favourites.
+- **Maps.** The whole of San Andreas ships with the phone as a road map and a satellite view, with places, waypoints and location sharing. No tile server to set up.
+- **Wallet and Crypto.** Bank balance, transfers and requests, a history of phone payments, and made-up coins bought with bank money.
+- **Garage.** Every vehicle a player owns and where it is, a valet that brings one to them, and impound fees paid from the phone.
+- **Services.** Call or message the police, EMS, mechanics and any other job you list. Bosses hire, fire, change grades and move money in and out of the company account.
+- **Home.** The houses a player owns, with a waypoint, the door lock and keys, on nine housing scripts.
+- **Social apps with accounts**: Flock (short posts), Loop (short videos), Lumen (photos, stories and live video), Ember (swipe and match), Shade (anonymous channels), Mail, Adverts and Market. A player can hold several accounts and sign in from any phone.
+- **The phone as an item.** On eight inventories the phone is an item, and on seven of them each item is its own phone: the number and all its data go with whoever holds it.
+- **Moving from another phone.** Coming from NPWD or GCPhone, everyone keeps their number, and setup offers to bring their contacts, texts, calls, photos and notes across.
+- **Community apps.** Other resources add apps with one export. Apps written for LB Phone run unchanged.
+- **Themes.** One JSON file changes the font, colours, icons, wallpapers, frames and which apps a new phone starts with, without rebuilding.
+- **Sounds.** Five ringtones, four text tones and effects (all CC0), with volume, Silent Mode and Do Not Disturb.
+- **Translations**: English and French ship, and every string lives in `config/locales/<code>.json`.
+- **A start-up report** in the server console: what the phone detected, anything in its way, and whether a newer version is out.
 
-The built UI ships in `web/dist`, so Node is not needed to run the phone.
+## Compatibility
 
-The key under Escape (`` ` ``) opens the phone (players rebind it under Settings > Key Bindings > FiveM), as does `/phone`. `Left Alt` hands the mouse back to the game while the phone stays up, and again to take it back.
+Everything is detected automatically. Each one can also be forced in `config/config.lua`.
 
-In the camera, `Left Alt` lets the mouse aim (in selfie mode it moves the phone around your face), `Enter` is the shutter, `Up` flips the camera, and `Left Ctrl` lets you walk around with it up (press it again to stand still). The viewfinder lists these keys.
+Each bridge was written from that script's own documentation or source code. If one misbehaves with your version, its bridge is a short section in `config/bridge/`, and `phonecheck` shows what the phone detected.
 
-### The phone as an item
+| Frameworks | Status | Notes |
+| --- | :---: | --- |
+| qbox | ✅ | |
+| qb-core | ✅ | |
+| esx | ✅ | |
+| ox_core | ✅ | Groups are jobs and accounts are the bank. See [ox_core](#ox_core) |
+| standalone | ✅ | One phone per player, no item. Wallet, Crypto, Garage and Services are hidden |
+| custom | ⚠️ | Requires manual implementation (`config/bridge/framework.lua`, `config/bridge/client.lua`) |
 
-On a framework server with one of the inventories below, the phone is an item and **each item is its own phone**: the number is written onto the item and every bit of phone data is keyed by that number. Give the item away, or have it taken, and the phone goes with it. On standalone servers there is no item and each player simply has a phone.
+| Inventories | Status | Notes |
+| --- | :---: | --- |
+| ox_inventory | ✅ | Each phone item is its own phone |
+| qb-inventory | ✅ | Each phone item is its own phone |
+| ps-inventory | ✅ | Each phone item is its own phone |
+| codem-inventory | ✅ | Each phone item is its own phone |
+| core_inventory | ✅ | Each phone item is its own phone |
+| jaksam_inventory | ✅ | Each phone item is its own phone |
+| tgiann-inventory | ✅ | Each phone item is its own phone |
+| ESX's own inventory | ✅ | The phone is an item once the `items` table has a `phone` row. Its items carry no data, so the phone belongs to the character |
+| none | ✅ | No item: every player simply has a phone |
+| custom | ⚠️ | Requires manual implementation (`config/bridge/inventory.lua`) |
 
-| Inventory | Phone is an item | Each item is its own phone |
-|---|---|---|
-| ox_inventory | ✅ | ✅ |
-| qb-inventory | ✅ | ✅ |
-| ps-inventory | ✅ | ✅ |
-| codem-inventory | ✅ | ✅ |
-| core_inventory | ✅ | ✅ |
-| jaksam_inventory | ✅ | ✅ |
-| tgiann-inventory | ✅ | ✅ |
-| ESX's own inventory | ✅ (once the `items` table has a `phone` row) | ❌ (its items carry no data, so the phone belongs to the character) |
+| Voice | Status | Notes |
+| --- | :---: | --- |
+| pma-voice | ✅ | |
+| saltychat | ✅ | Mute does not silence you at the other end |
+| mumble-voip | ✅ | |
+| none | ✅ | Calls connect but carry no sound |
+| custom | ⚠️ | Requires manual implementation (`config/bridge/voice.lua`) |
 
-Only ox_inventory has been played on so far. The others were written from each inventory's documentation or source code; report anything that is off.
+| Banking | Status | Notes |
+| --- | :---: | --- |
+| [lwk_bank](https://github.com/lwkjacob/lwk_bank) | ✅ | Company account. Phone payments show in the bank's activity |
+| Renewed-Banking | ✅ | Company account. Phone payments are written to its history |
+| qb-banking | ✅ | Company account. Phone payments are written to its history |
+| wasabi_banking | ✅ | Company account. Phone payments are written to its history |
+| okokBanking | ✅ | Company account |
+| tgg-banking | ✅ | Company account |
+| p_banking | ✅ | Company account |
+| fd_banking | ✅ | Company account |
+| tgiann-bank | ✅ | Company account |
+| qb-management | ✅ | Company account |
+| esx_society / esx_addonaccount | ✅ | Company account (`society_<job>`) |
+| ox_core | ✅ | The group's own account (the group needs `hasAccount`) |
+| any other | ✅ | Wallet still works: a player's balance is framework bank money with every bank. Only the company account is missing |
+| custom | ⚠️ | Requires manual implementation (`config/bridge/banking.lua`) |
 
-ox_inventory, in `data/items.lua`:
+| Garages | Status | Notes |
+| --- | :---: | --- |
+| jg-advancedgarages | ✅ | A vehicle held in a police impound cannot be released from the phone |
+| cd_garage | ✅ | Garages are shown by name |
+| qb-garages | ✅ | |
+| qbx_garages | ✅ | |
+| esx_garage | ✅ | |
+| esx_advancedgarage | ✅ | |
+| lunar_garage | ✅ | |
+| okokGarage | ✅ | |
+| vms_garagesv2 | ✅ | An impounded vehicle is collected at the impound, not from the phone |
+| ox_core's vehicles | ✅ | The valet's vehicle is spawned by ox_core |
+| any other | ✅ | Works when it keeps its framework's usual columns, which most do. See [Garages](#garages) |
+| custom | ⚠️ | Requires manual implementation (`config/bridge/framework.lua`) |
 
-```lua
-['phone'] = { label = 'Phone', weight = 190, stack = false, consume = 0, client = { export = 'lwk_phone.usePhone' } },
-```
-
-Every other inventory: an item named `phone` in its item list (`qb-core/shared/items.lua`, the inventory's own list, or the `items` table on ESX), not stackable, usable, closing the inventory when used. With several phones in a pocket, using one opens that one; where the inventory does not say which was used, the first is opened.
-
-To change this, see `Config.item` (`require = false` drops the item altogether; `unique = false` keeps the item but ties the phone to the character).
-
-### Photos, video and voice messages
-
-These are uploaded to [Fivemanage](https://fivemanage.com). Put your API token in `config/keys.lua` (only the server reads that file), or set it in `server.cfg`:
-
-```
-set lwk_phone_fivemanage "your-token"
-```
-
-Without a token the camera says storage is not set up, and everything else still works.
-
-Pictures, video and voice messages in texts and posts are only accepted from the hosts in `Config.upload.hosts` (your upload host by default). Without that limit, a player could send a link to a server of their own and collect the IP address of everyone whose phone displays it. Add a host there if you move your uploads elsewhere.
-
-## Checking your setup
-
-A few seconds after it starts, the phone prints a report to the server console: its version and whether a newer release is out, and the framework, inventory, voice script, bank, garage columns, upload storage and database it found. Anything that will get in its way is listed underneath with a `!`, such as another phone script running, no upload token, or OneSync being off. Type `phonecheck` in the console to print it again; it is the first thing to include when asking for help.
-
-## Configure
-
-Everything is in `config/config.lua`, with a comment on each option. The ones most servers touch:
-
-| Option | What it does |
-|---|---|
-| `locale` | Language file from `config/locales/`. |
-| `framework` | `auto` detects Qbox, QBCore, ESX or ox_core and falls back to standalone. |
-| `autoInstallApps` | Whether community apps may install themselves on every phone, or always go to the App Store first (the default). |
-| `bank` | Which bank script holds company money. `auto` finds it. |
-| `keybind`, `command`, `walk`, `cursorKey` | How the phone opens and whether players can move with it out. |
-| `item` | The phone item: which inventory, whether it is required, whether each item is its own phone. |
-| `numbers` | Prefixes and length of phone numbers. |
-| `calls` | Ring time and voice script. |
-| `rtc` | STUN/TURN servers for video calls and live streams. Add a TURN server if video fails for players behind strict routers. |
-| `map` | Leave it alone: the map of San Andreas ships with the phone, as a road map and a satellite view. On a server with its own map, `image` is a URL to one picture that replaces it and `bounds` are the game coordinates of that picture's edges. |
-| `places` | Places listed in Maps. |
-| `companies` | Jobs that players can call or message from Services. |
-| `garage` | Valet and impound fees. |
-| `music` | Songs for the Music app (direct links to audio files). The app is hidden while the list is empty. |
-| `crypto` | Made-up coins bought with bank money. |
-| `mailDomain` | The part after `@` in Mail addresses. |
-
-Framework and inventory differences live in `config/bridge/`, one file each for framework, inventory, banking, voice, housing and the client.
-
-Apps that a server cannot back are hidden rather than shown empty: Wallet, Crypto, Garage and Services on standalone, Home without a housing bridge, Music without songs.
-
-### ox_core
-
-ox_core is shaped differently from the other frameworks, so a few things read differently there:
-
-- **Jobs are groups.** A character can be in several. Their job, as far as Services is concerned, is the group they have made active, or failing that their group of type `job`. On duty means having that group active. The top grade of a group (or a grade whose account role is `owner`) is the boss.
-- **The bank is the character's default account**, and the company account is the group's own account (the group needs `hasAccount`). Phone payments show in ox_core's own transaction history.
-- **The valet's vehicle is spawned by ox_core**, not by the player's game, so it stays that character's tracked vehicle. The model has to be one ox_core knows.
-- **Coming from NPWD** works here too: ox_core runs NPWD itself, and the number it kept on each character is carried over.
-
-This was written from ox_core's source code and has not been played on.
-
-### Banks
-
-Wallet works with any bank script, because a player's balance is framework bank money in all of them.
-
-The Company Account under Services > My Job (balance, deposit and withdraw, for bosses) is read from whichever of these is running: lwk_bank, Renewed-Banking, qb-banking, okokBanking, wasabi_banking, tgg-banking, p_banking, fd_banking, tgiann-bank, qb-management, esx_society / esx_addonaccount (`society_<job>`), or on ox_core the group's own account. With none of them, that section is not shown. Phone payments are also written to the bank's own history on Renewed-Banking, qb-banking and wasabi_banking; lwk_bank lists them by itself. For another bank, edit `config/bridge/banking.lua`.
-
-### Garages
-
-Every garage script keeps vehicles in the framework's table (`player_vehicles` or `owned_vehicles`); they differ in which columns say where a vehicle is. The Garage app reads whichever of these the table has, so there is nothing to configure:
-
-| Columns | Garage scripts |
-|---|---|
-| `in_garage`, `garage_id`, `impound` | jg-advancedgarages, cd_garage |
-| `state`, `garage` | qb-garages, qbx_garages |
-| `stored`, `parking`, `pound` | esx_garage and most ESX garages |
-| `stored`, `garage` | esx_advancedgarage |
-| `stored` | lunar_garage |
-| `parking` beside the framework's own | okokGarage |
-| `garage`, `garageSpotID`, `impound_date` | vms_garagesv2 |
-
-A garage script that is not in this table still works if it keeps one of these sets of columns, which most do. `phonecheck` prints the columns the phone found.
-
-A vehicle held in a police impound (jg-advancedgarages' `impound_retrievable`, any impound in vms_garagesv2) cannot be released from the phone. Set `garage.fromImpound = false` to stop the phone releasing impounded vehicles at all. A garage script with other columns needs `where` and `Bridge.vehicleOut` in `config/bridge/framework.lua` adjusted.
-
-After the valet spawns a vehicle, keys are handed over through qb-vehiclekeys' event (which qbx_vehiclekeys and most key scripts also answer), cd_garage's and okokGarage's. Another key script goes in `Bridge.giveKeys` in `config/bridge/client.lua`.
-
-### Moving from another phone
-
-A server that switches to this phone does not start from nothing. If the old phone's tables are still in the database, then:
-
-- **Everyone keeps their number.** It moves the first time a character's phone loads, with nothing to do, and numbers that belong to characters who have not been back yet are held for them.
-- **Setup offers the rest.** The first time a player opens the phone, it shows what it found on their old one (contacts, conversations, call history, photos, notes) and offers to transfer it or start fresh.
-
-| Old phone | Number | Contacts | Texts | Calls | Photos | Notes |
-|---|---|---|---|---|---|---|
-| NPWD | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| GCPhone | ✅ | ✅ | ✅ | ✅ | ❌ (it has none) | ❌ (it has none) |
-
-To switch: stop the old phone and remove it from `server.cfg`, **leave its tables in the database**, and start this one. The old tables are only read, never changed, so nothing is lost if you go back. The start-up report says what was found. `Config.transfer = 'none'` switches all of this off.
-
-A conversation belongs to two people: it comes across whole the first time either of them transfers, and is not brought over a second time when the other does. Social app accounts are not transferred, because passwords cannot be carried from one phone to another.
-
-Only these two free phones are covered. Transfers from paid phones are not supported and are not planned. Fuck Quasar.
-
-### Housing
-
-The Home app lists the houses a player owns, with a waypoint to each, and as much else as the server's housing script offers. `Config.housing = 'auto'` finds the script; the app is hidden when there is none.
-
-| Script | List and waypoint | Lock the door | Keys |
-|---|---|---|---|
+| Housing | List and waypoint | Lock the door | Keys |
+| --- | :---: | :---: | :---: |
 | nolag_properties | ✅ | ✅ | ✅ |
 | vms_housing | ✅ | ❌ | ✅ (not when its keys are items) |
 | rtx_housing | ✅ | ✅ | ❌ |
@@ -161,64 +104,142 @@ The Home app lists the houses a player owns, with a waypoint to each, and as muc
 | qbx_properties | ✅ | ❌ | ✅ |
 | qb-houses | ✅ | ❌ | ✅ |
 | esx_property | ✅ | ✅ | ✅ |
+| custom | ⚠️ | ⚠️ | ⚠️ |
 
-A key is given to one of the player's contacts, and goes to whoever holds that phone number. With vms_housing, bcs_housing, ps-housing, qb-houses and esx_property that person has to be in the city at the time, because those scripts hand keys to a player rather than to a character.
+A custom housing script requires manual implementation (`config/bridge/housing.lua`). Quasar's housing is not supported.
 
-Each of these was written from the script's own documentation or source code and has not been run against the script itself, apart from the automated tests for qbx_properties. If something is off with yours, the bridge is `config/bridge/housing.lua` (and the client half at the end of `config/bridge/client.lua`); every script has its own short section there, and adding another is a matter of copying one. Quasar's housing is not supported.
+| Old phones | Number | Contacts | Texts | Calls | Photos | Notes |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: |
+| NPWD | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| GCPhone | ✅ | ✅ | ✅ | ✅ | ❌ (it has none) | ❌ (it has none) |
 
-## Accounts
+| Other | Status | Notes |
+| --- | :---: | --- |
+| Apps written for LB Phone | ✅ | Run unchanged. See [Apps written for LB Phone](#apps-written-for-lb-phone) |
+| Fivemanage | ✅ | Storage for photos, video, voice messages and voicemail |
+| Key scripts | ✅ | qb-vehiclekeys and the scripts that answer its event (qbx_vehiclekeys and most others), cd_garage, okokGarage |
 
-Flock, Lumen, Loop, Shade and Mail use accounts with a username and password, so a player can hold several, stay anonymous, and sign in from any phone. Admins (ace `lwk_phone.admin`, or the server console) have two commands:
+## Requirements
 
-```
-phoneverify <app> <username> <1|0>          give or take a verified badge
-phonepassword <app> <username> <password>   reset a password
-phoneprune <days>                           delete texts, calls, mail and posts older than that many days
-```
+| Resource | Why |
+| --- | --- |
+| [ox_lib](https://github.com/overextended/ox_lib) | callbacks, key bindings |
+| [oxmysql](https://github.com/overextended/oxmysql) | database (MariaDB 10.2+ or MySQL 8) |
+| qbx_core, qb-core, es_extended or ox_core *(optional)* | your framework. Without one the phone runs standalone |
+| [pma-voice](https://github.com/AvarianKnight/pma-voice), saltychat or mumble-voip *(optional)* | sound on calls |
+| an inventory from the list above *(optional)* | the phone as an item |
+| a [Fivemanage](https://fivemanage.com) token *(optional)* | the camera, voice messages, voice memos and voicemail |
+| OneSync *(optional)* | Speaker on calls, AirShare, hiring, and locating a vehicle all need the server to know where players are |
 
-A Discord webhook in `config/keys.lua` (or `set lwk_phone_webhook`) logs posts and transfers.
+## Installation
 
-## What ships
+1. **Download** the [latest release](https://github.com/lwkjacob/lwk_phone/releases/latest) and put the folder in your `resources`. Name it **`lwk_phone`** (the source code download is called `lwk_phone-main`; rename it). Other scripts use that name to call its exports.
+2. **Start it after** your framework, ox_lib, oxmysql, inventory and voice script, in `server.cfg`:
+   ```cfg
+   ensure ox_lib
+   ensure oxmysql
+   # ...framework, inventory, voice...
+   ensure lwk_phone
+   ```
+3. **Give admins access** to the admin commands:
+   ```cfg
+   add_ace group.admin lwk_phone.admin allow
+   ```
+4. **Add the item** (skip this on standalone, or if you don't want the phone to be an item). See [Items](#items) below.
+5. **Set an upload token** so the camera and voice messages work. See [Photos, video and voice messages](#photos-video-and-voice-messages).
+6. **Remove your old phone** so two phones don't fight over the same key and command. Coming from NPWD or GCPhone? Leave its database tables where they are: see [Moving from another phone](#moving-from-another-phone).
+7. **Restart the server.** The database tables are created automatically on first start; there is no SQL file to import.
 
-A new phone starts with fifteen apps: Phone, Messages, Camera, Photos, Settings, App Store, Wallet, Maps, Garage, Services, Clock, Notes, Voice Memos, Flock and Loop.
+That's it. Join the server and press the key under Escape (`` ` ``), or type `/phone`.
 
-The rest are in the App Store: Weather, Calculator, Mail, Music, Home, Lumen, Ember, Shade, Adverts, Market, Crypto. Change which apps start installed with `defaults.apps` and `defaults.dock` in the theme file. A phone that has already rearranged its home screen keeps its own list.
+The built UI ships in `web/dist`, so Node is not needed to run the phone.
 
-## Exports
+### Items
 
-Names follow LB Phone's where the meaning is the same, so scripts written for that phone need little changing.
+On a framework server with one of the [inventories](#compatibility) above, the phone is an item and **each item is its own phone**: the number is written onto the item and every bit of phone data is keyed by that number. Give the item away, or have it taken, and the phone goes with it.
 
-Server:
-
+**ox_inventory** (also used by Qbox and ox_core): `ox_inventory/data/items.lua`
 ```lua
-exports.lwk_phone:GetEquippedPhoneNumber(source)                 -- number or nil
-exports.lwk_phone:GetSourceFromNumber(number)                    -- source or nil
-exports.lwk_phone:HasPhoneItem(source)
-exports.lwk_phone:IsInCall(source)
-exports.lwk_phone:SendNotification(sourceOrNumber, { app = 'settings', title = '', content = '' })
-exports.lwk_phone:SendMessage(from, to, text)                    -- `from` can be a name such as 'Bank'
-exports.lwk_phone:SendMail({ to = 'name@lsmail.net', sender = 'City Hall', subject = '', message = '' })
-exports.lwk_phone:AddTransaction(number, amount, label)          -- a line in Wallet history; move the money yourself
-exports.lwk_phone:CreateCall(source, { number = '555-0142', video = false, hidden = false })
+['phone'] = { label = 'Phone', weight = 190, stack = false, consume = 0, client = { export = 'lwk_phone.usePhone' } },
 ```
 
-Client:
+**Every other inventory**: an item named `phone` in its item list (`qb-core/shared/items.lua`, the inventory's own list, or the `items` table on ESX), not stackable, usable, closing the inventory when used.
 
-```lua
-exports.lwk_phone:IsOpen()
-exports.lwk_phone:ToggleOpen(open)                               -- true, false, or nil to toggle
-exports.lwk_phone:SendNotification({ app = 'settings', title = '', content = '' })
-exports.lwk_phone:AddCustomApp(app)                              -- see Community apps
-exports.lwk_phone:RemoveCustomApp(identifier)
-exports.lwk_phone:SendCustomAppMessage(identifier, data)
+With several phones in a pocket, using one opens that one; where the inventory does not say which was used, the first is opened. To change any of this, see `item` in `config/config.lua`: `require = false` drops the item altogether, and `unique = false` keeps the item but ties the phone to the character.
+
+### Photos, video and voice messages
+
+These are uploaded to [Fivemanage](https://fivemanage.com). Put your API token in `config/keys.lua` (only the server reads that file), or set it in `server.cfg`:
+
+```cfg
+set lwk_phone_fivemanage "your-token"
 ```
 
-## Theme file
+Without a token the camera says storage is not set up, and everything else still works.
 
-`web/dist/theme.json` sits beside `index.html`, so it can be edited on a live server without rebuilding (in the source tree it is `web/public/theme.json`). Anything in it is laid over the built-in skin (`web/src/theme.default.json`); leave a key out to keep the default.
+Pictures, video and voice messages in texts and posts are only accepted from the hosts in `upload.hosts` (your upload host by default). Without that limit, a player could send a link to a server of their own and collect the IP address of everyone whose phone displays it. Add a host there if you move your uploads elsewhere.
+
+### Keys
+
+| Key | What it does |
+| --- | --- |
+| `` ` `` (under Escape) | Open and close the phone. Players rebind it under Settings > Key Bindings > FiveM |
+| `Left Alt` | Hand the mouse back to the game while the phone stays up, and again to take it back. In the camera it lets the mouse aim |
+| `Enter` | Camera shutter |
+| `Up` | Flip the camera |
+| `Left Ctrl` | Walk around with the camera up. Press it again to stand still |
+
+On a call, **Mute** stops the other end hearing you while people next to you still can, and **Speaker** lets anyone standing within a few metres hear the call and be heard on it.
+
+## Configuration
+
+Everything is in `config/config.lua`, with a comment on each option. The ones most servers touch:
+
+| Option | What it does |
+| --- | --- |
+| `locale` | Language file from `config/locales/`. |
+| `framework` | `auto` detects Qbox, QBCore, ESX or ox_core and falls back to standalone. |
+| `autoInstallApps` | Whether community apps may install themselves on every phone, or always go to the App Store first (the default). |
+| `bank` | Which bank script holds company money. `auto` finds it. |
+| `keybind`, `command`, `walk`, `cursorKey` | How the phone opens and whether players can move with it out. |
+| `item` | The phone item: which inventory, whether it is required, whether each item is its own phone. |
+| `numbers` | Prefixes and length of phone numbers. |
+| `calls` | Ring time and voice script. |
+| `rtc` | STUN/TURN servers for video calls and live streams. Add a TURN server if video fails for players behind strict routers. |
+| `map` | Leave it alone: the map of San Andreas ships with the phone. On a server with its own map, `image` is a URL to one picture that replaces it and `bounds` are the game coordinates of that picture's edges. |
+| `places` | Places listed in Maps. |
+| `companies` | Jobs that players can call or message from Services. |
+| `garage` | Valet and impound fees, and whether impounded vehicles can be released from the phone. |
+| `housing` | Which housing script is behind the Home app. `auto` finds it. |
+| `transfer` | Bringing data across from an old phone. `none` switches it off. |
+| `music` | Songs for the Music app (direct links to audio files). The app is hidden while the list is empty. |
+| `crypto` | Made-up coins bought with bank money. |
+| `mailDomain` | The part after `@` in Mail addresses. |
+
+Secrets (the upload token and the log webhook) go in `config/keys.lua`, which only the server reads. Framework, inventory, bank, voice and housing differences live in `config/bridge/`, one file each.
+
+Apps that a server cannot back are hidden rather than shown empty: Wallet, Crypto, Garage and Services on standalone, Home without a housing script, Music without songs.
+
+### Checking your setup
+
+A few seconds after it starts, the phone prints a report to the server console: its version and whether a newer release is out, and the framework, inventory, voice script, bank, garage columns, housing script, upload storage and database it found. Anything that will get in its way is listed underneath with a `!`, such as another phone script running, no upload token, or OneSync being off. Type `phonecheck` in the console to print it again.
+
+### Language
+
+The phone ships in English (`en`, the default) and French (`fr`). Set `locale` to the name of a file in `config/locales/`. To add a language:
+
+1. Copy `config/locales/en.json` to `config/locales/<code>.json` (e.g. `de.json`). `"ui"` is the interface, `"server"` the messages that come from Lua.
+2. Set `meta.name` to the language's own name and `meta.intl` to its locale code (e.g. `de-DE`). Dates and numbers follow it.
+3. Translate the values, never the keys. Keep placeholders as they are: `{name}`, `{amount}` and `%s`. Where a line has several `%s`, they must stay in the same order.
+
+Missing strings fall back to English, so a half-done translation still works. Pull requests with new languages are welcome!
+
+### Theme
+
+`web/dist/theme.json` sits beside `index.html`, so it can be edited on a live server without rebuilding (in the source tree it is `web/public/theme.json`). Anything in it is laid over the built-in look (`web/src/theme.default.json`); leave a key out to keep the default.
 
 | Key | What it controls |
-|---|---|
+| --- | --- |
 | `font` | CSS font stack. Must be a system font or the bundled Inter. |
 | `iconRadius` | Icon corner radius as a fraction of size. `0.225` is a rounded square, `0.5` a circle. |
 | `island` | `"pill"` or `"hole"` (a punch hole that widens only for calls, recording and music). |
@@ -228,28 +249,113 @@ exports.lwk_phone:SendCustomAppMessage(identifier, data)
 | `apps` | Per-app `name`, `bg`, `fg` and `icon` (an image URL), keyed by app id. |
 | `defaults` | `dark`, `wallpaper`, `lockWallpaper`, `frame`, `apps`, `dock` for a fresh phone. |
 
-`themes/slate.json` is a second skin made with nothing but this file. Copy it over `theme.json` to use it.
+`themes/slate.json` is a second look made with nothing but this file. Copy it over `theme.json` to use it.
 
-## Sounds
+### Sounds
 
 The phone rings, and plays a tone for notifications, sent and received messages, the camera shutter and alarms. Five ringtones and four text tones can be chosen in Settings, which also has the volume and Silent Mode; Do Not Disturb stops the ringtone. Only the player holding the phone hears them.
 
-The recordings are in `web/dist/sounds/` and are all public domain (CC0); `CREDITS.txt` there lists where each came from. To replace one, put an `.mp3` with the same name in that folder. To switch every sound off, set `ENABLED = false` in `web/src/sound.ts` and rebuild.
+The recordings are in `web/dist/sounds/`. To replace one, put an `.mp3` with the same name in that folder. To switch every sound off, set `ENABLED = false` in `web/src/sound.ts` and rebuild.
 
-## Languages
+## Apps
 
-The phone ships in English (`en`, the default) and French (`fr`). Set `Config.locale` to the one you want.
+A new phone starts with fifteen apps: Phone, Messages, Camera, Photos, Settings, App Store, Wallet, Maps, Garage, Services, Clock, Notes, Voice Memos, Flock and Loop.
 
-### Translating
+The rest are in the App Store: Weather, Calculator, Mail, Music, Home, Lumen, Ember, Shade, Adverts, Market and Crypto. Change which apps start installed with `defaults.apps` and `defaults.dock` in the theme file. A phone that has already rearranged its home screen keeps its own list.
 
-All text lives in `config/locales/en.json`: `"ui"` for the interface, `"server"` for messages that come from Lua.
+Flock, Lumen, Loop, Shade and Mail use accounts with a username and password, so a player can hold several, stay anonymous, and sign in from any phone.
 
-1. Copy `en.json` to `<code>.json` (`de.json`, `es.json`, ...).
-2. Translate the values only. Leave the keys alone, and keep every `{placeholder}` and `%s` exactly as written; where a line has several `%s`, they must stay in the same order.
-3. Set `"meta.name"` to the language's own name and `"meta.intl"` to its locale code (`de-DE`), which decides how dates and numbers are written.
-4. Set `Config.locale = '<code>'` and restart the phone.
+## ox_core
 
-Anything left out falls back to English, so a half-finished file still works. Translations are welcome as pull requests.
+ox_core is shaped differently from the other frameworks, so a few things read differently there:
+
+- **Jobs are groups.** A character can be in several. Their job, as far as Services is concerned, is the group they have made active, or failing that their group of type `job`. On duty means having that group active. The top grade of a group (or a grade whose account role is `owner`) is the boss.
+- **The bank is the character's default account**, and the company account is the group's own account (the group needs `hasAccount`). Phone payments show in ox_core's own transaction history.
+- **The valet's vehicle is spawned by ox_core**, not by the player's game, so it stays that character's tracked vehicle. The model has to be one ox_core knows.
+- **Coming from NPWD** works here too: ox_core runs NPWD itself, and the number it kept on each character is carried over.
+
+## Moving from another phone
+
+A server that switches to LWK Phone does not start from nothing. If the old phone's tables are still in the database, then:
+
+- **Everyone keeps their number.** It moves the first time a character's phone loads, with nothing to do, and numbers that belong to characters who have not been back yet are held for them.
+- **Setup offers the rest.** The first time a player opens the phone, it shows what it found on their old one (contacts, conversations, call history, photos, notes) and offers to transfer it or start fresh.
+
+**To switch:**
+
+1. Stop the server and remove the old phone from `resources` (or its `ensure` line). **Leave its tables in the database.**
+2. Add LWK Phone and start the server. The start-up report says which old phone was found and how many numbers are being kept.
+
+The old tables are only read, never changed, so nothing is lost if you go back. `transfer = 'none'` in `config/config.lua` switches all of this off.
+
+A conversation belongs to two people: it comes across whole the first time either of them transfers, and is not brought over a second time when the other does. Social app accounts are not transferred, because passwords cannot be carried from one phone to another.
+
+Only these two free phones are covered. Transfers from paid phones are not supported and are not planned. Fuck Quasar.
+
+## Garages
+
+Every garage script keeps vehicles in the framework's table (`player_vehicles` or `owned_vehicles`); they differ in which columns say where a vehicle is. The Garage app reads whichever of these the table has, so there is nothing to configure:
+
+| Columns | Garage scripts |
+| --- | --- |
+| `in_garage`, `garage_id`, `impound` | jg-advancedgarages, cd_garage |
+| `state`, `garage` | qb-garages, qbx_garages |
+| `stored`, `parking`, `pound` | esx_garage and most ESX garages |
+| `stored`, `garage` | esx_advancedgarage |
+| `stored` | lunar_garage |
+| `parking` beside the framework's own | okokGarage |
+| `garage`, `garageSpotID`, `impound_date` | vms_garagesv2 |
+
+A garage script that is not in this table still works if it keeps one of these sets of columns. `phonecheck` prints the columns the phone found. One with other columns needs `where` and `Bridge.vehicleOut` in `config/bridge/framework.lua` adjusted.
+
+Set `garage.fromImpound = false` to stop the phone releasing impounded vehicles at all.
+
+After the valet spawns a vehicle, keys are handed over through qb-vehiclekeys' event (which qbx_vehiclekeys and most key scripts also answer), cd_garage's and okokGarage's. Another key script goes in `Bridge.giveKeys` in `config/bridge/client.lua`.
+
+## Housing
+
+The Home app lists the houses a player owns, with a waypoint to each, and as much else as the server's housing script offers (see the [table](#compatibility) above). The app is hidden when there is no housing script.
+
+A key is given to one of the player's contacts, and goes to whoever holds that phone number. With vms_housing, bcs_housing, ps-housing, qb-houses and esx_property that person has to be in the city at the time, because those scripts hand keys to a player rather than to a character.
+
+Every script has its own short section in `config/bridge/housing.lua` (and the client half at the end of `config/bridge/client.lua`); adding another is a matter of copying one.
+
+## Commands
+
+| Command | Who | What |
+| --- | --- | --- |
+| `/phone` | everyone | Open and close the phone (the name is `command` in `config/config.lua`) |
+| `phonecheck` | admins, console | Print the start-up report again |
+| `phoneverify <app> <username> <1 or 0>` | admins, console | Give or take a verified badge on a social account |
+| `phonepassword <app> <username> <password>` | admins, console | Reset a social account's password |
+| `phoneprune <days>` | admins, console | Delete texts, calls, mail and posts older than that many days. Nothing is ever deleted by itself, and this cannot be undone |
+
+Admins are players with the `lwk_phone.admin` ace.
+
+## Exports
+
+Names follow LB Phone's where the meaning is the same, so scripts written for that phone need little changing.
+
+```lua
+-- server
+exports.lwk_phone:GetEquippedPhoneNumber(source)                 --> number or nil
+exports.lwk_phone:GetSourceFromNumber(number)                    --> source or nil
+exports.lwk_phone:HasPhoneItem(source)
+exports.lwk_phone:IsInCall(source)
+exports.lwk_phone:SendNotification(sourceOrNumber, { app = 'settings', title = '', content = '' })
+exports.lwk_phone:SendMessage(from, to, text)                    -- `from` can be a name such as 'Bank'
+exports.lwk_phone:SendMail({ to = 'name@lsmail.net', sender = 'City Hall', subject = '', message = '' })
+exports.lwk_phone:AddTransaction(number, amount, label)          -- a line in Wallet history; move the money yourself
+exports.lwk_phone:CreateCall(source, { number = '555-0142', video = false, hidden = false })
+
+-- client
+exports.lwk_phone:IsOpen()
+exports.lwk_phone:ToggleOpen(open)                               -- true, false, or nil to toggle
+exports.lwk_phone:SendNotification({ app = 'settings', title = '', content = '' })
+exports.lwk_phone:AddCustomApp(app)                              -- see Community apps
+exports.lwk_phone:RemoveCustomApp(identifier)
+exports.lwk_phone:SendCustomAppMessage(identifier, data)
+```
 
 ## Community apps
 
@@ -336,13 +442,17 @@ The phone also sets `data-theme` on the page's `<html>` and three CSS variables,
 
 `web/public/example-app/` is a complete example in one HTML file with no build step.
 
+## Logs
+
+Put a Discord webhook in `config/keys.lua` (or `set lwk_phone_webhook "..."` in `server.cfg`) to log posts, money transfers, company account deposits and withdrawals, old-phone transfers and admin prunes. Leave it empty to turn logs off. `debug = true` in `config/config.lua` prints every request to the server console.
+
 ## Not built
 
 - **Distance in Ember.** Everyone on the server is in the deck.
 - **Recorded clips are the whole game view**, not cropped to the viewfinder.
 - `GameMap`, `useCamera` and the music selector for community apps.
 
-## Develop
+## Development
 
 ```bash
 npm --prefix web install
@@ -365,9 +475,9 @@ A phone is its number, and every table is keyed by number.
 - Private data (contacts, notes, settings, photos) is saved generically: the UI sends any slice that changed, the server stores it as JSON.
 
 ```
-config/         config.lua, keys.lua (server-only secrets), locales/, bridge/ (framework, inventory, voice, housing)
+config/         config.lua, keys.lua (server-only secrets), locales/, bridge/ (framework, inventory, banking, voice, housing, transfer)
 shared/         util.lua (validation), locale.lua
-server/         db.lua (schema), main.lua (phones, requests, storage), messages, calls, social, apps, exports
+server/         db.lua (schema), main.lua (phones, requests, storage), messages, calls, social, apps, transfer, check, exports
 client/         main.lua (open/close, focus, the pipe to the UI), prop, camera, apps, exports
 web/src/
   shell/        lock screen, home screen, Control Center, calls, dialogs
@@ -379,10 +489,30 @@ web/src/
   theme.ts, i18n.ts, pickers.tsx, ui.tsx, sound.ts
 ```
 
-## Licence
+## Credits
 
-GPL-3.0. See [LICENSE](LICENSE).
+- Made by **LWK Development**.
+- Sounds are CC0. See `web/dist/sounds/CREDITS.txt`.
+- Font: Inter (SIL Open Font License), bundled through Fontsource.
+- UI libraries in the built bundle: React (MIT) and Lucide icons (ISC).
+- The map in `tiles/` is the Grand Theft Auto V map, which belongs to Rockstar Games, cut into tiles by [VIRUXE/gtav-map-tiles](https://github.com/VIRUXE/gtav-map-tiles). This project is not affiliated with or endorsed by Rockstar Games.
 
-The map pictures in `tiles/` are not covered by that licence. They are the Grand Theft Auto V map, which belongs to Rockstar Games, cut into tiles by [VIRUXE/gtav-map-tiles](https://github.com/VIRUXE/gtav-map-tiles). This project is not affiliated with or endorsed by Rockstar Games.
+## Support
 
-The built UI in `web/dist` also carries the [Inter](https://rsms.me/inter/) typeface (SIL Open Font License 1.1), [Lucide](https://lucide.dev) icons (ISC) and [React](https://react.dev) (MIT), each under its own licence. The sounds are credited in `web/dist/sounds/CREDITS.txt`.
+Free support is available in the [LWK Development Discord](https://discord.gg/99EuV7rzSp). Please include your framework, inventory, voice script, the output of `phonecheck`, and any F8/server console errors.
+
+## Recommended Hosting
+
+I recommend and personally use [RocketNode](https://rocketnode.us/lwkdev) for hosting your FiveM server running this resource. Use code **LWKDEV** for 25% off.
+
+![LWK Dev](.github/rocketnode.webp)
+
+---
+
+## License
+
+[GPL-3.0](LICENSE) © LWK Development.
+
+You can use, modify and share LWK Phone freely, on any server. If you distribute it or a modified version, it must stay open source under the same license, with the full source code included, so it can't be encrypted, escrowed or made closed source.
+
+Bundled third-party parts keep their own licenses (see Credits). The map pictures in `tiles/` are not covered by the GPL: they remain Rockstar Games' property.
