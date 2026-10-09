@@ -13,6 +13,9 @@ graphify-out/
 # Design reference, not part of the resource
 phone.png
 
+# The packaged resource, attached to each GitHub release
+release/
+
 # Developer-only: Lua test runner and the natives reference it checks against
 tests/
 

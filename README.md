@@ -133,7 +133,7 @@ A custom housing script requires manual implementation (`config/bridge/housing.l
 
 ## Installation
 
-1. **Download** the [latest release](https://github.com/lwkjacob/lwk_phone/releases/latest) and put the folder in your `resources`. Name it **`lwk_phone`** (the source code download is called `lwk_phone-main`; rename it). Other scripts use that name to call its exports.
+1. **Download** `lwk_phone.zip` from the [latest release](https://github.com/lwkjacob/lwk_phone/releases/latest) and extract the `lwk_phone` folder into your `resources`. Keep the folder name **`lwk_phone`** (if you download the source code instead, rename `lwk_phone-main`). Other scripts use that name to call its exports.
 2. **Start it after** your framework, ox_lib, oxmysql, inventory and voice script, in `server.cfg`:
    ```cfg
    ensure ox_lib
@@ -153,6 +153,10 @@ A custom housing script requires manual implementation (`config/bridge/housing.l
 That's it. Join the server and press the key under Escape (`` ` ``), or type `/phone`.
 
 The built UI ships in `web/dist`, so Node is not needed to run the phone.
+
+### Updating
+
+The server console says when a newer version is out. Download the new `lwk_phone.zip` and replace the folder, keeping your own copies of the three files you may have edited: `config/config.lua`, `config/keys.lua` and `web/dist/theme.json`. Check the release notes for new config options. The database looks after itself: tables and columns are added on start and nothing is ever removed, so going back to the previous version is just putting the old folder back.
 
 ### Items
 
