@@ -148,9 +148,9 @@ function Passcode() {
   const ask = () =>
     prompt(t('settings_set_passcode'), t('settings_4_digits'), (v) => (/^\d{4}$/.test(v) ? set('passcode', v) : alert({ title: t('settings_passcode_not_set'), message: t('settings_a_passcode_must_be_exactly_4'), buttons: [{ label: t('ok'), kind: 'bold' }] })), '', t('settings_enter_a_4_digit_passcode'));
   return (
-    <Page title={t('settings_face_id_passcode')}>
-      <Group footer={t('settings_with_face_id_on_the_phone')}>
-        <Flip k="faceId" title={t('settings_face_id_unlock')} />
+    <Page title={t('settings_face_unlock_passcode')}>
+      <Group footer={t('settings_with_face_unlock_on')}>
+        <Flip k="faceId" title={t('settings_face_unlock')} />
       </Group>
       <Group footer={has ? t('settings_a_passcode_is_set') : t('settings_no_passcode_anyone_holding_this_phone')}>
         {has ? (
@@ -266,7 +266,7 @@ function Root() {
         <Row icon={<Gear size={18} />} iconBg="var(--gray)" title={t('settings_general')} chevron onClick={() => nav.push(<General />)} />
         <Row icon={<Sun size={18} fill="currentColor" />} iconBg="var(--blue)" title={t('settings_display_brightness')} chevron onClick={() => nav.push(<Display />)} />
         <Row icon={<ImageIcon size={18} />} iconBg="var(--teal)" title={t('settings_wallpaper')} chevron onClick={() => nav.push(<Wallpaper />)} />
-        <Row icon={<ScanFace size={18} />} iconBg="var(--green)" title={t('settings_face_id_passcode')} chevron onClick={() => nav.push(<Passcode />)} />
+        <Row icon={<ScanFace size={18} />} iconBg="var(--green)" title={t('settings_face_unlock_passcode')} chevron onClick={() => nav.push(<Passcode />)} />
         <Row icon={<Phone size={17} fill="currentColor" strokeWidth={0} />} iconBg="var(--green)" title={t('phone')} chevron onClick={() => nav.push(<PhoneSettings />)} />
       </Group>
     </Page>

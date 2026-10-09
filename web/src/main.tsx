@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/inter/opsz.css';
 import './styles/base.css';
 import './styles/shell.css';
-import './styles/ios.css';
+import './styles/ui.css';
 import './styles/apps.css';
 import './styles/social.css';
 import { applySkin } from './apps';

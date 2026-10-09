@@ -9,7 +9,7 @@ import { t } from './i18n';
 import { EmojiGrid } from './pickers';
 import { rpc } from './net';
 
-/* ---------- navigation stack: iOS push / pop ---------- */
+/* ---------- navigation stack: push / pop ---------- */
 
 type Nav = { push: (node: ReactNode) => void; pop: () => void; depth: number };
 const NavCtx = createContext<Nav>({ push: () => {}, pop: () => {}, depth: 0 });
