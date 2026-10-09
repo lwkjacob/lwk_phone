@@ -122,18 +122,27 @@ end
 --- Top-level posts of `kind`, newest first, with replies, counts and the viewer's own reactions.
 --- Returns the posts and the set of usernames that appear in them.
 local function feed(app, kind, viewer, since)
-    local rows = MySQL.query.await('SELECT id, username, body, created FROM lwk_phone_posts WHERE app = ? AND kind = ? AND parent IS NULL AND created >= ? ORDER BY id DESC LIMIT 60',
-        { app, kind, since or 0 })
+    -- `since` is not put in the query. With it, a feed holding fewer than 60 fresh posts (yesterday's stories,
+    -- say) has the database read every older one in search of more: 6 ms at 4,000 stories, and growing. Posts
+    -- are numbered in the order they are made, so the newest 60 are taken by number and the old ones dropped here.
+    local rows = MySQL.query.await('SELECT id, username, body, created FROM lwk_phone_posts WHERE app = ? AND kind = ? AND parent IS NULL ORDER BY id DESC LIMIT 60',
+        { app, kind })
     local names, posts, byId, ids = { [viewer] = true }, {}, {}, {}
-    for i, r in ipairs(rows) do
-        local p = json.decode(r.body) or {}
-        p.id, p.user, p.time = r.id, r.username, r.created
-        p.likes, p.reposts, p.shares, p.replies = 0, 0, 0, {}
-        posts[i], byId[r.id], ids[i], names[r.username] = p, p, r.id, true
+    for _, r in ipairs(rows) do
+        if r.created >= (since or 0) then
+            local p = json.decode(r.body) or {}
+            p.id, p.user, p.time = r.id, r.username, r.created
+            p.likes, p.reposts, p.shares, p.replies = 0, 0, 0, {}
+            posts[#posts + 1], byId[r.id], ids[#ids + 1], names[r.username] = p, p, r.id, true
+        end
     end
     if #ids > 0 then
         local marks = Util.marks(#ids)
-        for _, r in ipairs(MySQL.query.await(('SELECT parent, username, body FROM lwk_phone_posts WHERE parent IN (%s) ORDER BY id'):format(marks), ids)) do
+        -- Asked for by app and kind as well as by parent, so that the `feed` index finds them: by parent alone
+        -- the database reads the whole table (30 ms at 100,000 posts). A reply is always in its parent's app,
+        -- and these are the only two kinds there are (see post.create).
+        for _, r in ipairs(MySQL.query.await(("SELECT parent, username, body FROM lwk_phone_posts WHERE app = ? AND kind IN ('post', 'story') AND parent IN (%s) ORDER BY id"):format(marks),
+            { app, table.unpack(ids) })) do
             local body = json.decode(r.body) or {}
             table.insert(byId[r.parent].replies, { user = r.username, text = body.text or '' })
             names[r.username] = true
