@@ -106,7 +106,7 @@ Each bridge was written from that script's own documentation or source code. If 
 | esx_property | ✅ | ✅ | ✅ |
 | custom | ⚠️ | ⚠️ | ⚠️ |
 
-A custom housing script requires manual implementation (`config/bridge/housing.lua`). Quasar's housing is not supported.
+A custom housing script requires manual implementation (`config/bridge/housing.lua`).
 
 | Old phones | Number | Contacts | Texts | Calls | Photos | Notes |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: |
