@@ -384,3 +384,5 @@ web/src/
 GPL-3.0. See [LICENSE](LICENSE).
 
 The map pictures in `tiles/` are not covered by that licence. They are the Grand Theft Auto V map, which belongs to Rockstar Games, cut into tiles by [VIRUXE/gtav-map-tiles](https://github.com/VIRUXE/gtav-map-tiles). This project is not affiliated with or endorsed by Rockstar Games.
+
+The built UI in `web/dist` also carries the [Inter](https://rsms.me/inter/) typeface (SIL Open Font License 1.1), [Lucide](https://lucide.dev) icons (ISC) and [React](https://react.dev) (MIT), each under its own licence. The sounds are credited in `web/dist/sounds/CREDITS.txt`.
