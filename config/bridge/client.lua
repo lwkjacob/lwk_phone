@@ -5,13 +5,22 @@ Bridge = Bridge or {}
 
 local function present(res) return GetResourceState(res) ~= 'missing' end
 
-local fw = Config.framework ~= 'auto' and Config.framework
-    or (present('qbx_core') and 'qbox')
-    or (present('qb-core') and 'qb')
-    or (present('es_extended') and 'esx')
-    or (present('ox_core') and 'ox')
-    or (present('ND_Core') and 'nd')
-    or 'standalone'
+-- A framework that is running wins over one whose folder is merely on the server (a leftover, or a copy
+-- that never started). Failing that, one that is installed is taken: it may be started after the phone.
+local FRAMEWORKS = { { 'qbox', 'qbx_core' }, { 'qb', 'qb-core' }, { 'esx', 'es_extended' }, { 'ox', 'ox_core' }, { 'nd', 'ND_Core' } }
+
+local function detect()
+    for _, f in ipairs(FRAMEWORKS) do
+        local state = GetResourceState(f[2])
+        if state == 'started' or state == 'starting' then return f[1] end
+    end
+    for _, f in ipairs(FRAMEWORKS) do
+        if present(f[2]) then return f[1] end
+    end
+    return 'standalone'
+end
+
+local fw = Config.framework ~= 'auto' and Config.framework or detect()
 Bridge.framework = fw
 
 local ESX = fw == 'esx' and exports.es_extended:getSharedObject() or nil
@@ -24,7 +33,7 @@ function Bridge.loaded()
         local ok, p = pcall(function() return exports.ox_core:GetPlayer() end)
         return ok and type(p) == 'table' and p.charId ~= nil
     end
-    if fw == 'nd' then return exports.ND_Core:getPlayer() ~= nil end
+    if fw == 'nd' then return GetResourceState('ND_Core') == 'started' and exports.ND_Core:getPlayer() ~= nil end
     return NetworkIsPlayerActive(PlayerId())
 end
 

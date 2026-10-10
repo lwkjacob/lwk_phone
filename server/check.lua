@@ -70,7 +70,11 @@ function Check.lines(release, why)
     end
 
     local fw = Bridge.framework
-    row('Framework', FRAMEWORKS[fw] or fw)
+    row('Framework', (FRAMEWORKS[fw] or fw) .. (Bridge.running() and '' or '  ^1not running'))
+    if not Bridge.running() then
+        warn(('%s is on the server but not running, so nobody can open the phone. Start it before lwk_phone in server.cfg (ensure %s) and check it is not in the resources folder twice. Or set framework = \'standalone\' in config/config.lua.'):format(
+            FRAMEWORKS[fw] or fw, Bridge.resource))
+    end
     row('Inventory', (INVENTORIES[Inv.kind] or Inv.kind) .. (Inv.unique and ': each phone item is its own phone' or Inv.required and ': a phone item is needed' or ': no item needed'))
 
     row('Voice', VOICES[Voice.kind] or Voice.kind)
