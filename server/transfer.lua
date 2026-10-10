@@ -27,10 +27,11 @@ local function gather(src, number)
     -- Only the phone that carries the old number takes the old phone's contents.
     if not old or Util.number(old) ~= number then return nil end
     local ok, data = pcall(function()
+        local who = Transfer.owner(id)   -- contacts, notes and photos are kept under this; texts and calls under the number
         return {
             source = name, label = reader.label, old = old,
-            contacts = reader.contacts(id), notes = reader.notes(id), photos = reader.photos(id),
-            threads = reader.threads(id, old), calls = reader.calls(id, old),
+            contacts = reader.contacts(who), notes = reader.notes(who), photos = reader.photos(who),
+            threads = reader.threads(who, old), calls = reader.calls(who, old),
         }
     end)
     if not ok then

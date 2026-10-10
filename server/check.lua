@@ -14,7 +14,7 @@ local ART = {
     [[|_____|    \_/\_/    |_|\_\      |_|     |_| |_|  \___/  |_| \_| |_____|]],
 }
 
-local FRAMEWORKS = { qbox = 'Qbox', qb = 'QBCore', esx = 'ESX', ox = 'ox_core', standalone = 'none (standalone)' }
+local FRAMEWORKS = { qbox = 'Qbox', qb = 'QBCore', esx = 'ESX', ox = 'ox_core', nd = 'ND_Core', standalone = 'none (standalone)' }
 local INVENTORIES = {
     ox = 'ox_inventory', qb = 'qb-inventory', ps = 'ps-inventory', codem = 'codem-inventory', core = 'core_inventory',
     jaksam = 'jaksam_inventory', tgiann = 'tgiann-inventory', esx = "ESX's own", none = 'none',

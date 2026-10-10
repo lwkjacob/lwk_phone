@@ -3,7 +3,7 @@
 Config = {
     -- General -------------------------------------------------------------------
     locale    = 'en',          -- a file in config/locales/: 'en' or 'fr' (README, "Languages", for adding one)
-    framework = 'auto',        -- auto | qbox | qb | esx | ox | standalone
+    framework = 'auto',        -- auto | qbox | qb | esx | ox | nd | standalone
     bank      = 'auto',        -- company accounts: auto | a bank's resource name | none   (the list is in config/bridge/banking.lua)
     debug     = false,         -- prints every RPC to the server console
 

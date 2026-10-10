@@ -4,7 +4,7 @@ A free, open-source phone for FiveM by **LWK Development**. Twenty-six apps, voi
 
 ![Overview](.github/showcase.png)
 
-Works with **Qbox, QBCore, ESX, ox_core and standalone** servers (detected automatically), and brings players' numbers and data across from **[NPWD and GCPhone](#moving-from-another-phone)**.
+Works with **Qbox, QBCore, ESX, ox_core, ND_Core and standalone** servers (detected automatically), and brings players' numbers and data across from **[NPWD and GCPhone](#moving-from-another-phone)**.
 
 ## Features
 
@@ -37,6 +37,7 @@ Each bridge was written from that script's own documentation or source code. If 
 | qb-core | ✅ | |
 | esx | ✅ | |
 | ox_core | ✅ | Groups are jobs and accounts are the bank. See [ox_core](#ox_core) |
+| ND_Core | ✅ | No company account. See [ND_Core](#nd_core) |
 | standalone | ✅ | One phone per player, no item. Wallet, Crypto, Garage and Services are hidden |
 | custom | ⚠️ | Requires manual implementation (`config/bridge/framework.lua`, `config/bridge/client.lua`) |
 
@@ -90,6 +91,7 @@ Each bridge was written from that script's own documentation or source code. If 
 | okokGarage | ✅ | |
 | vms_garagesv2 | ✅ | An impounded vehicle is collected at the impound, not from the phone |
 | ox_core's vehicles | ✅ | The valet's vehicle is spawned by ox_core |
+| ND_Core's vehicles | ✅ | The valet's vehicle is spawned by ND_Core. An impounded vehicle is collected at the impound, not from the phone |
 | any other | ✅ | Works when it keeps its framework's usual columns, which most do. See [Garages](#garages) |
 | custom | ⚠️ | Requires manual implementation (`config/bridge/framework.lua`) |
 
@@ -125,7 +127,7 @@ A custom housing script requires manual implementation (`config/bridge/housing.l
 | --- | --- |
 | [ox_lib](https://github.com/overextended/ox_lib) | callbacks, key bindings |
 | [oxmysql](https://github.com/overextended/oxmysql) | database (MariaDB 10.2+ or MySQL 8) |
-| qbx_core, qb-core, es_extended or ox_core *(optional)* | your framework. Without one the phone runs standalone |
+| qbx_core, qb-core, es_extended, ox_core or ND_Core *(optional)* | your framework. Without one the phone runs standalone |
 | [pma-voice](https://github.com/AvarianKnight/pma-voice), saltychat or mumble-voip *(optional)* | sound on calls |
 | an inventory from the list above *(optional)* | the phone as an item |
 | a [Fivemanage](https://fivemanage.com) token *(optional)* | the camera, voice messages, voice memos and voicemail |
@@ -162,7 +164,7 @@ The server console says when a newer version is out. Download the new `lwk_phone
 
 On a framework server with one of the [inventories](#compatibility) above, the phone is an item and **each item is its own phone**: the number is written onto the item and every bit of phone data is keyed by that number. Give the item away, or have it taken, and the phone goes with it.
 
-**ox_inventory** (also used by Qbox and ox_core): `ox_inventory/data/items.lua`
+**ox_inventory** (also used by Qbox, ox_core and ND_Core): `ox_inventory/data/items.lua`
 ```lua
 ['phone'] = { label = 'Phone', weight = 190, stack = false, consume = 0, client = { export = 'lwk_phone.usePhone' } },
 ```
@@ -202,7 +204,7 @@ Everything is in `config/config.lua`, with a comment on each option. The ones mo
 | Option | What it does |
 | --- | --- |
 | `locale` | Language file from `config/locales/`. |
-| `framework` | `auto` detects Qbox, QBCore, ESX or ox_core and falls back to standalone. |
+| `framework` | `auto` detects Qbox, QBCore, ESX, ox_core or ND_Core and falls back to standalone. |
 | `autoInstallApps` | Whether community apps may install themselves on every phone, or always go to the App Store first (the default). |
 | `bank` | Which bank script holds company money. `auto` finds it. |
 | `keybind`, `command`, `walk`, `cursorKey` | How the phone opens and whether players can move with it out. |
@@ -277,6 +279,15 @@ ox_core is shaped differently from the other frameworks, so a few things read di
 - **The bank is the character's default account**, and the company account is the group's own account (the group needs `hasAccount`). Phone payments show in ox_core's own transaction history.
 - **The valet's vehicle is spawned by ox_core**, not by the player's game, so it stays that character's tracked vehicle. The model has to be one ox_core knows.
 - **Coming from NPWD** works here too: ox_core runs NPWD itself, and the number it kept on each character is carried over.
+
+## ND_Core
+
+A few things read differently on ND_Core too:
+
+- **The job is the group marked as the character's job.** ND_Core has no duty, so everyone in the city with a job gets the calls and messages sent to their company. A rank marked as the boss can hire, fire and change ranks from Services.
+- **The bank is the character's own bank money.** There is no company account: ND_Core's banking has no call for a job's money, so that part of My Job is not shown.
+- **The valet's vehicle is spawned by ND_Core**, with its keys, so it stays that character's vehicle. Impounded vehicles are left to the impound.
+- **Coming from NPWD**: every character keeps their number, texts and calls. Contacts, notes and photos follow the player rather than the character, because that is how ND_Core's NPWD setup stored them.
 
 ## Moving from another phone
 

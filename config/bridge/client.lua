@@ -10,6 +10,7 @@ local fw = Config.framework ~= 'auto' and Config.framework
     or (present('qb-core') and 'qb')
     or (present('es_extended') and 'esx')
     or (present('ox_core') and 'ox')
+    or (present('ND_Core') and 'nd')
     or 'standalone'
 Bridge.framework = fw
 
@@ -23,6 +24,7 @@ function Bridge.loaded()
         local ok, p = pcall(function() return exports.ox_core:GetPlayer() end)
         return ok and type(p) == 'table' and p.charId ~= nil
     end
+    if fw == 'nd' then return exports.ND_Core:getPlayer() ~= nil end
     return NetworkIsPlayerActive(PlayerId())
 end
 
@@ -37,6 +39,9 @@ function Bridge.watch(onLoad, onUnload)
     elseif fw == 'ox' then   -- raised inside the player's own game, not sent from the server
         AddEventHandler('ox:playerLoaded', function() onLoad() end)
         AddEventHandler('ox:playerLogout', function() onUnload() end)
+    elseif fw == 'nd' then
+        RegisterNetEvent('ND:characterLoaded', function() onLoad() end)
+        RegisterNetEvent('ND:characterUnloaded', function() onUnload() end)
     end
 end
 

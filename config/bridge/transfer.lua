@@ -21,11 +21,12 @@
 
 Transfer = {}
 
--- Where the framework keeps its characters. ox_core runs NPWD itself and gives it this table and these columns.
-local esx, ox = Bridge.framework == 'esx', Bridge.framework == 'ox'
-local PLAYERS = esx and 'users' or ox and 'characters' or 'players'
-local ID = esx and 'identifier' or ox and 'charId' or 'citizenid'
-local NUMBER = ox and 'phoneNumber' or 'phone_number'
+-- Where the framework keeps its characters. ox_core runs NPWD itself and gives it this table and these columns;
+-- ND_Core's are the ones its own guide to NPWD names (ndcore.dev/addons/phone).
+local esx, ox, nd = Bridge.framework == 'esx', Bridge.framework == 'ox', Bridge.framework == 'nd'
+local PLAYERS = esx and 'users' or ox and 'characters' or nd and 'nd_characters' or 'players'
+local ID = esx and 'identifier' or ox and 'charId' or nd and 'charid' or 'citizenid'
+local NUMBER = ox and 'phoneNumber' or nd and 'phonenumber' or 'phone_number'
 
 local function rows(sql, params)
     local ok, res = pcall(MySQL.query.await, sql, params or {})
@@ -162,7 +163,7 @@ function Transfer.source()
     -- run through an integration that leaves the number where QBCore itself keeps it, in charinfo.
     if column(PLAYERS, NUMBER) then
         numberSql = NUMBER
-    elseif not esx and not ox then
+    elseif not esx and not ox and not nd then
         numberSql = "JSON_UNQUOTE(JSON_EXTRACT(charinfo, '$.phone'))"
     else
         reader = false
@@ -183,6 +184,14 @@ function Transfer.old(identifier)
     if not Transfer.source() then return nil end
     local r = rows(('SELECT %s AS number FROM %s WHERE %s = ? LIMIT 1'):format(numberSql, PLAYERS, ID), { identifier })[1]
     return r and r.number ~= '' and r.number or nil
+end
+
+--- What the old phone knew a character as. Nearly everywhere that is the character itself. On ND_Core, NPWD is set
+--- up to know players by the `identifier` column (their licence), which all of a player's characters share.
+function Transfer.owner(identifier)
+    if not nd then return identifier end
+    local r = rows('SELECT identifier FROM nd_characters WHERE charid = ? LIMIT 1', { tonumber(identifier) })[1]
+    return r and r.identifier or identifier
 end
 
 --- Is this number spoken for by someone's old phone?

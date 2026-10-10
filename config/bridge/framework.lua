@@ -1,6 +1,6 @@
 -- Framework bridge (server). Everything framework-specific lives here so the rest of the
 -- resource only speaks: identifier, name, bank money, job, vehicles, admin.
--- Detected once: qbx_core > qb-core > es_extended > ox_core > standalone. Config.framework can force one.
+-- Detected once: qbx_core > qb-core > es_extended > ox_core > ND_Core > standalone. Config.framework can force one.
 --
 -- ox_core differs from the other three in shape, and each difference is dealt with here:
 --   a character is known by a number (charId), which this bridge hands out as text like the others;
@@ -11,6 +11,13 @@
 --   vehicles have a table of their own, and ox_core has to spawn one itself for it to stay tracked.
 -- A player and an account there are plain data whose methods are called by name: the exports used below
 -- are the ones ox_core's own Lua library is built on (ox_core/lib/server).
+--
+-- ND_Core (github.com/ND-Framework/ND_Core, ndcore.dev) sits between the two shapes:
+--   a character is known by a number (`id`, the charid), handed out here as text;
+--   cash and bank are two numbers on the character, moved with addMoney / deductMoney;
+--   a character has groups, and exactly one of them is their job. There is no duty;
+--   ranks are whatever weights the server gave the group, and a rank can be marked as the boss;
+--   vehicles have a table of their own (`nd_vehicles`), and ND_Core spawns one itself (with its keys).
 --
 -- Standalone has no characters, money, jobs or owned vehicles: the identifier is the
 -- player's licence and the apps that need the rest are hidden (see Bridge.has).
@@ -24,6 +31,7 @@ local fw = Config.framework ~= 'auto' and Config.framework
     or (present('qb-core') and 'qb')
     or (present('es_extended') and 'esx')
     or (present('ox_core') and 'ox')
+    or (present('ND_Core') and 'nd')
     or 'standalone'
 Bridge.framework = fw
 
@@ -42,6 +50,7 @@ local function player(src)
         local p = exports.ox_core:GetPlayer(src)
         return p and p.charId and p or nil   -- connected but still choosing a character: not a player yet
     end
+    if fw == 'nd' then return exports.ND_Core:getPlayer(src) end   -- nil until a character is chosen
 end
 
 local ox = {}
@@ -105,6 +114,7 @@ function Bridge.identifier(src)
     if not p then return nil end
     if fw == 'esx' then return p.getIdentifier() end
     if fw == 'ox' then return tostring(p.charId) end
+    if fw == 'nd' then return tostring(p.id) end
     return p.PlayerData.citizenid
 end
 
@@ -113,6 +123,7 @@ function Bridge.name(src)
     if not p then return GetPlayerName(src) or 'Unknown' end
     if fw == 'esx' then return p.getName() end
     if fw == 'ox' then return ox.call(src, 'get', 'name') or GetPlayerName(src) or 'Unknown' end
+    if fw == 'nd' then return p.fullname or GetPlayerName(src) or 'Unknown' end
     local c = p.PlayerData.charinfo or {}
     return (('%s %s'):format(c.firstname or '', c.lastname or ''):gsub('^%s+', ''):gsub('%s+$', ''))
 end
@@ -130,6 +141,8 @@ function Bridge.charName(identifier)
             { identifier })
     elseif fw == 'ox' then
         ok, name = pcall(MySQL.scalar.await, 'SELECT fullName FROM characters WHERE charId = ?', { tonumber(identifier) })
+    elseif fw == 'nd' then
+        ok, name = pcall(MySQL.scalar.await, "SELECT CONCAT(firstname, ' ', lastname) FROM nd_characters WHERE charid = ?", { tonumber(identifier) })
     end
     return ok and name or tostring(identifier)
 end
@@ -144,6 +157,7 @@ function Bridge.getBank(src)
         return acc and acc.money or 0
     end
     if fw == 'ox' then return ox.balance(ox.account(p.charId)) end
+    if fw == 'nd' then return tonumber(p.bank) or 0 end
     return p.Functions.GetMoney('bank') or 0
 end
 
@@ -157,6 +171,7 @@ function Bridge.getCash(src)
     if fw == 'ox' then   -- cash there is an item
         return GetResourceState('ox_inventory') == 'started' and exports.ox_inventory:GetItemCount(src, 'money') or 0
     end
+    if fw == 'nd' then return tonumber(p.cash) or 0 end
     return p.Functions.GetMoney('cash') or 0
 end
 
@@ -168,6 +183,7 @@ function Bridge.addBank(src, amount, reason)
         return true
     end
     if fw == 'ox' then return ox.move(ox.account(p.charId), 'addBalance', amount, reason) end
+    if fw == 'nd' then return p.addMoney('bank', amount, reason) == true end
     return p.Functions.AddMoney('bank', amount, reason) ~= false
 end
 
@@ -180,6 +196,7 @@ function Bridge.removeBank(src, amount, reason)
         return true
     end
     if fw == 'ox' then return ox.move(ox.account(p.charId), 'removeBalance', amount, reason) end
+    if fw == 'nd' then return p.deductMoney('bank', amount, reason) == true end   -- it does not check the balance: the line above did
     return p.Functions.RemoveMoney('bank', amount, reason) == true
 end
 
@@ -197,6 +214,9 @@ function Bridge.addBankOffline(identifier, amount)
             { amount, identifier }) > 0
     end
     if fw == 'ox' then return ox.move(ox.account(identifier), 'addBalance', amount) end   -- an account is there whether or not its owner is
+    if fw == 'nd' then
+        return MySQL.update.await('UPDATE nd_characters SET bank = bank + ? WHERE charid = ?', { amount, tonumber(identifier) }) > 0
+    end
     return false
 end
 
@@ -208,6 +228,14 @@ function Bridge.getJob(src, as)
     local p = player(src)
     if not p then return nil end
     if fw == 'ox' then return ox.job(src, as) end
+    if fw == 'nd' then   -- the one of their groups that is marked as the job
+        local name, g = p.getJob()
+        if not name or type(g) ~= 'table' then return nil end
+        return {
+            name = name, label = g.label or name, grade = tonumber(g.rank) or 1, gradeLabel = g.rankName and tostring(g.rankName) or nil,
+            isBoss = g.isBoss == true or g.isBoss == 1,
+        }
+    end
     if fw == 'esx' then
         local j = p.getJob()
         return { name = j.name, label = j.label, grade = j.grade, gradeLabel = j.grade_label, isBoss = j.grade_name == 'boss' }
@@ -224,6 +252,10 @@ function Bridge.onDuty(job)
     core()
     local out = {}
     if fw == 'ox' then return exports.ox_core:GetGroupActivePlayers(job) or out end
+    if fw == 'nd' then   -- no duty there: everyone in the city with the job
+        for _, p in pairs(exports.ND_Core:getPlayers('job', job, true) or {}) do out[#out + 1] = p.source end
+        return out
+    end
     if fw == 'esx' then
         for _, p in pairs(ESX.GetExtendedPlayers('job', job)) do out[#out + 1] = p.source end
     elseif fw == 'qb' or fw == 'qbox' then
@@ -259,6 +291,12 @@ function Bridge.setJob(src, job, grade, from)
         if job == Bridge.unemployed then return from ~= nil and ox.call(src, 'setGroup', from, 0) == true end
         return ox.call(src, 'setGroup', job, math.max(grade or 1, 1)) == true   -- 0 there means out of the group
     end
+    if fw == 'nd' then
+        if job == Bridge.unemployed then return from ~= nil and p.removeGroup(from) ~= nil end
+        -- Hiring asks for grade 0, the bottom: there that is the group's lowest rank, whatever number the server gave it.
+        local lowest = Bridge.grades(job)[1]
+        return p.setJob(job, grade and grade > 0 and grade or lowest and lowest.level or 1) ~= nil
+    end
     if fw == 'esx' then
         p.setJob(job, grade)
         return true
@@ -273,6 +311,9 @@ function Bridge.grades(job)
     if fw == 'ox' then
         for level, name in ipairs((GlobalState['group.' .. job] or {}).grades or {}) do out[level] = { level = level, name = name } end
         return out
+    end
+    if fw == 'nd' then
+        for level, rank in pairs((exports.ND_Core:getGroupData(job) or {}).ranksData or {}) do out[#out + 1] = { level = tonumber(level) or 0, name = rank.label } end
     end
     if fw == 'esx' then
         local ok, rows = pcall(MySQL.query.await, 'SELECT grade, label FROM job_grades WHERE job_name = ?', { job })
@@ -309,6 +350,15 @@ function Bridge.employees(job)
             FROM character_groups g JOIN characters c ON c.charId = g.charId
             LEFT JOIN ox_group_grades gg ON gg.`group` = g.name AND gg.grade = g.grade
             WHERE g.name = ? AND c.deleted IS NULL]], { job })
+    elseif fw == 'nd' and job:match('^[%w_%-]+$') then
+        -- A character's groups are one JSON object keyed by group name; the job is the one with `isJob`.
+        local path = '$."' .. job .. '"'
+        ok, rows = pcall(MySQL.query.await, [[
+            SELECT CAST(charid AS CHAR) AS id, CONCAT(firstname, ' ', lastname) AS name,
+                   JSON_EXTRACT(`groups`, CONCAT(?, '.rank')) AS grade,
+                   JSON_UNQUOTE(JSON_EXTRACT(`groups`, CONCAT(?, '.rankName'))) AS gradeLabel
+            FROM nd_characters
+            WHERE JSON_UNQUOTE(JSON_EXTRACT(`groups`, CONCAT(?, '.isJob'))) = 'true' AND deleted_at IS NULL]], { path, path, path })
     end
     return ok and rows or {}
 end
@@ -327,6 +377,9 @@ function Bridge.sourceOf(identifier)
         return p and p.source
     elseif fw == 'ox' then
         local p = tonumber(identifier) and exports.ox_core:GetPlayerFromCharId(tonumber(identifier))
+        return p and tonumber(p.source)
+    elseif fw == 'nd' then
+        local p = tonumber(identifier) and (exports.ND_Core:getPlayers('id', tonumber(identifier), true) or {})[1]
         return p and tonumber(p.source)
     end
     for _, src in ipairs(GetPlayers()) do
@@ -401,6 +454,23 @@ end
 function Bridge.vehicles(src)
     local out = {}
     if fw == 'standalone' then return out end
+    if fw == 'nd' then
+        -- Its own table. An impounded vehicle stays at the impound: releasing it is the impound script's business.
+        local ok, rows = pcall(MySQL.query.await, 'SELECT id, plate, properties, `stored`, impounded FROM nd_vehicles WHERE owner = ?', { tonumber(Bridge.identifier(src)) })
+        for _, r in ipairs(ok and rows or {}) do
+            local props = Util.decode(r.properties)
+            local impounded = yes(tonumber(r.impounded) or r.impounded)
+            out[#out + 1] = {
+                id = r.id, plate = r.plate, model = props.model, garage = '',
+                state = impounded and 'impound' or yes(tonumber(r.stored) or r.stored) and 'garaged' or 'out', held = impounded or nil,
+                fuel = math.floor(tonumber(props.fuelLevel) or 100),
+                engine = math.floor((tonumber(props.engineHealth) or 1000) / 10),
+                body = math.floor((tonumber(props.bodyHealth) or 1000) / 10),
+                props = props,
+            }
+        end
+        return out
+    end
     if fw == 'ox' then
         -- Its own table: `stored` is the garage, 'impound', or empty while the vehicle is out in the world.
         local ok, rows = pcall(MySQL.query.await, 'SELECT id, plate, model, data, `stored` FROM vehicles WHERE owner = ?', { tonumber(Bridge.identifier(src)) })
@@ -449,6 +519,11 @@ function Bridge.vehicleOut(src, plate)
         local id = MySQL.scalar.await('SELECT id FROM vehicles WHERE plate = ? AND owner = ? AND `stored` IS NOT NULL', { plate, tonumber(Bridge.identifier(src)) })
         return id and { id = id } or false
     end
+    if fw == 'nd' then
+        -- Nor here: ND_Core marks the vehicle as out itself when it spawns it (Bridge.spawnVehicle).
+        local id = MySQL.scalar.await('SELECT id FROM nd_vehicles WHERE plate = ? AND owner = ? AND `stored` = 1 AND impounded = 0', { plate, tonumber(Bridge.identifier(src)) })
+        return id and { id = id, src = src } or false
+    end
     local c, names, sets = columns(), {}, {}
     for _, o in ipairs(outs(c)) do
         if c[o[1]] then
@@ -468,7 +543,7 @@ end
 
 --- Undo Bridge.vehicleOut: put the vehicle back where it was. `before` is what vehicleOut returned.
 function Bridge.vehicleBack(src, plate, before)
-    if fw == 'ox' then return true end   -- nothing was changed (see Bridge.vehicleOut)
+    if fw == 'ox' or fw == 'nd' then return true end   -- nothing was changed (see Bridge.vehicleOut)
     local c, sets, params = columns(), {}, {}
     for _, o in ipairs(outs(c)) do
         local name, v = o[1], before[o[1]]
@@ -488,18 +563,27 @@ end
 local GARAGES = { 'jg-advancedgarages', 'cd_garage', 'vms_garagesv2', 'okokGarage', 'lunar_garage', 'qbx_garages', 'qb-garages', 'esx_advancedgarage', 'esx_garage' }
 
 --- Bring a vehicle into the world at `coords`. Only defined where the framework has to do this itself for
---- the vehicle to stay that character's (ox_core): elsewhere it is nil and the player's game spawns it.
+--- the vehicle to stay that character's (ox_core, ND_Core): elsewhere it is nil and the player's game spawns it.
 --- `before` is what Bridge.vehicleOut returned.
 if fw == 'ox' then
     function Bridge.spawnVehicle(before, coords, heading)
         local ok, v = pcall(function() return exports.ox_core:SpawnVehicle(before.id, coords, heading) end)
         return ok and v ~= nil
     end
+elseif fw == 'nd' then
+    function Bridge.spawnVehicle(before, coords, heading)
+        local ok, v = pcall(function() return exports.ND_Core:spawnOwnedVehicle(before.src, before.id, coords, heading) end)
+        if ok and v ~= nil then return true end
+        -- It marks the vehicle as out before it tries to create it: nothing arrived, so it is still in the garage.
+        MySQL.update.await('UPDATE nd_vehicles SET `stored` = 1 WHERE id = ?', { before.id })
+        return false
+    end
 end
 
 --- What the Garage app is working with, for the start-up report: { script = name or nil, table, columns = { names } }.
 function Bridge.garage()
     if fw == 'ox' then return { script = 'ox_core', table = 'vehicles', columns = { 'stored' } } end
+    if fw == 'nd' then return { script = 'ND_Core', table = 'nd_vehicles', columns = { 'stored', 'impounded' } } end
     local script
     for _, res in ipairs(GARAGES) do
         if GetResourceState(res) == 'started' then script = res break end
