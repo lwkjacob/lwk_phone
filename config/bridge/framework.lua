@@ -18,6 +18,7 @@
 --   a character has groups, and exactly one of them is their job. There is no duty;
 --   ranks are whatever weights the server gave the group, and a rank can be marked as the boss;
 --   vehicles have a table of their own (`nd_vehicles`), and ND_Core spawns one itself (with its keys).
+-- The ND_Core before 2.0 shares only the name with it: see "ND_Core 1.x" below.
 --
 -- Standalone has no characters, money, jobs or owned vehicles: the identifier is the
 -- player's licence and the apps that need the rest are hidden (see Bridge.has).
@@ -60,6 +61,52 @@ local function core()
     if fw == 'esx' and not ESX then ESX = exports.es_extended:getSharedObject() end
 end
 
+-- ND_Core 1.x ----------------------------------------------------------------------------------------
+-- Told apart by its version. It hands out one NDCore object (GetCoreObject) whose functions take the player
+-- as an argument, and keeps characters in `characters`. A job there is a plain name (a department) with a
+-- rank and nobody in charge: the top rank of a group listed in its config (config_client.lua, groups) is taken
+-- as the boss. Nobody can be fired, because a character always has a department. It has no vehicles of its
+-- own, so the Garage app is hidden. A 1.x character is handed on in the shape of a 2.x player, so the rest of
+-- this file reads both the same way.
+local nd1 = fw == 'nd' and (tonumber((GetResourceMetadata('ND_Core', 'version', 0) or ''):match('^%d+')) or 2) < 2
+Bridge.nd1 = nd1
+
+local ND1
+local function nd1Core()
+    ND1 = ND1 or exports.ND_Core:GetCoreObject()
+    return ND1
+end
+
+--- A group's ranks as the 1.x config lists them (lowest first) and its name as spelt there. None: an empty list.
+local function nd1Ranks(job)
+    for name, ranks in pairs(nd1Core().Config.groups or {}) do
+        if name:lower() == tostring(job):lower() then return ranks, name end
+    end
+    return {}, job
+end
+
+local function nd1Player(src)
+    local nd = nd1Core()
+    local c = nd.Functions.GetPlayer(tonumber(src))
+    if not c then return nil end
+    return {
+        id = c.id, source = src, cash = c.cash, bank = c.bank,
+        fullname = (('%s %s'):format(c.firstName or '', c.lastName or ''):gsub('^%s+', ''):gsub('%s+$', '')),
+        -- 1.x returns nothing from either: it writes the database and re-reads the balance before coming back.
+        addMoney = function(kind, amount, reason) nd.Functions.AddMoney(amount, src, kind, reason) return true end,
+        deductMoney = function(kind, amount, reason) nd.Functions.DeductMoney(amount, src, kind, reason) return true end,
+        getJob = function()
+            if not c.job then return nil end
+            local ranks, group = nd1Ranks(c.job)
+            local held = type(c.data) == 'table' and type(c.data.groups) == 'table' and c.data.groups[group] or {}
+            local rank = tonumber(held.rank) or 1
+            return c.job, { label = c.job, rank = rank, rankName = ranks[rank], isBoss = #ranks > 0 and rank == #ranks }
+        end,
+        setJob = function(job, rank) nd.Functions.SetPlayerJob(c.id, job, rank) return true end,
+        removeGroup = function() end,   -- see above: nobody is fired
+    }
+end
+
 local function player(src)
     if not Bridge.running() then return nil end
     core()
@@ -70,6 +117,7 @@ local function player(src)
         local p = exports.ox_core:GetPlayer(src)
         return p and p.charId and p or nil   -- connected but still choosing a character: not a player yet
     end
+    if nd1 then return nd1Player(src) end
     if fw == 'nd' then return exports.ND_Core:getPlayer(src) end   -- nil until a character is chosen
 end
 
@@ -117,7 +165,7 @@ end
 Bridge.has = {
     money    = fw ~= 'standalone',
     jobs     = fw ~= 'standalone',
-    vehicles = fw ~= 'standalone',
+    vehicles = fw ~= 'standalone' and not nd1,
 }
 
 --- True once the player has a character (always true on standalone).
@@ -161,6 +209,8 @@ function Bridge.charName(identifier)
             { identifier })
     elseif fw == 'ox' then
         ok, name = pcall(MySQL.scalar.await, 'SELECT fullName FROM characters WHERE charId = ?', { tonumber(identifier) })
+    elseif nd1 then
+        ok, name = pcall(MySQL.scalar.await, "SELECT CONCAT(first_name, ' ', last_name) FROM characters WHERE character_id = ?", { tonumber(identifier) })
     elseif fw == 'nd' then
         ok, name = pcall(MySQL.scalar.await, "SELECT CONCAT(firstname, ' ', lastname) FROM nd_characters WHERE charid = ?", { tonumber(identifier) })
     end
@@ -234,6 +284,9 @@ function Bridge.addBankOffline(identifier, amount)
             { amount, identifier }) > 0
     end
     if fw == 'ox' then return ox.move(ox.account(identifier), 'addBalance', amount) end   -- an account is there whether or not its owner is
+    if nd1 then
+        return MySQL.update.await('UPDATE characters SET bank = bank + ? WHERE character_id = ?', { amount, tonumber(identifier) }) > 0
+    end
     if fw == 'nd' then
         return MySQL.update.await('UPDATE nd_characters SET bank = bank + ? WHERE charid = ?', { amount, tonumber(identifier) }) > 0
     end
@@ -273,7 +326,9 @@ function Bridge.onDuty(job)
     local out = {}
     if fw == 'ox' then return exports.ox_core:GetGroupActivePlayers(job) or out end
     if fw == 'nd' then   -- no duty there: everyone in the city with the job
-        for _, p in pairs(exports.ND_Core:getPlayers('job', job, true) or {}) do out[#out + 1] = p.source end
+        local with
+        if nd1 then with = nd1Core().Functions.GetPlayers('job', job) else with = exports.ND_Core:getPlayers('job', job, true) end
+        for _, p in pairs(with or {}) do out[#out + 1] = tonumber(p.source) end
         return out
     end
     if fw == 'esx' then
@@ -332,6 +387,10 @@ function Bridge.grades(job)
         for level, name in ipairs((GlobalState['group.' .. job] or {}).grades or {}) do out[level] = { level = level, name = name } end
         return out
     end
+    if nd1 then
+        for level, name in ipairs((nd1Ranks(job))) do out[level] = { level = level, name = name } end
+        return out
+    end
     if fw == 'nd' then
         for level, rank in pairs((exports.ND_Core:getGroupData(job) or {}).ranksData or {}) do out[#out + 1] = { level = tonumber(level) or 0, name = rank.label } end
     end
@@ -370,6 +429,17 @@ function Bridge.employees(job)
             FROM character_groups g JOIN characters c ON c.charId = g.charId
             LEFT JOIN ox_group_grades gg ON gg.`group` = g.name AND gg.grade = g.grade
             WHERE g.name = ? AND c.deleted IS NULL]], { job })
+    elseif nd1 then
+        -- The job is a column of its own; the rank is in `data`, under the group of that name.
+        local ranks, group = nd1Ranks(job)
+        if tostring(group):match('^[%w_%- ]+$') then
+            local path = '$.groups."' .. group .. '"'
+            ok, rows = pcall(MySQL.query.await, [[
+                SELECT CAST(character_id AS CHAR) AS id, CONCAT(first_name, ' ', last_name) AS name,
+                       COALESCE(JSON_EXTRACT(`data`, CONCAT(?, '.rank')), 1) AS grade
+                FROM characters WHERE job = ?]], { path, job })
+            for _, r in ipairs(ok and rows or {}) do r.gradeLabel = ranks[tonumber(r.grade) or 1] end
+        end
     elseif fw == 'nd' and job:match('^[%w_%-]+$') then
         -- A character's groups are one JSON object keyed by group name; the job is the one with `isJob`.
         local path = '$."' .. job .. '"'
@@ -397,6 +467,9 @@ function Bridge.sourceOf(identifier)
         return p and p.source
     elseif fw == 'ox' then
         local p = tonumber(identifier) and exports.ox_core:GetPlayerFromCharId(tonumber(identifier))
+        return p and tonumber(p.source)
+    elseif nd1 then
+        local p = tonumber(identifier) and nd1Core().Functions.GetPlayerByCharacterId(tonumber(identifier))
         return p and tonumber(p.source)
     elseif fw == 'nd' then
         local p = tonumber(identifier) and (exports.ND_Core:getPlayers('id', tonumber(identifier), true) or {})[1]
@@ -473,7 +546,7 @@ end
 
 function Bridge.vehicles(src)
     local out = {}
-    if fw == 'standalone' then return out end
+    if not Bridge.has.vehicles then return out end
     if fw == 'nd' then
         -- Its own table. An impounded vehicle stays at the impound: releasing it is the impound script's business.
         local ok, rows = pcall(MySQL.query.await, 'SELECT id, plate, properties, `stored`, impounded FROM nd_vehicles WHERE owner = ?', { tonumber(Bridge.identifier(src)) })
@@ -533,7 +606,7 @@ local function outs(c) return c.garageSpotID and OUT_VMS or OUT end
 --- Mark a vehicle as out of its garage / released from impound. Returns what those columns held
 --- before (for Bridge.vehicleBack), or false when nothing was changed.
 function Bridge.vehicleOut(src, plate)
-    if fw == 'standalone' then return false end
+    if not Bridge.has.vehicles then return false end
     if fw == 'ox' then
         -- Nothing is marked here: ox_core empties `stored` itself when it spawns the vehicle (Bridge.spawnVehicle).
         local id = MySQL.scalar.await('SELECT id FROM vehicles WHERE plate = ? AND owner = ? AND `stored` IS NOT NULL', { plate, tonumber(Bridge.identifier(src)) })
@@ -590,7 +663,7 @@ if fw == 'ox' then
         local ok, v = pcall(function() return exports.ox_core:SpawnVehicle(before.id, coords, heading) end)
         return ok and v ~= nil
     end
-elseif fw == 'nd' then
+elseif fw == 'nd' and not nd1 then
     function Bridge.spawnVehicle(before, coords, heading)
         local ok, v = pcall(function() return exports.ND_Core:spawnOwnedVehicle(before.src, before.id, coords, heading) end)
         if ok and v ~= nil then return true end

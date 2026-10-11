@@ -25,6 +25,9 @@ Bridge.framework = fw
 
 local ESX = fw == 'esx' and exports.es_extended:getSharedObject() or nil
 
+-- The ND_Core before 2.0: one NDCore object instead of exports (see config/bridge/framework.lua).
+local nd1 = fw == 'nd' and (tonumber((GetResourceMetadata('ND_Core', 'version', 0) or ''):match('^%d+')) or 2) < 2
+
 --- True when a character is in the world.
 function Bridge.loaded()
     if fw == 'esx' then return ESX.IsPlayerLoaded() end
@@ -33,7 +36,11 @@ function Bridge.loaded()
         local ok, p = pcall(function() return exports.ox_core:GetPlayer() end)
         return ok and type(p) == 'table' and p.charId ~= nil
     end
-    if fw == 'nd' then return GetResourceState('ND_Core') == 'started' and exports.ND_Core:getPlayer() ~= nil end
+    if fw == 'nd' then
+        if GetResourceState('ND_Core') ~= 'started' then return false end
+        if nd1 then return exports.ND_Core:GetCoreObject().Functions.GetSelectedCharacter() ~= nil end
+        return exports.ND_Core:getPlayer() ~= nil
+    end
     return NetworkIsPlayerActive(PlayerId())
 end
 
@@ -48,6 +55,11 @@ function Bridge.watch(onLoad, onUnload)
     elseif fw == 'ox' then   -- raised inside the player's own game, not sent from the server
         AddEventHandler('ox:playerLoaded', function() onLoad() end)
         AddEventHandler('ox:playerLogout', function() onUnload() end)
+    elseif nd1 then   -- one event, for the first character and for every change of character after it
+        RegisterNetEvent('ND:setCharacter', function()
+            onUnload()
+            onLoad()
+        end)
     elseif fw == 'nd' then
         RegisterNetEvent('ND:characterLoaded', function() onLoad() end)
         RegisterNetEvent('ND:characterUnloaded', function() onUnload() end)

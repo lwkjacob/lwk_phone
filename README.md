@@ -37,7 +37,7 @@ Each bridge was written from that script's own documentation or source code. If 
 | qb-core | ✅ | |
 | esx | ✅ | |
 | ox_core | ✅ | Groups are jobs and accounts are the bank. See [ox_core](#ox_core) |
-| ND_Core | ✅ | No company account. See [ND_Core](#nd_core) |
+| ND_Core | ✅ | 2.x and 1.x. No company account. See [ND_Core](#nd_core) |
 | standalone | ✅ | One phone per player, no item. Wallet, Crypto, Garage and Services are hidden |
 | custom | ⚠️ | Requires manual implementation (`config/bridge/framework.lua`, `config/bridge/client.lua`) |
 
@@ -288,6 +288,11 @@ A few things read differently on ND_Core too:
 - **The bank is the character's own bank money.** There is no company account: ND_Core's banking has no call for a job's money, so that part of My Job is not shown.
 - **The valet's vehicle is spawned by ND_Core**, with its keys, so it stays that character's vehicle. Impounded vehicles are left to the impound.
 - **Coming from NPWD**: every character keeps their number, texts and calls. Contacts, notes and photos follow the player rather than the character, because that is how ND_Core's NPWD setup stored them.
+
+**ND_Core 1.x** (the version before 2.0, told apart by its version number) works too, with less to offer because it has less:
+
+- **No Garage app.** ND_Core 1.x keeps no vehicles of its own.
+- **A job is the character's department**, and nobody is in charge of one. To give a job ranks and a boss, list it under `groups` in ND_Core's `config_client.lua`: its last rank is the boss, who can hire and change ranks from Services. Nobody can be fired, because a character there always has a department.
 
 ## Moving from another phone
 

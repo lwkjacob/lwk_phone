@@ -22,11 +22,12 @@
 Transfer = {}
 
 -- Where the framework keeps its characters. ox_core runs NPWD itself and gives it this table and these columns;
--- ND_Core's are the ones its own guide to NPWD names (ndcore.dev/addons/phone).
+-- ND_Core's are the ones its own guide to NPWD names (ndcore.dev/addons/phone); ND_Core 1.x has its own table.
 local esx, ox, nd = Bridge.framework == 'esx', Bridge.framework == 'ox', Bridge.framework == 'nd'
-local PLAYERS = esx and 'users' or ox and 'characters' or nd and 'nd_characters' or 'players'
-local ID = esx and 'identifier' or ox and 'charId' or nd and 'charid' or 'citizenid'
-local NUMBER = ox and 'phoneNumber' or nd and 'phonenumber' or 'phone_number'
+local nd1 = Bridge.nd1 == true
+local PLAYERS = esx and 'users' or ox and 'characters' or nd1 and 'characters' or nd and 'nd_characters' or 'players'
+local ID = esx and 'identifier' or ox and 'charId' or nd1 and 'character_id' or nd and 'charid' or 'citizenid'
+local NUMBER = ox and 'phoneNumber' or nd and not nd1 and 'phonenumber' or 'phone_number'
 
 local function rows(sql, params)
     local ok, res = pcall(MySQL.query.await, sql, params or {})
@@ -189,7 +190,7 @@ end
 --- What the old phone knew a character as. Nearly everywhere that is the character itself. On ND_Core, NPWD is set
 --- up to know players by the `identifier` column (their licence), which all of a player's characters share.
 function Transfer.owner(identifier)
-    if not nd then return identifier end
+    if not nd or nd1 then return identifier end
     local r = rows('SELECT identifier FROM nd_characters WHERE charid = ? LIMIT 1', { tonumber(identifier) })[1]
     return r and r.identifier or identifier
 end

@@ -70,7 +70,7 @@ function Check.lines(release, why)
     end
 
     local fw = Bridge.framework
-    row('Framework', (FRAMEWORKS[fw] or fw) .. (Bridge.running() and '' or '  ^1not running'))
+    row('Framework', (FRAMEWORKS[fw] or fw) .. (Bridge.nd1 and ' 1.x' or '') .. (Bridge.running() and '' or '  ^1not running'))
     if not Bridge.running() then
         warn(('%s is on the server but not running, so nobody can open the phone. Start it before lwk_phone in server.cfg (ensure %s) and check it is not in the resources folder twice. Or set framework = \'standalone\' in config/config.lua.'):format(
             FRAMEWORKS[fw] or fw, Bridge.resource))
@@ -90,9 +90,14 @@ function Check.lines(release, why)
         row('Bank', bank == 'none' and 'none found' or bank == 'esx_addonaccount' and started('esx_society') and 'esx_society (its money is in esx_addonaccount)' or bank)
         if bank == 'none' then warn('No bank script this phone knows: the company account in Services is off. Wallet works with any bank. README, "Banks".') end
 
-        local g = Bridge.garage()
-        row('Garage', (g.script or 'no garage script it knows by name') .. (#g.columns > 0 and (' (%s: %s)'):format(g.table, table.concat(g.columns, ', ')) or ''))
-        if #g.columns == 0 then warn(('%s has none of the columns this phone reads, so every vehicle will show as garaged. README, "Garages".'):format(g.table)) end
+        if Bridge.has.vehicles then
+            local g = Bridge.garage()
+            row('Garage', (g.script or 'no garage script it knows by name') .. (#g.columns > 0 and (' (%s: %s)'):format(g.table, table.concat(g.columns, ', ')) or ''))
+            if #g.columns == 0 then warn(('%s has none of the columns this phone reads, so every vehicle will show as garaged. README, "Garages".'):format(g.table)) end
+        else
+            row('Garage', 'not used')
+            warn('ND_Core 1.x keeps no vehicles of its own, so the Garage app is hidden. README, "ND_Core".')
+        end
     end
 
     row('Housing', Housing.kind() == 'none' and 'none found: the Home app is hidden' or Housing.kind())
