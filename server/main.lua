@@ -212,7 +212,7 @@ local function init(src, number)
         locale = { ui = Locale.ui(), intl = Locale.intl() },
         config = {
             map = Config.map, places = Config.places, songs = Config.music, rtc = Config.rtc,
-            upload = token ~= '', mailDomain = Config.mailDomain, garage = Config.garage,
+            upload = token ~= '', mailDomain = Config.mailDomain, licence = Config.licence, garage = Config.garage,
             unique = Inv.unique, admin = Bridge.isAdmin(src),
         },
     }

@@ -107,6 +107,7 @@ Config = {
     },
 
     mailDomain = 'lsmail.net',
+    licence    = '',           -- the heading on the Wallet's licence card, e.g. 'Liberty City · Driver Licence'. '' = the language file's text
     airShareRange = 8.0,       -- metres
 
     -- The phone in the player's hand -------------------------------------------------------------

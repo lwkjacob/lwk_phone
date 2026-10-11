@@ -117,6 +117,8 @@ export const S = {
     map: { image: '', bounds: { minX: -4000, maxX: 4500, minY: -4000, maxY: 8000 } },
     upload: false,
     mailDomain: 'lsmail.net',
+    /** Heading of the Wallet's licence card. Empty: the language file's text. */
+    licence: '',
     garage: { valetFee: 100, impoundFee: 250 },
     unique: false,
     admin: false,

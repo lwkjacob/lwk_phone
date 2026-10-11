@@ -55,7 +55,7 @@ export function WalletApp() {
             <b>{t('life_debit')}</b>
           </div>
           <div className="id-card">
-            <span>{t('life_san_andreas_driver_licence')}</span>
+            <span>{s.cfg.licence || t('life_san_andreas_driver_licence')}</span>
             <Avatar name={s.me.name} size={52} />
             <b>{s.me.name}</b>
             <small>{t('life_class_c_dl_48_20_4118')}</small>

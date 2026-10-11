@@ -221,6 +221,7 @@ Everything is in `config/config.lua`, with a comment on each option. The ones mo
 | `music` | Songs for the Music app (direct links to audio files). The app is hidden while the list is empty. |
 | `crypto` | Made-up coins bought with bank money. |
 | `mailDomain` | The part after `@` in Mail addresses. |
+| `licence` | The heading on the licence card in Wallet. Empty uses the language file's text. |
 
 Secrets (the upload token and the log webhook) go in `config/keys.lua`, which only the server reads. Framework, inventory, bank, voice and housing differences live in `config/bridge/`, one file each.
 

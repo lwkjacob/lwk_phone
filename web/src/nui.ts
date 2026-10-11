@@ -55,6 +55,7 @@ type Init = {
     rtc: RTCConfiguration;
     upload: boolean;
     mailDomain: string;
+    licence?: string;
     garage: { valetFee: number; impoundFee: number };
     unique: boolean;
     admin: boolean;
@@ -85,7 +86,7 @@ function init(d: Init) {
     s.app = null;
     s.call = null;
   });
-  hydrate({ cfg: { map: c.map, upload: c.upload, mailDomain: c.mailDomain, garage: c.garage, unique: c.unique, admin: c.admin } });
+  hydrate({ cfg: { map: c.map, upload: c.upload, mailDomain: c.mailDomain, licence: c.licence ?? '', garage: c.garage, unique: c.unique, admin: c.admin } });
   hydrate({
     ...kv,
     me: { name: d.name, number: d.number, handle: '', email: d.accounts?.mail ? `${d.accounts.mail}@${c.mailDomain}` : '' },
