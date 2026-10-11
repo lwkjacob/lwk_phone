@@ -4,7 +4,7 @@ lua54 'yes'
 
 name 'lwk_phone'
 author 'LWK Development'
-version '1.1.1'
+version '1.1.2'
 description 'LWK Phone - a phone for QBCore, Qbox, ESX, ox_core, ND_Core and standalone servers'
 repository 'https://github.com/lwkjacob/lwk_phone'
 
